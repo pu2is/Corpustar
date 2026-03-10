@@ -7,9 +7,12 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 function createWindow() {
+  const windowIcon = path.join(__dirname, 'icon_corpustar.png')
+
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: windowIcon,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

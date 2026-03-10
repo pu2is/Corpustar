@@ -1,11 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  font-family: "Segoe UI", "SF Pro Text", Helvetica, Arial, sans-serif;
+  font-family: "Aptos", "Segoe UI Variable Text", "Segoe UI", sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #e2e8f0;
-  background-color: #08111b;
+  color: var(--color-violet-950);
+  background-color: var(--color-violet-50);
+  color-scheme: light;
+
+  --page-edge: color-mix(in srgb, var(--color-violet-700) 20%, transparent);
+  --page-muted: var(--color-violet-600);
+  --page-text: var(--color-violet-950);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -26,34 +31,39 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top, rgba(56, 189, 248, 0.2), transparent 28%),
-    linear-gradient(155deg, #08111b 0%, #0b1522 48%, #101d2d 100%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--color-purple-300) 22%, transparent), transparent 34%),
+    radial-gradient(circle at right 20%, color-mix(in srgb, var(--color-violet-300) 24%, transparent), transparent 36%),
+    linear-gradient(165deg, var(--color-violet-50) 0%, var(--color-purple-100) 54%, var(--color-indigo-100) 100%);
 }
 
 #app {
   min-height: 100vh;
 }
 
+a {
+  color: inherit;
+}
+
 button {
   border-radius: 999px;
-  border: 1px solid rgba(125, 211, 252, 0.25);
+  border: 1px solid color-mix(in srgb, var(--color-violet-400) 45%, transparent);
   padding: 0.72em 1.2em;
   font-size: 0.95rem;
   font-weight: 600;
   font-family: inherit;
-  color: #f8fafc;
-  background: linear-gradient(135deg, #0f172a, #13283d);
+  color: var(--color-violet-950);
+  background: linear-gradient(135deg, var(--color-violet-50), var(--color-purple-200));
   cursor: pointer;
   transition: transform 180ms ease, border-color 180ms ease;
 }
 
 button:hover {
   transform: translateY(-1px);
-  border-color: rgba(125, 211, 252, 0.55);
+  border-color: color-mix(in srgb, var(--color-violet-500) 65%, transparent);
 }
 
 button:focus,
 button:focus-visible {
-  outline: 3px solid rgba(125, 211, 252, 0.35);
+  outline: 3px solid color-mix(in srgb, var(--color-violet-500) 35%, transparent);
   outline-offset: 2px;
 }
