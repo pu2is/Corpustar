@@ -1,5 +1,10 @@
-const { app, BrowserWindow } = require('electron')
-const path = require('path')
+import { app, BrowserWindow } from 'electron'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { FRONTEND_DEV_URL } from '../config/ports.mjs'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -11,10 +16,8 @@ function createWindow() {
     },
   })
 
-  const devUrl = 'http://localhost:5173'
-
   if (!app.isPackaged) {
-    win.loadURL(devUrl)
+    win.loadURL(FRONTEND_DEV_URL)
     win.webContents.openDevTools()
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'))

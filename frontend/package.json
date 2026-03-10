@@ -9,10 +9,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:dev": "concurrently -k \"npm:dev\" \"wait-on http://localhost:5173 && electron .\""
+    "electron:dev": "concurrently -k \"npm:dev\" \"wait-on http://127.0.0.1:407 && electron .\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
+    "lucide-vue-next": "^0.577.0",
+    "reka-ui": "^2.9.0",
     "tailwindcss": "^4.2.1",
     "vue": "^3.5.25"
   },
