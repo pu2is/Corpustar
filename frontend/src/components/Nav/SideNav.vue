@@ -22,10 +22,10 @@ const navLabelClass =
 
 function navLinkStateClass(active: boolean): string {
   if (active) {
-    return 'bg-violet-700 !text-violet-50 shadow-sm hover:bg-violet-800'
+    return 'bg-primary !text-contrast shadow-sm hover:bg-primary-hover'
   }
 
-  return 'bg-violet-200/35 text-violet-700 hover:bg-violet-300 hover:text-violet-50'
+  return 'bg-secondary-soft text-contrast-strong hover:bg-secondary hover:text-contrast'
 }
 </script>
 

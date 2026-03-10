@@ -1,5 +1,5 @@
 <template>
-  <div class="relative h-screen w-screen bg-violet-50">
+  <div class="relative h-screen w-screen bg-surface text-contrast-strong">
     <SideNav />
     <main class="h-full w-full overflow-auto px-16 py-4">
       <RouterView v-slot="{ Component, route }">

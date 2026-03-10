@@ -1,16 +1,71 @@
 @import "tailwindcss";
 
+@theme {
+  /* Brand / Primary: core purple identity */
+  --color-brand: var(--color-violet-700);
+  --color-brand-hover: var(--color-violet-800);
+  --color-primary: var(--color-violet-700);
+  --color-primary-hover: var(--color-violet-800);
+  --color-primary-soft: var(--color-violet-100);
+
+  /* Secondary: supportive violet layer */
+  --color-secondary: var(--color-violet-400);
+  --color-secondary-hover: var(--color-violet-500);
+  --color-secondary-soft: var(--color-violet-200);
+
+  /* Success / Warning / Error / Info */
+  --color-success: var(--color-emerald-600);
+  --color-success-soft: var(--color-emerald-100);
+  --color-warning: var(--color-amber-500);
+  --color-warning-soft: var(--color-amber-100);
+  --color-error: var(--color-rose-600);
+  --color-error-soft: var(--color-rose-100);
+  --color-info: var(--color-indigo-500);
+  --color-info-soft: var(--color-indigo-100);
+
+  /* Text */
+  --color-text: var(--color-violet-950);
+  --color-text-muted: var(--color-violet-700);
+  --color-text-subtle: var(--color-violet-600);
+  --color-text-inverse: var(--color-violet-50);
+
+  /* Border */
+  --color-border: var(--color-violet-300);
+  --color-border-soft: var(--color-violet-200);
+  --color-border-strong: var(--color-violet-500);
+
+  /* Background */
+  --color-background: var(--color-violet-50);
+  --color-background-elevated: var(--color-violet-100);
+  --color-background-sunken: var(--color-violet-200);
+  --color-background-accent: color-mix(in srgb, var(--color-warning) 14%, var(--color-background));
+
+  /* Disabled */
+  --color-disabled: var(--color-violet-300);
+  --color-disabled-text: var(--color-violet-500);
+  --color-disabled-bg: color-mix(in srgb, var(--color-violet-200) 68%, white);
+  --color-disabled-border: var(--color-violet-200);
+
+  /* Compatibility aliases used in current Vue templates */
+  --color-contrast: var(--color-text-inverse);
+  --color-contrast-strong: var(--color-text);
+  --color-surface: var(--color-background);
+  --color-surface-elevated: var(--color-background-elevated);
+  --color-surface-border: var(--color-border-soft);
+  --color-alert: var(--color-error);
+}
+
 :root {
   font-family: "Aptos", "Segoe UI Variable Text", "Segoe UI", sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: var(--color-violet-950);
-  background-color: var(--color-violet-50);
+  color: var(--color-text);
+  background-color: var(--color-background);
   color-scheme: light;
 
-  --page-edge: color-mix(in srgb, var(--color-violet-700) 20%, transparent);
-  --page-muted: var(--color-violet-600);
-  --page-text: var(--color-violet-950);
+  --page-edge: color-mix(in srgb, var(--color-border-strong) 24%, transparent);
+  --page-muted: var(--color-text-muted);
+  --page-text: var(--color-text);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -31,9 +86,15 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--color-purple-300) 22%, transparent), transparent 34%),
-    radial-gradient(circle at right 20%, color-mix(in srgb, var(--color-violet-300) 24%, transparent), transparent 36%),
-    linear-gradient(165deg, var(--color-violet-50) 0%, var(--color-purple-100) 54%, var(--color-indigo-100) 100%);
+    radial-gradient(circle at top left, color-mix(in srgb, var(--color-secondary) 28%, transparent), transparent 34%),
+    radial-gradient(circle at right 18%, color-mix(in srgb, var(--color-warning) 18%, transparent), transparent 40%),
+    radial-gradient(circle at 78% 58%, color-mix(in srgb, var(--color-info) 12%, transparent), transparent 38%),
+    linear-gradient(
+      165deg,
+      var(--color-background) 0%,
+      color-mix(in srgb, var(--color-secondary-soft) 42%, var(--color-background)) 54%,
+      color-mix(in srgb, var(--color-warning-soft) 18%, var(--color-background)) 100%
+    );
 }
 
 #app {
@@ -46,24 +107,28 @@ a {
 
 button {
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--color-violet-400) 45%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
   padding: 0.72em 1.2em;
   font-size: 0.95rem;
   font-weight: 600;
   font-family: inherit;
-  color: var(--color-violet-950);
-  background: linear-gradient(135deg, var(--color-violet-50), var(--color-purple-200));
+  color: var(--color-text);
+  background: linear-gradient(
+    135deg,
+    var(--color-background),
+    color-mix(in srgb, var(--color-secondary-soft) 74%, var(--color-background))
+  );
   cursor: pointer;
   transition: transform 180ms ease, border-color 180ms ease;
 }
 
 button:hover {
   transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--color-violet-500) 65%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 66%, transparent);
 }
 
 button:focus,
 button:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--color-violet-500) 35%, transparent);
+  outline: 3px solid color-mix(in srgb, var(--color-info) 35%, transparent);
   outline-offset: 2px;
 }
