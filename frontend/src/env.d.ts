@@ -11,3 +11,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
+
+interface Window {
+  electronAPI: {
+    selectDocumentFile(): Promise<string | null>
+  }
+}
