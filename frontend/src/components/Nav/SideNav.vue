@@ -35,10 +35,8 @@ function navLinkStateClass(active: boolean): string {
       <NavigationMenuList class="flex flex-col items-start gap-2">
         <NavigationMenuItem v-for="item in links" :key="item.to">
           <NavigationMenuLink as-child>
-            <RouterLink
-              :to="item.to"
-              :class="[navLinkBaseClass, navLinkStateClass(isActive(item.to))]"
-            >
+            <RouterLink :to="item.to"
+              :class="[navLinkBaseClass, navLinkStateClass(isActive(item.to))]">
               <component :is="item.icon" class="h-4 w-4 shrink-0" />
               <span :class="navLabelClass">
                 {{ item.label }}

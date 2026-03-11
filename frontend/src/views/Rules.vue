@@ -1,6 +1,9 @@
+<script setup lang="ts">
+import RulesHeader from '@/components/Rules/RulesHeader.vue';
+</script>
+
 <template>
-  <section class="rounded-xl border border-surface-border bg-surface p-6 shadow-sm">
-    <h1 class="text-2xl font-semibold tracking-tight text-contrast-strong">Rules</h1>
-    <p class="mt-2 text-sm text-primary">Start building your rules page here.</p>
+  <section class="-mx-16 -mt-4">
+    <RulesHeader />
   </section>
 </template>

@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:dev": "concurrently -k \"npm:dev\" \"wait-on http://127.0.0.1:407 && electron .\""
+    "electron:dev": "concurrently -k \"npm:dev\" \"node ./scripts/wait-and-start-electron.mjs\""
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
