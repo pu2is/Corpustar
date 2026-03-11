@@ -1,116 +1,151 @@
-from collections.abc import Generator
-from sqlite3 import Connection, Row, connect
+import hashlib
+from pathlib import Path
 
-from app.core.config import settings
 from app.core.log import get_logger, log_event
 
 LOGGER = get_logger(__name__)
 MODULE_FILE = __file__
 
 
-def initialize_database() -> None:
-    function_name = "initialize_database"
+def get_file_type(file_path: str) -> str:
+    function_name = "get_file_type"
     log_event(
         LOGGER,
         stage="CALL",
         module_file=MODULE_FILE,
         function_name=function_name,
-        sqlite_database_path=str(settings.sqlite_database_path),
+        file_path=file_path,
     )
 
     try:
-        settings.sqlite_database_path.parent.mkdir(parents=True, exist_ok=True)
+        extension = Path(file_path).suffix.lower()
+        file_type_map = {
+            ".doc": "doc",
+            ".docx": "docx",
+            ".odt": "odt",
+            ".txt": "txt",
+        }
 
-        with _open_connection() as connection:
-            connection.commit()
+        if extension not in file_type_map:
+            raise ValueError(f"Unsupported file type: {extension}")
 
+        file_type = file_type_map[extension]
         log_event(
             LOGGER,
             stage="OK",
             module_file=MODULE_FILE,
             function_name=function_name,
-            result="initialized",
+            extension=extension,
+            result=file_type,
         )
+        return file_type
     except Exception as error:
         log_event(
             LOGGER,
             stage="ERROR",
             module_file=MODULE_FILE,
             function_name=function_name,
+            file_path=file_path,
             error=str(error),
             exc_info=True,
         )
         raise
 
 
-def get_connection() -> Generator[Connection, None, None]:
-    function_name = "get_connection"
+def calculate_sha256(file_path: str) -> str:
+    function_name = "calculate_sha256"
     log_event(
         LOGGER,
         stage="CALL",
         module_file=MODULE_FILE,
         function_name=function_name,
+        file_path=file_path,
     )
-    connection = _open_connection()
 
     try:
+        data = Path(file_path).read_bytes()
+        digest = hashlib.sha256(data).hexdigest()
         log_event(
             LOGGER,
             stage="OK",
             module_file=MODULE_FILE,
             function_name=function_name,
-            result="connection_opened",
+            bytes_count=len(data),
+            result=digest,
         )
-        yield connection
+        return digest
     except Exception as error:
         log_event(
             LOGGER,
             stage="ERROR",
             module_file=MODULE_FILE,
             function_name=function_name,
+            file_path=file_path,
             error=str(error),
             exc_info=True,
         )
         raise
-    finally:
-        connection.close()
-        log_event(
-            LOGGER,
-            stage="OK",
-            module_file=MODULE_FILE,
-            function_name=function_name,
-            result="connection_closed",
-        )
 
 
-def _open_connection() -> Connection:
-    function_name = "_open_connection"
+def get_file_size(file_path: str) -> int:
+    function_name = "get_file_size"
     log_event(
         LOGGER,
         stage="CALL",
         module_file=MODULE_FILE,
         function_name=function_name,
-        sqlite_database_path=str(settings.sqlite_database_path),
+        file_path=file_path,
     )
+
     try:
-        connection = connect(settings.sqlite_database_path)
-        connection.row_factory = Row
-        connection.execute("PRAGMA foreign_keys = ON;")
+        file_size = Path(file_path).stat().st_size
         log_event(
             LOGGER,
             stage="OK",
             module_file=MODULE_FILE,
             function_name=function_name,
-            result="opened_with_foreign_keys",
+            result=file_size,
         )
-        return connection
+        return file_size
     except Exception as error:
         log_event(
             LOGGER,
             stage="ERROR",
             module_file=MODULE_FILE,
             function_name=function_name,
-            sqlite_database_path=str(settings.sqlite_database_path),
+            file_path=file_path,
+            error=str(error),
+            exc_info=True,
+        )
+        raise
+
+
+def ensure_storage_dir() -> Path:
+    function_name = "ensure_storage_dir"
+    log_event(
+        LOGGER,
+        stage="CALL",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+    )
+
+    try:
+        storage_dir = Path(__file__).resolve().parents[2] / "storage" / "texts"
+        storage_dir.mkdir(parents=True, exist_ok=True)
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result=storage_dir.as_posix(),
+        )
+        return storage_dir
+    except Exception as error:
+        log_event(
+            LOGGER,
+            stage="ERROR",
+            module_file=MODULE_FILE,
+            function_name=function_name,
             error=str(error),
             exc_info=True,
         )
