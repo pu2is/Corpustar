@@ -1,5 +1,14 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
+
 import SideNav from '@/components/Nav/SideNav.vue'
+import { useDocumentStore } from '@/stores/documentStore'
+
+const documentStore = useDocumentStore()
+
+onMounted(() => {
+  void documentStore.getAllDocuments().catch(() => undefined)
+})
 </script>
 
 <template>
