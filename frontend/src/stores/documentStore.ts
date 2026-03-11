@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 
-import { post } from '@/store/fetchWrapper';
+import { get, post } from '@/store/fetchWrapper';
 import type { DocItem } from '@/types/documents';
 
 interface DocumentState {
@@ -16,6 +16,22 @@ export const useDocumentStore = defineStore('document-store', {
     error: null,
   }),
   actions: {
+    async getAllDocuments(): Promise<DocItem[]> {
+      this.loading = true;
+      this.error = null;
+
+      try {
+        const documents = await get<DocItem[]>('/api/documents');
+        this.documents = documents;
+        return documents;
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : String(error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     // Post
     async addDocumentByPath(filePath: string): Promise<DocItem> {
       this.loading = true;

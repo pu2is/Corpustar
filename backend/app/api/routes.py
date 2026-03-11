@@ -7,7 +7,9 @@ from pydantic import BaseModel
 from app.core.config import settings
 from app.core.database import get_connection
 from app.core.log import get_logger, log_event
+from app.schemas.documents import DocItem
 from app.services.add_document_service import add_document
+from app.services.document_repository import get_all_documents
 
 router = APIRouter()
 LOGGER = get_logger(__name__)
@@ -16,6 +18,38 @@ MODULE_FILE = __file__
 
 class AddDocumentRequest(BaseModel):
     filePath: str
+
+
+@router.get("/documents")
+def get_documents_route() -> list[DocItem]:
+    function_name = "get_documents_route"
+    log_event(
+        LOGGER,
+        stage="CALL",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+    )
+
+    try:
+        documents = get_all_documents()
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result=len(documents),
+        )
+        return documents
+    except Exception as error:
+        log_event(
+            LOGGER,
+            stage="ERROR",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            error=str(error),
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Internal server error") from error
 
 
 @router.get("/health")
