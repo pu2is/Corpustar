@@ -67,20 +67,20 @@ function formatDate(dateValue: string): string {
 </script>
 
 <template>
-  <section class="document-table">
-    <header class="table-header">
+  <section class="flex flex-col gap-3">
+    <header class="flex items-end justify-between gap-3">
       <div>
-        <h2 class="table-title">
+        <h2 class="m-0 text-[0.95rem] font-semibold tracking-[0.01em] text-text">
           Documents
         </h2>
-        <p class="table-meta">
+        <p class="mt-0.5 text-xs text-text-muted">
           {{ documentCount }} item{{ documentCount === 1 ? '' : 's' }}
         </p>
       </div>
 
       <button
         type="button"
-        class="refresh-button"
+        class="min-w-26 rounded-full border border-border-soft bg-background px-3.5 py-1.5 text-xs font-semibold text-text shadow-none hover:bg-background-elevated disabled:cursor-wait disabled:opacity-75"
         :disabled="loading"
         @click="refreshDocuments"
       >
@@ -88,55 +88,86 @@ function formatDate(dateValue: string): string {
       </button>
     </header>
 
-    <p v-if="error" class="table-state table-state-error">
+    <p
+      v-if="error"
+      class="m-0 rounded-xl border border-error/30 bg-error-soft/30 px-4 py-3 text-sm text-error"
+    >
       {{ error }}
     </p>
 
-    <p v-else-if="loading && !hasDocuments" class="table-state">
+    <p
+      v-else-if="loading && !hasDocuments"
+      class="m-0 rounded-xl border border-border-soft bg-background px-4 py-3 text-sm text-text-muted"
+    >
       Loading documents...
     </p>
 
-    <p v-else-if="!hasDocuments" class="table-state">
+    <p
+      v-else-if="!hasDocuments"
+      class="m-0 rounded-xl border border-border-soft bg-background px-4 py-3 text-sm text-text-muted"
+    >
       No documents found.
     </p>
 
-    <div v-else class="table-shell">
-      <div class="table-scroll">
-        <table>
+    <div v-else class="overflow-hidden rounded-xl border border-border-soft bg-background">
+      <div class="overflow-auto">
+        <table class="w-full min-w-[760px] border-collapse">
           <thead>
             <tr>
-              <th scope="col">
+              <th
+                scope="col"
+                class="sticky top-0 z-10 border-b border-border-soft bg-background-elevated px-4 py-3 text-left text-[11px] uppercase tracking-[0.06em] text-text-muted"
+              >
                 Name
               </th>
-              <th scope="col">
+              <th
+                scope="col"
+                class="sticky top-0 z-10 border-b border-border-soft bg-background-elevated px-4 py-3 text-left text-[11px] uppercase tracking-[0.06em] text-text-muted"
+              >
                 Type
               </th>
-              <th scope="col">
+              <th
+                scope="col"
+                class="sticky top-0 z-10 border-b border-border-soft bg-background-elevated px-4 py-3 text-left text-[11px] uppercase tracking-[0.06em] text-text-muted"
+              >
                 Size
               </th>
-              <th scope="col">
+              <th
+                scope="col"
+                class="sticky top-0 z-10 border-b border-border-soft bg-background-elevated px-4 py-3 text-left text-[11px] uppercase tracking-[0.06em] text-text-muted"
+              >
                 Updated
               </th>
-              <th scope="col">
+              <th
+                scope="col"
+                class="sticky top-0 z-10 border-b border-border-soft bg-background-elevated px-4 py-3 text-left text-[11px] uppercase tracking-[0.06em] text-text-muted"
+              >
                 Source Path
               </th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="document in documents" :key="document.id">
-              <td class="cell-name">
+            <tr
+              v-for="document in documents"
+              :key="document.id"
+              class="transition-colors hover:bg-background-elevated [&:last-child_td]:border-b-0"
+            >
+              <td class="border-b border-border-soft px-4 py-3 text-[0.84rem] font-semibold text-text">
                 {{ readDisplayName(document) }}
               </td>
-              <td class="cell-type">
+              <td class="border-b border-border-soft px-4 py-3 text-[12px] uppercase tracking-[0.04em] text-text">
                 {{ formatFileType(document.fileType) }}
               </td>
-              <td>
+              <td class="border-b border-border-soft px-4 py-3 text-[0.84rem] text-text">
                 {{ formatFileSize(document.fileSize) }}
               </td>
-              <td>
+              <td class="border-b border-border-soft px-4 py-3 text-[0.84rem] text-text">
                 {{ formatDate(document.updatedAt) }}
               </td>
-              <td class="cell-path" :title="document.sourcePath">
+              <td
+                class="max-w-[28rem] truncate border-b border-border-soft px-4 py-3 font-mono text-[12px] text-text-muted"
+                :title="document.sourcePath"
+              >
                 {{ document.sourcePath }}
               </td>
             </tr>
@@ -146,136 +177,3 @@ function formatDate(dateValue: string): string {
     </div>
   </section>
 </template>
-
-<style scoped>
-.document-table {
-  --table-border: color-mix(in srgb, var(--color-border) 55%, transparent);
-  --table-border-soft: color-mix(in srgb, var(--color-border-soft) 70%, white);
-  --table-surface: color-mix(in srgb, var(--color-background) 84%, white);
-  --table-surface-head: color-mix(in srgb, var(--color-background-elevated) 65%, white);
-  --table-hover: color-mix(in srgb, var(--color-primary-soft) 30%, white);
-  --table-radius: 12px;
-  --table-padding-x: 0.9rem;
-  --table-padding-y: 0.72rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.table-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.table-title {
-  margin: 0;
-  font-size: 0.95rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-}
-
-.table-meta {
-  margin: 0.1rem 0 0;
-  font-size: 0.78rem;
-  color: var(--page-muted);
-}
-
-.refresh-button {
-  min-width: 6.5rem;
-  border-radius: 999px;
-  border: 1px solid var(--table-border);
-  padding: 0.45rem 0.85rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-text);
-  background: var(--table-surface);
-  box-shadow: none;
-}
-
-.refresh-button:disabled {
-  cursor: wait;
-  opacity: 0.75;
-}
-
-.table-state {
-  margin: 0;
-  border: 1px solid var(--table-border-soft);
-  border-radius: var(--table-radius);
-  padding: 0.9rem 1rem;
-  font-size: 0.85rem;
-  color: var(--page-muted);
-  background: var(--table-surface);
-}
-
-.table-state-error {
-  color: var(--color-error);
-  border-color: color-mix(in srgb, var(--color-error) 30%, transparent);
-  background: color-mix(in srgb, var(--color-error-soft) 30%, white);
-}
-
-.table-shell {
-  border: 1px solid var(--table-border-soft);
-  border-radius: var(--table-radius);
-  background: var(--table-surface);
-  overflow: hidden;
-}
-
-.table-scroll {
-  overflow: auto;
-}
-
-table {
-  width: 100%;
-  min-width: 760px;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  text-align: left;
-  padding: var(--table-padding-y) var(--table-padding-x);
-  border-bottom: 1px solid var(--table-border-soft);
-  vertical-align: middle;
-  font-size: 0.84rem;
-}
-
-th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  font-size: 0.72rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--page-muted);
-  background: var(--table-surface-head);
-}
-
-tbody tr:last-child td {
-  border-bottom: 0;
-}
-
-tbody tr:hover {
-  background: var(--table-hover);
-}
-
-.cell-name {
-  font-weight: 600;
-}
-
-.cell-type {
-  font-variant: all-small-caps;
-  letter-spacing: 0.04em;
-}
-
-.cell-path {
-  max-width: 28rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.8rem;
-  color: var(--page-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-</style>
