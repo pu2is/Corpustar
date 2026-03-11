@@ -8,6 +8,7 @@ const emit = defineEmits<{
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const acceptedFileTypes = '.doc,.docx,.txt,.odt'
+const devContentRows = Array.from({ length: 32 }, (_, index) => `Development row ${index + 1}`)
 
 function openFilePicker(): void {
   fileInput.value?.click()
@@ -26,18 +27,20 @@ function handleFileChange(event: Event): void {
 </script>
 
 <template>
-  <div class="absolute right-6 top-1/2 z-10 -translate-y-1/2">
-    <input ref="fileInput"
-      type="file"
-      class="hidden"
-      :accept="acceptedFileTypes"
-      @change="handleFileChange" />
-    <button type="button"
-      class="inline-flex h-10 w-10 items-center justify-center rounded-full border-0 bg-contrast p-0 text-primary shadow-md transition hover:bg-secondary-soft hover:text-primary"
-      aria-label="Add text file"
-      title="Add text file"
-      @click="openFilePicker">
-      <Plus class="h-5 w-5 shrink-0" />
-    </button>
+  <div class="absolute inset-0 pointer-events-none">
+    <div class="absolute right-6 top-1/2 z-20 -translate-y-1/2 pointer-events-auto">
+      <input ref="fileInput"
+        type="file"
+        class="hidden"
+        :accept="acceptedFileTypes"
+        @change="handleFileChange" />
+      <button type="button"
+        class="inline-flex h-10 w-10 items-center justify-center rounded-full border-0 bg-contrast p-0 text-primary shadow-md transition hover:bg-secondary-soft hover:text-primary"
+        aria-label="Add text file"
+        title="Add text file"
+        @click="openFilePicker">
+        <Plus class="h-5 w-5 shrink-0" />
+      </button>
+    </div>
   </div>
 </template>

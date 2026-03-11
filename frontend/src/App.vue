@@ -1,7 +1,11 @@
+<script setup lang="ts">
+import SideNav from '@/components/Nav/SideNav.vue'
+</script>
+
 <template>
   <div class="relative h-screen w-screen bg-surface text-contrast-strong">
     <SideNav />
-    <main class="h-full w-full overflow-auto px-16 py-4">
+    <main class="h-full w-full overflow-auto px-16">
       <RouterView v-slot="{ Component, route }">
         <Transition mode="out-in"
           enter-active-class="transition-opacity duration-400 ease-out"
@@ -16,7 +20,3 @@
     </main>
   </div>
 </template>
-
-<script setup lang="ts">
-import SideNav from '@/components/Nav/SideNav.vue'
-</script>
