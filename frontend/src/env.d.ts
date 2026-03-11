@@ -13,7 +13,7 @@ interface ImportMeta {
 }
 
 interface Window {
-  electronAPI: {
+  electronAPI?: {
     selectDocumentFile(): Promise<string | null>
   }
 }

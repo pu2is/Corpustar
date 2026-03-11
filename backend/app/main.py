@@ -1,9 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
 from app.core.config import settings
 from app.core.db import init_db
 from app.core.log import get_logger, log_event
+from app.socket_manager import connection_manager
 
 LOGGER = get_logger(__name__)
 MODULE_FILE = __file__
@@ -68,4 +69,20 @@ def root():
             error=str(error),
             exc_info=True,
         )
+        raise
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await connection_manager.connect(websocket)
+
+    try:
+        while True:
+            message = await websocket.receive_text()
+            if message.strip().lower() == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        connection_manager.disconnect(websocket)
+    except Exception:
+        connection_manager.disconnect(websocket)
         raise

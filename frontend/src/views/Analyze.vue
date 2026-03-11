@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AnalyzeHeader from '@/components/Analyze/AnalyzeHeader.vue'
+import DocumentTable from '@/components/Analyze/Content/DocumentTable.vue';
 </script>
 
 <template>
@@ -7,7 +8,7 @@ import AnalyzeHeader from '@/components/Analyze/AnalyzeHeader.vue'
     <AnalyzeHeader />
 
     <div class="scroll-area min-h-0 flex-1 px-16 ml-16 overflow-y-auto p-6">
-      <span>content</span>
+      <DocumentTable />
     </div>
   </section>
 </template>

@@ -1,0 +1,5 @@
+const { contextBridge, ipcRenderer } = require('electron')
+
+contextBridge.exposeInMainWorld('electronAPI', {
+  selectDocumentFile: () => ipcRenderer.invoke('select-document-file'),
+})
