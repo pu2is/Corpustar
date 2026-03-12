@@ -1,5 +1,6 @@
-from sqlite3 import Connection
+import json
 from pathlib import Path
+from sqlite3 import Connection
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -8,8 +9,9 @@ from app.core.config import settings
 from app.core.database import get_connection
 from app.core.log import get_logger, log_event
 from app.schemas.documents import DocItem
+from app.socket_manager import connection_manager
 from app.services.add_document_service import add_document
-from app.services.document_repository import get_all_documents
+from app.services.document_repository import get_all_documents, remove_document
 
 router = APIRouter()
 LOGGER = get_logger(__name__)
@@ -149,6 +151,73 @@ def add_document_route(payload: AddDocumentRequest) -> dict:
             module_file=MODULE_FILE,
             function_name=function_name,
             file_path=payload.filePath,
+            error=str(error),
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Internal server error") from error
+
+
+@router.delete("/remove_document/{id}")
+async def remove_document_route(id: str) -> dict:
+    function_name = "remove_document_route"
+    log_event(
+        LOGGER,
+        stage="CALL",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+        id=id,
+    )
+
+    try:
+        is_removed = remove_document(id)
+        if not is_removed:
+            log_event(
+                LOGGER,
+                stage="ERROR",
+                module_file=MODULE_FILE,
+                function_name=function_name,
+                id=id,
+                error="Document not found",
+            )
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        try:
+            await connection_manager.broadcast(
+                json.dumps(
+                    {
+                        "event": "document:removed",
+                        "payload": {"id": id},
+                    }
+                )
+            )
+        except Exception as broadcast_error:
+            log_event(
+                LOGGER,
+                stage="ERROR",
+                module_file=MODULE_FILE,
+                function_name=function_name,
+                id=id,
+                error=f"Broadcast failed: {broadcast_error}",
+            )
+
+        response = {"success": True, "id": id}
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result=id,
+        )
+        return response
+    except HTTPException:
+        raise
+    except Exception as error:
+        log_event(
+            LOGGER,
+            stage="ERROR",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            id=id,
             error=str(error),
             exc_info=True,
         )

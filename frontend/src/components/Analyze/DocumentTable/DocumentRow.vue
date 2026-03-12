@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ChevronRight } from 'lucide-vue-next'
+import { ChevronRight, Trash2 } from 'lucide-vue-next'
 
 import type { DocItem } from '@/types/documents'
 import { formatFileSize } from '@/utils/utils'
@@ -8,9 +8,17 @@ import { formatFileSize } from '@/utils/utils'
 const props = defineProps<{
   docItem: DocItem
 }>()
+const emit = defineEmits<{
+  remove: [id: string]
+}>()
 
 const displayName = computed(() => props.docItem.displayName.trim() || props.docItem.filename)
 const fileSizeLabel = computed(() => formatFileSize(props.docItem.fileSize))
+
+function removeDocument(event: MouseEvent): void {
+  event.stopPropagation()
+  emit('remove', props.docItem.id)
+}
 </script>
 
 <template>
@@ -22,7 +30,15 @@ const fileSizeLabel = computed(() => formatFileSize(props.docItem.fileSize))
           {{ fileSizeLabel }}
         </div>
       </div>
-      <ChevronRight class="mr-4 h-4 w-4 shrink-0 text-text-muted/70" />
+      <div class="mr-4 flex items-center gap-2">
+        <button type="button"
+          class="inline-flex items-center justify-center rounded p-1 text-text-muted/70 transition-colors hover:text-error"
+          aria-label="Delete document"
+          @click="removeDocument">
+          <Trash2 class="h-4 w-4 shrink-0" />
+        </button>
+        <ChevronRight class="h-4 w-4 shrink-0 text-text-muted/70" />
+      </div>
     </div>
   </div>
 </template>

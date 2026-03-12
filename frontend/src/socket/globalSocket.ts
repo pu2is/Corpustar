@@ -4,7 +4,10 @@ const HEARTBEAT_INTERVAL_MS = 30000
 
 let heartbeatTimer: number | null = null
 let reconnectTimer: number | null = null
-let documentStore: { getAllDocuments: () => Promise<unknown> } | null = null
+let documentStore: {
+  getAllDocuments: () => Promise<unknown>
+  handleDocumentRemoved?: (payload: { id?: string } | null | undefined) => void
+} | null = null
 
 function buildSocketUrl(): string {
   const explicit = import.meta.env.VITE_API_BASE_URL?.trim()
@@ -47,7 +50,10 @@ function scheduleReconnect(): void {
   }, RECONNECT_DELAY_MS)
 }
 
-export function connectGlobalSocket(store?: { getAllDocuments: () => Promise<unknown> }): WebSocket {
+export function connectGlobalSocket(store?: {
+  getAllDocuments: () => Promise<unknown>
+  handleDocumentRemoved?: (payload: { id?: string } | null | undefined) => void
+}): WebSocket {
   if (store) {
     documentStore = store
   }
@@ -79,6 +85,36 @@ export function connectGlobalSocket(store?: { getAllDocuments: () => Promise<unk
   socket.addEventListener('error', () => {
     stopHeartbeat()
     scheduleReconnect()
+  })
+
+  socket.addEventListener('message', (event) => {
+    if (typeof event.data !== 'string') {
+      return
+    }
+
+    if (event.data === 'pong') {
+      return
+    }
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(event.data)
+    } catch {
+      return
+    }
+
+    if (!parsed || typeof parsed !== 'object') {
+      return
+    }
+
+    const eventName = (parsed as { event?: unknown }).event
+    const payload = (parsed as { payload?: unknown }).payload
+
+    if (eventName === 'document:removed' && documentStore?.handleDocumentRemoved) {
+      documentStore.handleDocumentRemoved(
+        payload && typeof payload === 'object' ? (payload as { id?: string }) : undefined,
+      )
+    }
   })
 
   return socket

@@ -21,6 +21,10 @@ onMounted(() => {
 function refreshDocuments(): void {
   void documentStore.getAllDocuments()
 }
+
+function removeDocument(id: string): void {
+  void documentStore.removeDocument(id)
+}
 </script>
 
 <template>
@@ -64,7 +68,8 @@ function refreshDocuments(): void {
         <div class="flex flex-col gap-2">
           <DocumentRow v-for="document in documents"
             :key="document.id"
-            :doc-item="document" />
+            :doc-item="document"
+            @remove="removeDocument" />
         </div>
       </template>
     </div>

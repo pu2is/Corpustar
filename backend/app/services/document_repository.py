@@ -79,3 +79,21 @@ def get_all_documents() -> list[dict]:
         ]
     finally:
         connection_generator.close()
+
+
+def remove_document(document_id: str) -> bool:
+    connection_generator = get_connection()
+    connection = next(connection_generator)
+
+    try:
+        cursor = connection.execute(
+            """
+            DELETE FROM documents
+            WHERE id = ?
+            """,
+            (document_id,),
+        )
+        connection.commit()
+        return cursor.rowcount > 0
+    finally:
+        connection_generator.close()

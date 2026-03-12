@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 
-import { get, post } from '@/stores/fetchWrapper';
+import { del, get, post } from '@/stores/fetchWrapper';
 import type { DocItem } from '@/types/documents';
 
 interface DocumentState {
@@ -16,6 +16,19 @@ export const useDocumentStore = defineStore('document-store', {
     error: null,
   }),
   actions: {
+    removeDocumentFromStore(id: string): void {
+      this.documents = this.documents.filter((doc) => doc.id !== id);
+    },
+
+    handleDocumentRemoved(payload: { id?: string } | null | undefined): void {
+      const removedId = payload?.id;
+      if (!removedId) {
+        return;
+      }
+
+      this.removeDocumentFromStore(removedId);
+    },
+
     async getAllDocuments(): Promise<DocItem[]> {
       this.loading = true;
       this.error = null;
@@ -41,6 +54,21 @@ export const useDocumentStore = defineStore('document-store', {
         const doc = await post<DocItem>('/api/add_document', { filePath });
         this.documents.unshift(doc);
         return doc;
+      } catch (error) {
+        this.error = error instanceof Error ? error.message : String(error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async removeDocument(id: string): Promise<void> {
+      this.loading = true;
+      this.error = null;
+
+      try {
+        const response = await del<{ success: boolean; id: string }>(`/api/remove_document/${encodeURIComponent(id)}`);
+        this.removeDocumentFromStore(response.id);
       } catch (error) {
         this.error = error instanceof Error ? error.message : String(error);
         throw error;
