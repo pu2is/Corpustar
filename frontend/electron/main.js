@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FRONTEND_DEV_URL } from '../config/ports.mjs'
@@ -46,6 +47,18 @@ ipcMain.handle('select-document-file', async () => {
 
   return path.resolve(result.filePaths[0])
 })
+
+async function handleReadDocumentText(_event, filePath) {
+  if (typeof filePath !== 'string' || !filePath.trim()) {
+    throw new Error('A valid text file path is required.')
+  }
+
+  const absolutePath = path.resolve(filePath)
+  return readFile(absolutePath, 'utf-8')
+}
+
+ipcMain.handle('read-document-text', handleReadDocumentText)
+ipcMain.handle('red-document-text', handleReadDocumentText)
 
 app.whenReady().then(() => {
   createWindow()

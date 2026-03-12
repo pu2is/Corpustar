@@ -1,6 +1,7 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 import AnalyzeView from '../views/Analyze.vue'
+import DocumentDetailView from '../views/DocumentDetail.vue'
 import RulesView from '../views/Rules.vue'
 
 const router = createRouter({
@@ -24,6 +25,14 @@ const router = createRouter({
       meta: {
         title: 'Analyze',
         caption: 'Review the analysis lane before decisions are published.',
+      },
+    },
+    {
+      path: '/analyze/:doc_id',
+      component: DocumentDetailView,
+      meta: {
+        title: 'Document Detail',
+        caption: 'Inspect one document and then return to documents list.',
       },
     },
   ],

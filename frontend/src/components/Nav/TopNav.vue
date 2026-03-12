@@ -16,7 +16,7 @@ const router = useRouter()
 const normalizedPath = computed(() => route.path.replace(/\/+$/, ''))
 
 const isAnalyzeRoute = computed(() => {
-  return normalizedPath.value === '/analyze' || /^\/analyze\/[^/]+\/[^/]+$/.test(normalizedPath.value)
+  return normalizedPath.value === '/analyze' || /^\/analyze\/[^/]+$/.test(normalizedPath.value)
 })
 const isRulesRoute = computed(() => normalizedPath.value === '/rules')
 
