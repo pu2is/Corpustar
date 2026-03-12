@@ -12,3 +12,15 @@ DocumentCreatedPayload: TypeAlias = dict[str, Any]
 
 class DocumentRemovedPayload(TypedDict):
     id: str
+
+
+class SocketEnvelope(TypedDict):
+    event: str
+    payload: dict[str, Any]
+
+
+def make_envelope(event: str, payload: dict[str, Any] | None = None) -> SocketEnvelope:
+    return {
+        "event": event,
+        "payload": payload or {},
+    }
