@@ -11,7 +11,8 @@ from app.core.log import get_logger, log_event
 from app.schemas.documents import DocItem
 from app.socket_manager import connection_manager
 from app.services.add_document_service import add_document
-from app.services.document_repository import get_all_documents, remove_document
+from app.services.document_repository import get_all_documents
+from app.services.remove_document_service import remove_document_with_text_cleanup
 
 router = APIRouter()
 LOGGER = get_logger(__name__)
@@ -169,17 +170,7 @@ async def remove_document_route(id: str) -> dict:
     )
 
     try:
-        is_removed = remove_document(id)
-        if not is_removed:
-            log_event(
-                LOGGER,
-                stage="ERROR",
-                module_file=MODULE_FILE,
-                function_name=function_name,
-                id=id,
-                error="Document not found",
-            )
-            raise HTTPException(status_code=404, detail="Document not found")
+        remove_document_with_text_cleanup(id)
 
         try:
             await connection_manager.broadcast(
@@ -198,6 +189,7 @@ async def remove_document_route(id: str) -> dict:
                 function_name=function_name,
                 id=id,
                 error=f"Broadcast failed: {broadcast_error}",
+                exc_info=True,
             )
 
         response = {"success": True, "id": id}
@@ -209,8 +201,16 @@ async def remove_document_route(id: str) -> dict:
             result=id,
         )
         return response
-    except HTTPException:
-        raise
+    except FileNotFoundError as error:
+        log_event(
+            LOGGER,
+            stage="ERROR",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            id=id,
+            error=str(error),
+        )
+        raise HTTPException(status_code=404, detail="Document not found") from error
     except Exception as error:
         log_event(
             LOGGER,
