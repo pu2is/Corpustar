@@ -27,7 +27,6 @@ def convert_document_to_text(file_path: str) -> str:
 
     try:
         file_type = get_file_type(file_path)
-        txt_copy_path = None
 
         if file_type == "txt":
             text = _read_txt(file_path)
@@ -40,9 +39,6 @@ def convert_document_to_text(file_path: str) -> str:
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
 
-        if file_type != "txt":
-            txt_copy_path = _write_txt_copy(file_path, text)
-
         log_event(
             LOGGER,
             stage="OK",
@@ -50,7 +46,6 @@ def convert_document_to_text(file_path: str) -> str:
             function_name=function_name,
             file_type=file_type,
             result_length=len(text),
-            txt_copy_path=txt_copy_path,
         )
         return text
     except Exception as error:
@@ -215,20 +210,3 @@ def _decode_text_bytes(raw_bytes: bytes) -> str:
             continue
 
     return raw_bytes.decode("utf-8", errors="replace")
-
-
-def _write_txt_copy(source_path: str, text: str) -> str:
-    source = Path(source_path)
-    txt_path = source.with_suffix(".txt")
-
-    if txt_path.exists():
-        counter = 1
-        while True:
-            candidate = source.with_name(f"{source.stem}_{counter}.txt")
-            if not candidate.exists():
-                txt_path = candidate
-                break
-            counter += 1
-
-    txt_path.write_text(text, encoding="utf-8", newline="\n")
-    return txt_path.as_posix()
