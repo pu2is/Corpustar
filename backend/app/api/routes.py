@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 from sqlite3 import Connection
 
@@ -9,7 +8,8 @@ from app.core.config import settings
 from app.core.database import get_connection
 from app.core.log import get_logger, log_event
 from app.schemas.documents import DocItem
-from app.socket_manager import connection_manager
+from app.socket.socket_events import DOCUMENT_CREATED, DOCUMENT_REMOVED
+from app.socket.socket_publisher import publish
 from app.services.add_document_service import add_document
 from app.services.document_repository import get_all_documents
 from app.services.remove_document_service import remove_document_with_text_cleanup
@@ -93,7 +93,7 @@ def health(connection: Connection = Depends(get_connection)):
 
 
 @router.post("/add_document")
-def add_document_route(payload: AddDocumentRequest) -> dict:
+async def add_document_route(payload: AddDocumentRequest) -> dict:
     function_name = "add_document_route"
     log_event(
         LOGGER,
@@ -105,6 +105,20 @@ def add_document_route(payload: AddDocumentRequest) -> dict:
 
     try:
         doc = add_document(payload.filePath)
+
+        try:
+            await publish(DOCUMENT_CREATED, doc)
+        except Exception as broadcast_error:
+            log_event(
+                LOGGER,
+                stage="ERROR",
+                module_file=MODULE_FILE,
+                function_name=function_name,
+                file_path=payload.filePath,
+                error=f"Broadcast failed: {broadcast_error}",
+                exc_info=True,
+            )
+
         log_event(
             LOGGER,
             stage="OK",
@@ -173,14 +187,7 @@ async def remove_document_route(id: str) -> dict:
         remove_document_with_text_cleanup(id)
 
         try:
-            await connection_manager.broadcast(
-                json.dumps(
-                    {
-                        "event": "document:removed",
-                        "payload": {"id": id},
-                    }
-                )
-            )
+            await publish(DOCUMENT_REMOVED, {"id": id})
         except Exception as broadcast_error:
             log_event(
                 LOGGER,

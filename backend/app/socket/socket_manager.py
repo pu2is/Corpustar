@@ -1,3 +1,5 @@
+from typing import Any
+
 from fastapi import WebSocket
 
 
@@ -13,12 +15,15 @@ class ConnectionManager:
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
 
-    async def broadcast(self, message: str) -> None:
+    async def send_json(self, websocket: WebSocket, message: dict[str, Any]) -> None:
+        await websocket.send_json(message)
+
+    async def broadcast_json(self, message: dict[str, Any]) -> None:
         disconnected: list[WebSocket] = []
 
-        for connection in self.active_connections:
+        for connection in list(self.active_connections):
             try:
-                await connection.send_text(message)
+                await self.send_json(connection, message)
             except Exception:
                 disconnected.append(connection)
 

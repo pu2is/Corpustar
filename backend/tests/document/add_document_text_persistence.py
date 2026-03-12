@@ -18,7 +18,7 @@ class AddDocumentTextPersistenceTests(unittest.TestCase):
         settings.sqlite_database_path = Path(cls._db_tmpdir.name) / "test.sqlite3"
         init_db()
         cls._expected_text_dir = (
-            Path(__file__).resolve().parents[1] / "storage" / "texts"
+            Path(__file__).resolve().parents[2] / "storage" / "texts"
         ).resolve()
 
     @classmethod
