@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
-
+// fetch wrapper
 import { del, get, post } from '@/stores/fetchWrapper';
+// types
 import type { DocItem } from '@/types/documents';
 
 interface DocumentState {
@@ -62,6 +63,7 @@ export const useDocumentStore = defineStore('document-store', {
       }
     },
 
+    // Delete
     async removeDocument(id: string): Promise<void> {
       this.loading = true;
       this.error = null;

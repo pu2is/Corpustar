@@ -32,7 +32,7 @@ function removeDocument(event: MouseEvent): void {
       </div>
       <div class="mr-4 flex items-center gap-2">
         <button type="button"
-          class="inline-flex items-center justify-center rounded p-1 text-text-muted/70 transition-colors hover:text-error"
+          class="inline-flex items-center cursor-pointer justify-center rounded p-1 text-text-muted/70 transition-colors hover:text-error"
           aria-label="Delete document"
           @click="removeDocument">
           <Trash2 class="h-4 w-4 shrink-0" />
