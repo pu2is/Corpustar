@@ -145,34 +145,6 @@ a {
   color: inherit;
 }
 
-button {
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
-  padding: 0.72em 1.2em;
-  font-size: 0.95rem;
-  font-weight: 600;
-  font-family: inherit;
-  color: var(--color-text);
-  background: linear-gradient(
-    135deg,
-    var(--color-background),
-    color-mix(in srgb, var(--color-secondary-soft) 74%, var(--color-background))
-  );
-  cursor: pointer;
-  transition: transform 180ms ease, border-color 180ms ease;
-}
-
-button:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--color-primary) 66%, transparent);
-}
-
-button:focus,
-button:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--color-info) 35%, transparent);
-  outline-offset: 2px;
-}
-
 .scroll-area {
   scrollbar-width: thin;
   scrollbar-color: #a836ff #ffe8a6;

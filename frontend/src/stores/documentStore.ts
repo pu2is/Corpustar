@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 
-import { get, post } from '@/store/fetchWrapper';
+import { get, post } from '@/stores/fetchWrapper';
 import type { DocItem } from '@/types/documents';
 
 interface DocumentState {
