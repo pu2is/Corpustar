@@ -145,6 +145,51 @@ class SocketEventFlowTests(unittest.TestCase):
         finally:
             publisher_connection_manager.broadcast_json = original_broadcast
 
+    def test_add_and_list_and_created_event_include_text_char_count_for_txt(self) -> None:
+        non_empty_content = f"non-empty-{uuid4()}"
+        empty_content = ""
+
+        with TestClient(app) as client:
+            with client.websocket_connect("/ws") as ws:
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    non_empty_source = Path(tmpdir) / "non-empty.txt"
+                    non_empty_source.write_text(non_empty_content, encoding="utf-8")
+                    non_empty_doc = self._add_document(client, non_empty_source)
+
+                    empty_source = Path(tmpdir) / "empty.txt"
+                    empty_source.write_text(empty_content, encoding="utf-8")
+                    empty_doc = self._add_document(client, empty_source)
+
+                # /api/add_document response payload must include textCharCount.
+                self.assertIn("textCharCount", non_empty_doc)
+                self.assertIn("textCharCount", empty_doc)
+                self.assertEqual(non_empty_doc["textCharCount"], len(non_empty_content))
+                self.assertEqual(empty_doc["textCharCount"], 0)
+
+                # document:created event currently publishes payload=doc directly.
+                first_event = ws.receive_json()
+                second_event = ws.receive_json()
+                self.assertEqual(first_event, {"event": DOCUMENT_CREATED, "payload": non_empty_doc})
+                self.assertEqual(second_event, {"event": DOCUMENT_CREATED, "payload": empty_doc})
+                self.assertEqual(first_event["payload"]["textCharCount"], len(non_empty_content))
+                self.assertEqual(second_event["payload"]["textCharCount"], 0)
+
+                # /api/documents list payload must include textCharCount.
+                list_response = client.get("/api/documents")
+                self.assertEqual(list_response.status_code, 200)
+                documents = list_response.json()
+                documents_by_id = {item["id"]: item for item in documents}
+
+                self.assertIn(non_empty_doc["id"], documents_by_id)
+                self.assertIn(empty_doc["id"], documents_by_id)
+                self.assertIn("textCharCount", documents_by_id[non_empty_doc["id"]])
+                self.assertIn("textCharCount", documents_by_id[empty_doc["id"]])
+                self.assertEqual(
+                    documents_by_id[non_empty_doc["id"]]["textCharCount"],
+                    len(non_empty_content),
+                )
+                self.assertEqual(documents_by_id[empty_doc["id"]]["textCharCount"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
