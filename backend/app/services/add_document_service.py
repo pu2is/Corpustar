@@ -25,6 +25,7 @@ def add_document(file_path: str) -> dict:
     note = ""
     file_size = get_file_size(resolved_source_path)
     text = convert_document_to_text(resolved_source_path)
+    text_char_count = len(text)
     # All file types (including txt) persist extracted text to storage/texts/{sha256}.txt.
     text_path = save_text_content(doc_id, text)
     if file_type != "txt":
@@ -54,6 +55,7 @@ def add_document(file_path: str) -> dict:
         "note": note,
         "sourcePath": resolved_source_path,
         "textPath": text_path,
+        "textCharCount": text_char_count,
         "fileType": file_type,
         "fileSize": file_size,
         "createdAt": now_iso,

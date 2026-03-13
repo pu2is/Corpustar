@@ -12,6 +12,7 @@ class DocItem(BaseModel):
     note: str
     sourcePath: str
     textPath: str
+    textCharCount: int
     fileType: DocFileType
     fileSize: int
     createdAt: str

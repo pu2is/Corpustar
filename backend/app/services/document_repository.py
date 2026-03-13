@@ -15,11 +15,12 @@ def insert_document(doc: dict) -> None:
                 note,
                 source_path,
                 text_path,
+                text_char_count,
                 file_type,
                 file_size,
                 created_at,
                 updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 doc["id"],
@@ -28,6 +29,7 @@ def insert_document(doc: dict) -> None:
                 doc["note"],
                 doc["sourcePath"],
                 doc["textPath"],
+                doc["textCharCount"],
                 doc["fileType"],
                 doc["fileSize"],
                 doc["createdAt"],
@@ -53,6 +55,7 @@ def get_all_documents() -> list[dict]:
                 note,
                 source_path,
                 text_path,
+                text_char_count,
                 file_type,
                 file_size,
                 created_at,
@@ -70,6 +73,7 @@ def get_all_documents() -> list[dict]:
                 "note": row["note"],
                 "sourcePath": row["source_path"],
                 "textPath": row["text_path"],
+                "textCharCount": row["text_char_count"],
                 "fileType": row["file_type"],
                 "fileSize": row["file_size"],
                 "createdAt": row["created_at"],
@@ -95,6 +99,7 @@ def get_document_by_id(document_id: str) -> dict | None:
                 note,
                 source_path,
                 text_path,
+                text_char_count,
                 file_type,
                 file_size,
                 created_at,
@@ -115,6 +120,7 @@ def get_document_by_id(document_id: str) -> dict | None:
             "note": row["note"],
             "sourcePath": row["source_path"],
             "textPath": row["text_path"],
+            "textCharCount": row["text_char_count"],
             "fileType": row["file_type"],
             "fileSize": row["file_size"],
             "createdAt": row["created_at"],
