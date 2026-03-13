@@ -1,16 +1,30 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { ChevronLeft } from 'lucide-vue-next'
+import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
-// components
+
 import TopNav from '@/components/Nav/TopNav.vue'
+import ProcessingStatusBar from '@/components/sentences/ProcessingStatusBar.vue'
+import SentenceList from '@/components/sentences/SentenceList.vue'
+import SentenceToolbar from '@/components/sentences/SentenceToolbar.vue'
 import { useDocumentStore } from '@/stores/documentStore'
+import { useSentenceStore } from '@/stores/sentenceStore'
+import { BookOpenText, ChevronLeft } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
 const documentStore = useDocumentStore()
+const sentenceStore = useSentenceStore()
+
 const { documents, loading } = storeToRefs(documentStore)
+const {
+  errorByDocId,
+  hasMoreByDocId,
+  itemsByDocId,
+  loadingByDocId,
+  processingByDocId,
+  selectedSentenceIdsByDocId,
+} = storeToRefs(sentenceStore)
 
 const docId = computed(() => {
   const value = route.params.doc_id
@@ -18,40 +32,51 @@ const docId = computed(() => {
 })
 
 const documentItem = computed(() => documents.value.find((doc) => doc.id === docId.value) ?? null)
-const documentText = ref('')
-const textLoading = ref(false)
-const textError = ref<string | null>(null)
+const formattedCharCount = computed(() => (documentItem.value?.textCharCount ?? 0).toLocaleString())
 
-async function loadDocumentText(): Promise<void> {
-  const item = documentItem.value
-  if (!item) {
-    documentText.value = ''
-    textError.value = null
+const activeProcessing = computed(() => processingByDocId.value[docId.value] ?? null)
+const sentenceItems = computed(() => itemsByDocId.value[docId.value] ?? [])
+const sentenceHasMore = computed(() => hasMoreByDocId.value[docId.value] ?? false)
+const sentenceLoading = computed(() => loadingByDocId.value[docId.value] ?? false)
+const selectedSentenceIds = computed(() => selectedSentenceIdsByDocId.value[docId.value] ?? [])
+const sentenceError = computed(() => errorByDocId.value[docId.value] ?? null)
+const canMerge = computed(() => selectedSentenceIds.value.length >= 2)
+
+function segmentSentences(): void {
+  if (!docId.value) {
     return
   }
+  void sentenceStore.segmentDocument(docId.value).catch(() => undefined)
+}
 
-  if (!item.textPath) {
-    documentText.value = ''
-    textError.value = 'No text file path found for this document.'
+function mergeSelectedSentences(): void {
+  if (!docId.value) {
     return
   }
+  void sentenceStore.mergeSelected(docId.value).catch(() => undefined)
+}
 
-  if (!window.electronAPI?.readDocumentText) {
-    documentText.value = ''
-    textError.value = 'Electron text reader unavailable. Start with npm run electron:dev.'
+function loadMoreSentences(): void {
+  if (!docId.value || !activeProcessing.value) {
     return
   }
+  void sentenceStore
+    .loadMoreSentences(docId.value, activeProcessing.value.id)
+    .catch(() => undefined)
+}
 
-  textLoading.value = true
-  textError.value = null
-  try {
-    documentText.value = await window.electronAPI.readDocumentText(item.textPath)
-  } catch (error) {
-    documentText.value = ''
-    textError.value = error instanceof Error ? error.message : String(error)
-  } finally {
-    textLoading.value = false
+function toggleSentenceSelection(sentenceId: string): void {
+  if (!docId.value) {
+    return
   }
+  sentenceStore.toggleSentenceSelection(docId.value, sentenceId)
+}
+
+function clipSentence(sentenceId: string, splitOffset: number): void {
+  if (!docId.value) {
+    return
+  }
+  void sentenceStore.clipSentence(docId.value, sentenceId, splitOffset).catch(() => undefined)
 }
 
 onMounted(() => {
@@ -59,10 +84,6 @@ onMounted(() => {
     void documentStore.getAllDocuments()
   }
 })
-
-watch(() => documentItem.value?.textPath ?? '', () => {
-  void loadDocumentText()
-}, { immediate: true })
 
 function backToDocuments(): void {
   void router.push('/analyze')
@@ -84,39 +105,73 @@ function backToDocuments(): void {
         Back to documents
       </button>
 
-      <!-- Content Body -->
-      <section v-if="loading && !documentItem"
-        class="text-sm text-text-muted">
-        Loading document...
-      </section>
-
-      <section v-else-if="documentItem"
+      <section v-if="documentItem"
         class="space-y-3">
-        <header>
-          <h2 class="text-xl font-semibold text-text">
-            {{ documentItem.displayName }}
-          </h2>
-          <p class="text-sm text-text-muted">
-            {{ documentItem.filename }}
-          </p>
+
+        <header class="rounded border border-border p-3 space-y-1">
+          <div class="flex flex-wrap items-center gap-3">
+            <h2 class="text-xl font-semibold text-text">
+              {{ documentItem.displayName }}
+            </h2>
+          </div>
+          <!-- Doc Info -->
+          <div class="flex items gap-4">
+            <span class="inline-flex items-center gap-2 py-1 text-xs text-text-muted">
+              <BookOpenText class="h-3.5 w-3.5" />
+              {{ formattedCharCount }} characters
+            </span>
+            <span class="inline-flex items-center gap-2 py-1 text-xs text-text-muted">
+              id: {{ documentItem.id }}
+            </span>
+          </div>
         </header>
-        <section class="overflow-hidden rounded border border-border bg-background-elevated/40">
-          <p v-if="textLoading"
-            class="px-4 py-3 text-sm text-text-muted">
-            Loading text...
+
+        <section class="space-y-3 rounded border border-border p-3">
+          <ProcessingStatusBar :processing="activeProcessing" />
+
+          <SentenceToolbar
+            :loading="sentenceLoading"
+            :can-merge="canMerge"
+            @segment="segmentSentences"
+            @merge="mergeSelectedSentences"
+          />
+
+          <p
+            v-if="sentenceError"
+            class="text-sm text-error"
+          >
+            {{ sentenceError }}
           </p>
-          <p v-else-if="textError"
-            class="px-4 py-3 text-sm text-error">
-            {{ textError }}
-          </p>
-          <pre v-else
-            class="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words px-4 py-3 text-sm leading-6 text-text">{{ documentText || 'No text content available.' }}</pre>
+
+          <SentenceList
+            :items="sentenceItems"
+            :selected-sentence-ids="selectedSentenceIds"
+            :has-more="sentenceHasMore"
+            :loading="sentenceLoading"
+            @toggle-select="toggleSentenceSelection"
+            @clip="clipSentence"
+            @load-more="loadMoreSentences"
+          />
         </section>
       </section>
 
       <section v-else
-        class="text-sm text-text-muted">
-        Document with id "{{ docId }}" was not found.
+        class="space-y-3 animate-pulse"
+        aria-busy="true">
+        <header class="space-y-2">
+          <div class="h-7 w-72 rounded bg-background-elevated/70" />
+          <div class="h-4 w-32 rounded bg-background-elevated/70" />
+        </header>
+
+        <section class="overflow-hidden rounded border border-border bg-background-elevated/40 p-4 space-y-3">
+          <div class="h-4 w-full rounded bg-background-elevated/70" />
+          <div class="h-4 w-[96%] rounded bg-background-elevated/70" />
+          <div class="h-4 w-[92%] rounded bg-background-elevated/70" />
+          <div class="h-4 w-[88%] rounded bg-background-elevated/70" />
+          <div class="h-4 w-[84%] rounded bg-background-elevated/70" />
+          <div class="h-4 w-[80%] rounded bg-background-elevated/70" />
+          <div class="h-4 w-[76%] rounded bg-background-elevated/70" />
+        </section>
       </section>
     </div>
   </section>

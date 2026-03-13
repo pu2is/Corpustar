@@ -7,6 +7,7 @@ export interface DocItem {
   note: string;
   sourcePath: string;
   textPath: string;
+  textCharCount: number;
   fileType: DocFileType;
   fileSize: number;
   createdAt: string;

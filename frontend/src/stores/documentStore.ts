@@ -40,12 +40,13 @@ function toDocItemFromCreatedPayload(value: unknown): DocItem | null {
   const createdAt = toNonEmptyString(value.createdAt);
   const updatedAt = toNonEmptyString(value.updatedAt);
   const fileSize = typeof value.fileSize === 'number' ? value.fileSize : null;
+  const textCharCount = typeof value.textCharCount === 'number' ? value.textCharCount : null;
 
-  if (!id || !filename || !displayName || !fileType || !createdAt || !updatedAt || fileSize === null) {
+  if (!id || !filename || !displayName || !fileType || !createdAt || !updatedAt || fileSize === null || textCharCount === null) {
     return null;
   }
 
-  if (!Number.isFinite(fileSize) || !DOC_FILE_TYPES.has(fileType)) {
+  if (!Number.isFinite(fileSize) || !Number.isFinite(textCharCount) || !DOC_FILE_TYPES.has(fileType)) {
     return null;
   }
 
@@ -55,6 +56,7 @@ function toDocItemFromCreatedPayload(value: unknown): DocItem | null {
     displayName,
     fileType: fileType as DocItem['fileType'],
     fileSize,
+    textCharCount,
     createdAt,
     updatedAt,
     note: typeof value.note === 'string' ? value.note : '',
