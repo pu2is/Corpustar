@@ -5,6 +5,11 @@ from typing import Any, TypeAlias, TypedDict
 SOCKET_CONNECTED = "socket:connected"
 DOCUMENT_CREATED = "document:created"
 DOCUMENT_REMOVED = "document:removed"
+PROCESSING_CREATED = "processing:created"
+PROCESSING_UPDATED = "processing:updated"
+SENTENCE_LIST_REBUILT = "sentence:list_rebuilt"
+SENTENCE_MERGED = "sentence:merged"
+SENTENCE_CLIPPED = "sentence:clipped"
 
 # `document:created` payload should be the full serialized document object.
 DocumentCreatedPayload: TypeAlias = dict[str, Any]
