@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -16,7 +16,7 @@ const router = useRouter()
 const documentStore = useDocumentStore()
 const sentenceStore = useSentenceStore()
 
-const { documents, loading } = storeToRefs(documentStore)
+const { documents } = storeToRefs(documentStore)
 const {
   errorByDocId,
   hasMoreByDocId,
@@ -41,6 +41,8 @@ const sentenceLoading = computed(() => loadingByDocId.value[docId.value] ?? fals
 const selectedSentenceIds = computed(() => selectedSentenceIdsByDocId.value[docId.value] ?? [])
 const sentenceError = computed(() => errorByDocId.value[docId.value] ?? null)
 const canMerge = computed(() => selectedSentenceIds.value.length >= 2)
+const pageLoading = ref(false)
+let initializeRequestId = 0
 
 function segmentSentences(): void {
   if (!docId.value) {
@@ -79,11 +81,37 @@ function clipSentence(sentenceId: string, splitOffset: number): void {
   void sentenceStore.clipSentence(docId.value, sentenceId, splitOffset).catch(() => undefined)
 }
 
-onMounted(() => {
-  if (!documents.value.length && !loading.value) {
-    void documentStore.getAllDocuments()
+async function initializeAnalyzeWorkspace(targetDocId: string): Promise<void> {
+  const requestId = ++initializeRequestId
+  pageLoading.value = true
+
+  try {
+    const hasDocumentInStore = documents.value.some((doc) => doc.id === targetDocId)
+    if (!hasDocumentInStore) {
+      await documentStore.getAllDocuments()
+    }
+
+    await sentenceStore.initializeAnalyzePage(targetDocId)
+  } catch {
+    // Store actions already preserve error state for rendering.
+  } finally {
+    if (requestId === initializeRequestId) {
+      pageLoading.value = false
+    }
   }
-})
+}
+
+watch(
+  docId,
+  (nextDocId) => {
+    if (!nextDocId) {
+      pageLoading.value = false
+      return
+    }
+    void initializeAnalyzeWorkspace(nextDocId)
+  },
+  { immediate: true },
+)
 
 function backToDocuments(): void {
   void router.push('/analyze')
@@ -105,7 +133,12 @@ function backToDocuments(): void {
         Back to documents
       </button>
 
-      <section v-if="documentItem"
+      <p v-if="pageLoading"
+        class="text-sm text-text-muted">
+        Loading...
+      </p>
+
+      <section v-else-if="documentItem"
         class="space-y-3">
 
         <header class="rounded border border-border p-3 space-y-1">
@@ -130,6 +163,7 @@ function backToDocuments(): void {
           <ProcessingStatusBar :processing="activeProcessing" />
 
           <SentenceToolbar
+            :processing="activeProcessing"
             :loading="sentenceLoading"
             :can-merge="canMerge"
             @segment="segmentSentences"
@@ -144,6 +178,7 @@ function backToDocuments(): void {
           </p>
 
           <SentenceList
+            :processing="activeProcessing"
             :items="sentenceItems"
             :selected-sentence-ids="selectedSentenceIds"
             :has-more="sentenceHasMore"
@@ -156,22 +191,10 @@ function backToDocuments(): void {
       </section>
 
       <section v-else
-        class="space-y-3 animate-pulse"
-        aria-busy="true">
-        <header class="space-y-2">
-          <div class="h-7 w-72 rounded bg-background-elevated/70" />
-          <div class="h-4 w-32 rounded bg-background-elevated/70" />
-        </header>
-
-        <section class="overflow-hidden rounded border border-border bg-background-elevated/40 p-4 space-y-3">
-          <div class="h-4 w-full rounded bg-background-elevated/70" />
-          <div class="h-4 w-[96%] rounded bg-background-elevated/70" />
-          <div class="h-4 w-[92%] rounded bg-background-elevated/70" />
-          <div class="h-4 w-[88%] rounded bg-background-elevated/70" />
-          <div class="h-4 w-[84%] rounded bg-background-elevated/70" />
-          <div class="h-4 w-[80%] rounded bg-background-elevated/70" />
-          <div class="h-4 w-[76%] rounded bg-background-elevated/70" />
-        </section>
+        class="space-y-2">
+        <p class="text-sm text-text-muted">
+          Document not found.
+        </p>
       </section>
     </div>
   </section>

@@ -107,6 +107,8 @@ def remove_document_with_text_cleanup(document_id: str) -> dict:
             text_path=text_path,
         )
 
+    # Keep delete semantics at parent-row level and rely on DB-level
+    # ON DELETE CASCADE to remove processings/document_sentences.
     is_removed = remove_document(document_id)
     if not is_removed:
         log_event(

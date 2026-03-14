@@ -96,6 +96,9 @@ def _open_connection() -> Connection:
         connection = connect(settings.sqlite_database_path)
         connection.row_factory = Row
         connection.execute("PRAGMA foreign_keys = ON;")
+        foreign_keys_row = connection.execute("PRAGMA foreign_keys;").fetchone()
+        if foreign_keys_row is None or foreign_keys_row[0] != 1:
+            raise RuntimeError("Failed to enable sqlite foreign keys pragma.")
         log_event(
             LOGGER,
             stage="OK",

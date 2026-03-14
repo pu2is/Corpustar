@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import SentenceListItem from '@/components/sentences/SentenceListItem.vue'
+import type { ProcessingItem } from '@/types/processings'
 import type { SentenceItem } from '@/types/sentences'
 
 const props = defineProps<{
+  processing: ProcessingItem | null
   items: SentenceItem[]
   selectedSentenceIds: string[]
   hasMore: boolean
@@ -17,12 +19,13 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <section class="space-y-2">
+  <section v-if="props.processing"
+    class="space-y-2">
     <p
       v-if="!items.length"
       class="text-sm text-text-muted"
     >
-      No sentences loaded.
+      No sentences in this segmentation result.
     </p>
 
     <ul

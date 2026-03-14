@@ -176,6 +176,51 @@ class SentenceMvpFlowTests(unittest.TestCase):
             self.assertGreaterEqual(len(second_page["items"]), 1)
             self.assertGreater(second_page["items"][0]["startOffset"], next_after)
 
+    def test_latest_sentence_segmentation_endpoint_returns_empty_when_missing(self) -> None:
+        document = self._create_document("No segmentation yet.")
+
+        with TestClient(app) as client:
+            latest_response = client.get(
+                f"/api/documents/{document['id']}/sentence-segmentations/latest"
+            )
+            self.assertEqual(latest_response.status_code, 200)
+            latest_body = latest_response.json()
+
+        self.assertIsNone(latest_body["processing"])
+        self.assertEqual(latest_body["sentenceCount"], 0)
+        self.assertEqual(latest_body["preview"], [])
+
+    def test_latest_sentence_segmentation_endpoint_returns_latest_succeed_result(self) -> None:
+        document = self._create_document("A. B. C.")
+
+        with TestClient(app) as client:
+            first_segmentation = client.post(
+                f"/api/documents/{document['id']}/sentence-segmentations"
+            )
+            self.assertEqual(first_segmentation.status_code, 200)
+            first_processing_id = first_segmentation.json()["processing"]["id"]
+
+            second_segmentation = client.post(
+                f"/api/documents/{document['id']}/sentence-segmentations"
+            )
+            self.assertEqual(second_segmentation.status_code, 200)
+            second_body = second_segmentation.json()
+            second_processing_id = second_body["processing"]["id"]
+
+            latest_response = client.get(
+                f"/api/documents/{document['id']}/sentence-segmentations/latest"
+            )
+            self.assertEqual(latest_response.status_code, 200)
+            latest_body = latest_response.json()
+
+        self.assertIsNotNone(latest_body["processing"])
+        self.assertNotEqual(first_processing_id, second_processing_id)
+        self.assertEqual(latest_body["processing"]["id"], second_processing_id)
+        self.assertEqual(latest_body["processing"]["state"], "succeed")
+        self.assertEqual(latest_body["processing"]["type"], "sentence_segmentation")
+        self.assertEqual(latest_body["sentenceCount"], second_body["sentenceCount"])
+        self.assertEqual(len(latest_body["preview"]), second_body["sentenceCount"])
+
     def test_merge_validates_sentence_continuity(self) -> None:
         document = self._create_document("One. Two. Three.")
         segmentation = segment_document_sentences(document["id"])

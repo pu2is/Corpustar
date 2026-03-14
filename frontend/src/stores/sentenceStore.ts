@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 
 import {
   clipSentence as clipSentenceApi,
+  getLatestSentenceSegmentationResult,
   getSentenceCursorPage as getSentenceCursorPageApi,
   mergeSentences,
   segmentDocumentSentences,
@@ -17,6 +18,7 @@ import type { ProcessingItem, ProcessingState } from '@/types/processings'
 import type {
   SentenceCursorPage,
   SentenceItem,
+  SentenceSegmentationResultSnapshot,
   SentenceSegmentationResponse,
 } from '@/types/sentences'
 
@@ -26,6 +28,7 @@ interface SentenceState {
   nextAfterStartOffsetByDocId: Record<string, number | null>
   hasMoreByDocId: Record<string, boolean>
   loadingByDocId: Record<string, boolean>
+  pendingRefreshProcessingIdByDocId: Record<string, string | null>
   selectedSentenceIdsByDocId: Record<string, string[]>
   errorByDocId: Record<string, string | null>
 }
@@ -52,19 +55,26 @@ function toProcessingState(
 function buildProcessingFromEvent(
   existing: ProcessingItem | null | undefined,
   payload: ProcessingEventPayload,
+  options?: {
+    fallbackState?: ProcessingState
+  },
 ): ProcessingItem {
   const nowIso = new Date().toISOString()
-  const fallbackState: ProcessingState = existing?.state ?? 'running'
+  const isSameProcessing = existing?.id === payload.processingId
+  const fallbackState: ProcessingState = options?.fallbackState
+    ?? (isSameProcessing ? (existing?.state ?? 'running') : 'running')
 
   return {
     id: payload.processingId,
     docId: payload.docId,
-    type: existing?.type ?? 'sentence_segmentation',
+    type: isSameProcessing ? (existing?.type ?? 'sentence_segmentation') : 'sentence_segmentation',
     state: toProcessingState(payload.state, fallbackState),
-    createdAt: existing?.createdAt ?? nowIso,
+    createdAt: isSameProcessing ? (existing?.createdAt ?? nowIso) : nowIso,
     updatedAt: nowIso,
-    errorMessage: payload.errorMessage ?? existing?.errorMessage ?? null,
-    meta: existing?.meta ?? null,
+    errorMessage: payload.errorMessage !== undefined
+      ? payload.errorMessage
+      : (isSameProcessing ? (existing?.errorMessage ?? null) : null),
+    meta: isSameProcessing ? (existing?.meta ?? null) : null,
   }
 }
 
@@ -84,6 +94,20 @@ function uniqueNonEmptySentenceIds(sentenceIds: string[]): string[] {
   return normalized
 }
 
+function hasOwnRecord(record: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key)
+}
+
+function getNextAfterStartOffsetFromPreview(
+  preview: SentenceItem[],
+  hasMore: boolean,
+): number | null {
+  if (!hasMore || !preview.length) {
+    return null
+  }
+  return preview[preview.length - 1].startOffset
+}
+
 export const useSentenceStore = defineStore('sentence-store', {
   state: (): SentenceState => ({
     processingByDocId: {},
@@ -91,6 +115,7 @@ export const useSentenceStore = defineStore('sentence-store', {
     nextAfterStartOffsetByDocId: {},
     hasMoreByDocId: {},
     loadingByDocId: {},
+    pendingRefreshProcessingIdByDocId: {},
     selectedSentenceIdsByDocId: {},
     errorByDocId: {},
   }),
@@ -130,22 +155,93 @@ export const useSentenceStore = defineStore('sentence-store', {
       socketBound = false
     },
 
-    handleProcessingCreated(payload: ProcessingEventPayload): void {
+    isDocTracked(docId: string): boolean {
+      return hasOwnRecord(this.processingByDocId, docId)
+        || hasOwnRecord(this.itemsByDocId, docId)
+    },
+
+    setActiveProcessingFromEvent(
+      payload: ProcessingEventPayload,
+      options?: {
+        fallbackState?: ProcessingState
+      },
+    ): void {
       this.processingByDocId[payload.docId] = buildProcessingFromEvent(
         this.processingByDocId[payload.docId],
         payload,
+        options,
+      )
+    },
+
+    queueSentenceListRefresh(docId: string, processingId: string): void {
+      this.pendingRefreshProcessingIdByDocId[docId] = processingId
+    },
+
+    flushQueuedSentenceListRefresh(docId: string): void {
+      if (this.loadingByDocId[docId]) {
+        return
+      }
+
+      const pendingProcessingId = this.pendingRefreshProcessingIdByDocId[docId]
+      if (!pendingProcessingId) {
+        return
+      }
+
+      this.pendingRefreshProcessingIdByDocId[docId] = null
+      this.setActiveProcessingFromEvent(
+        {
+          docId,
+          processingId: pendingProcessingId,
+          state: 'succeed',
+          errorMessage: null,
+        },
+        {
+          fallbackState: 'succeed',
+        },
+      )
+      void this.loadInitialSentences(docId, pendingProcessingId).catch(() => undefined)
+    },
+
+    handleProcessingCreated(payload: ProcessingEventPayload): void {
+      this.setActiveProcessingFromEvent(
+        {
+          ...payload,
+          state: payload.state ?? 'running',
+          errorMessage: payload.errorMessage ?? null,
+        },
+        {
+          fallbackState: 'running',
+        },
       )
     },
 
     handleProcessingUpdated(payload: ProcessingEventPayload): void {
-      this.processingByDocId[payload.docId] = buildProcessingFromEvent(
-        this.processingByDocId[payload.docId],
-        payload,
-      )
+      this.setActiveProcessingFromEvent(payload)
     },
 
     handleSentenceListRebuilt(payload: SentenceListRebuiltPayload): void {
-      this.refreshActiveSentenceList(payload.docId, payload.processingId)
+      if (!this.isDocTracked(payload.docId)) {
+        return
+      }
+
+      this.setActiveProcessingFromEvent(
+        {
+          docId: payload.docId,
+          processingId: payload.processingId,
+          state: 'succeed',
+          errorMessage: null,
+        },
+        {
+          fallbackState: 'succeed',
+        },
+      )
+
+      if (this.loadingByDocId[payload.docId]) {
+        this.queueSentenceListRefresh(payload.docId, payload.processingId)
+        return
+      }
+
+      void this.loadInitialSentences(payload.docId, payload.processingId).catch(() => undefined)
     },
 
     handleSentenceMerged(payload: SentenceMergedPayload): void {
@@ -158,10 +254,21 @@ export const useSentenceStore = defineStore('sentence-store', {
 
     refreshActiveSentenceList(docId: string, processingId: string): void {
       const activeProcessing = this.processingByDocId[docId]
-      if (!activeProcessing || activeProcessing.id !== processingId) {
+      const isDocTracked = this.isDocTracked(docId)
+
+      if (!activeProcessing) {
+        if (!isDocTracked || this.loadingByDocId[docId]) {
+          return
+        }
+        void this.initializeAnalyzePage(docId).catch(() => undefined)
+        return
+      }
+
+      if (activeProcessing.id !== processingId) {
         return
       }
       if (this.loadingByDocId[docId]) {
+        this.queueSentenceListRefresh(docId, processingId)
         return
       }
 
@@ -174,6 +281,7 @@ export const useSentenceStore = defineStore('sentence-store', {
       this.nextAfterStartOffsetByDocId[docId] = null
       this.hasMoreByDocId[docId] = false
       this.loadingByDocId[docId] = false
+      this.pendingRefreshProcessingIdByDocId[docId] = null
       this.selectedSentenceIdsByDocId[docId] = []
       this.errorByDocId[docId] = null
     },
@@ -200,23 +308,59 @@ export const useSentenceStore = defineStore('sentence-store', {
       this.selectedSentenceIdsByDocId[docId] = []
     },
 
+    applySegmentationSnapshot(
+      docId: string,
+      response: SentenceSegmentationResultSnapshot,
+    ): void {
+      const preview = response.preview ?? []
+      const hasMore = response.sentenceCount > preview.length
+
+      this.processingByDocId[docId] = response.processing
+      this.itemsByDocId[docId] = preview
+      this.nextAfterStartOffsetByDocId[docId] = getNextAfterStartOffsetFromPreview(
+        preview,
+        hasMore,
+      )
+      this.hasMoreByDocId[docId] = hasMore
+      this.pendingRefreshProcessingIdByDocId[docId] = null
+      this.selectedSentenceIdsByDocId[docId] = []
+    },
+
+    async initializeAnalyzePage(docId: string): Promise<SentenceSegmentationResultSnapshot> {
+      this.processingByDocId[docId] = null
+      this.itemsByDocId[docId] = []
+      this.nextAfterStartOffsetByDocId[docId] = null
+      this.hasMoreByDocId[docId] = false
+      this.pendingRefreshProcessingIdByDocId[docId] = null
+      this.selectedSentenceIdsByDocId[docId] = []
+      this.errorByDocId[docId] = null
+      this.loadingByDocId[docId] = true
+
+      try {
+        const response = await getLatestSentenceSegmentationResult(docId)
+        this.applySegmentationSnapshot(docId, response)
+        return response
+      } catch (error) {
+        this.errorByDocId[docId] = toErrorMessage(error)
+        throw error
+      } finally {
+        this.loadingByDocId[docId] = false
+        this.flushQueuedSentenceListRefresh(docId)
+      }
+    },
+
     async segmentDocument(docId: string): Promise<SentenceSegmentationResponse> {
       this.loadingByDocId[docId] = true
       this.errorByDocId[docId] = null
 
       try {
         const response = await segmentDocumentSentences(docId)
-        const preview = response.preview ?? []
-        const hasMore = response.sentenceCount > preview.length
-        const lastSentence = preview.length ? preview[preview.length - 1] : null
-
         this.processingByDocId[docId] = response.processing
-        this.itemsByDocId[docId] = preview
-        this.nextAfterStartOffsetByDocId[docId] = hasMore && lastSentence
-          ? lastSentence.startOffset
-          : null
-        this.hasMoreByDocId[docId] = hasMore
         this.selectedSentenceIdsByDocId[docId] = []
+
+        if (response.processing.state === 'succeed') {
+          this.applySegmentationSnapshot(docId, response)
+        }
 
         return response
       } catch (error) {
@@ -224,6 +368,7 @@ export const useSentenceStore = defineStore('sentence-store', {
         throw error
       } finally {
         this.loadingByDocId[docId] = false
+        this.flushQueuedSentenceListRefresh(docId)
       }
     },
 
@@ -248,6 +393,7 @@ export const useSentenceStore = defineStore('sentence-store', {
         throw error
       } finally {
         this.loadingByDocId[docId] = false
+        this.flushQueuedSentenceListRefresh(docId)
       }
     },
 
@@ -281,6 +427,7 @@ export const useSentenceStore = defineStore('sentence-store', {
         throw error
       } finally {
         this.loadingByDocId[docId] = false
+        this.flushQueuedSentenceListRefresh(docId)
       }
     },
 
@@ -308,6 +455,7 @@ export const useSentenceStore = defineStore('sentence-store', {
         throw error
       } finally {
         this.loadingByDocId[docId] = false
+        this.flushQueuedSentenceListRefresh(docId)
       }
     },
 
@@ -328,6 +476,7 @@ export const useSentenceStore = defineStore('sentence-store', {
         throw error
       } finally {
         this.loadingByDocId[docId] = false
+        this.flushQueuedSentenceListRefresh(docId)
       }
     },
   },

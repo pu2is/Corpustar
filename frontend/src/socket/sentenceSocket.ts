@@ -1,4 +1,5 @@
 import { on } from '@/socket/socket'
+import type { ProcessingState } from '@/types/processings'
 
 export const PROCESSING_CREATED = 'processing:created'
 export const PROCESSING_UPDATED = 'processing:updated'
@@ -9,7 +10,7 @@ export const SENTENCE_CLIPPED = 'sentence:clipped'
 export interface ProcessingEventPayload {
   docId: string
   processingId: string
-  state?: string
+  state?: ProcessingState
   errorMessage?: string | null
 }
 
@@ -39,6 +40,8 @@ export interface SentenceSocketHandlers {
   onSentenceClipped: (payload: SentenceClippedPayload) => void
 }
 
+const PROCESSING_STATE_SET = new Set<ProcessingState>(['running', 'succeed', 'failed'])
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -59,6 +62,14 @@ function toNonNegativeNumber(value: unknown): number | null {
   return value
 }
 
+function toProcessingState(value: unknown): ProcessingState | undefined {
+  const normalized = toNonEmptyString(value)
+  if (!normalized || !PROCESSING_STATE_SET.has(normalized as ProcessingState)) {
+    return undefined
+  }
+  return normalized as ProcessingState
+}
+
 function parseProcessingEventPayload(payload: unknown): ProcessingEventPayload | null {
   if (!isRecord(payload)) {
     return null
@@ -70,7 +81,7 @@ function parseProcessingEventPayload(payload: unknown): ProcessingEventPayload |
     return null
   }
 
-  const state = toNonEmptyString(payload.state) ?? undefined
+  const state = toProcessingState(payload.state)
   const errorMessage = payload.errorMessage === null
     ? null
     : (toNonEmptyString(payload.errorMessage) ?? undefined)

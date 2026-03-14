@@ -13,6 +13,7 @@ from app.schemas.sentences import (
     MergeSentenceRequest,
     SentenceCursorPage,
     SentenceItem,
+    SentenceSegmentationLatestResponse,
     SentenceSegmentationResponse,
 )
 from app.socket.socket_events import DOCUMENT_CREATED, DOCUMENT_REMOVED
@@ -22,6 +23,7 @@ from app.services.document_repository import get_all_documents
 from app.services.remove_document_service import remove_document_with_text_cleanup
 from app.services.sentence_edit_service import clip_sentence, merge_sentences
 from app.services.sentence_processing_service import (
+    get_latest_sentence_segmentation_result,
     get_sentence_cursor_page,
     segment_document_sentences,
 )
@@ -218,6 +220,68 @@ def segment_document_sentences_route(doc_id: str) -> SentenceSegmentationRespons
             function_name=function_name,
             doc_id=doc_id,
             processing_id=response["processing"]["id"],
+            sentence_count=response["sentenceCount"],
+        )
+        return response
+    except FileNotFoundError as error:
+        log_event(
+            LOGGER,
+            stage="ERROR",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            doc_id=doc_id,
+            error=str(error),
+        )
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        log_event(
+            LOGGER,
+            stage="ERROR",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            doc_id=doc_id,
+            error=str(error),
+        )
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except Exception as error:
+        log_event(
+            LOGGER,
+            stage="ERROR",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            doc_id=doc_id,
+            error=str(error),
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Internal server error") from error
+
+
+@router.get(
+    "/documents/{doc_id}/sentence-segmentations/latest",
+    response_model=SentenceSegmentationLatestResponse,
+)
+def get_latest_sentence_segmentation_route(doc_id: str) -> SentenceSegmentationLatestResponse:
+    function_name = "get_latest_sentence_segmentation_route"
+    log_event(
+        LOGGER,
+        stage="CALL",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+        doc_id=doc_id,
+    )
+
+    try:
+        response = get_latest_sentence_segmentation_result(doc_id)
+        latest_processing_id = None
+        if response["processing"] is not None:
+            latest_processing_id = response["processing"]["id"]
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            doc_id=doc_id,
+            processing_id=latest_processing_id,
             sentence_count=response["sentenceCount"],
         )
         return response

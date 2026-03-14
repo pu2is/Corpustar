@@ -46,3 +46,6 @@ npm run electron:dev
 - Frontend API requests use `VITE_API_BASE_URL` when set, otherwise `BACKEND_HOST` + `BACKEND_PORT`.
 - The backend now initializes a SQLite database at `backend/data/corpustar.sqlite3` by default.
 - Override the database file with `SQLITE_DATABASE_PATH`.
+- If your local sqlite file was created before cascading foreign keys were introduced for
+  `documents`/`processings`/`document_sentences`, delete the old DB file and restart backend
+  so schema can be recreated with `ON DELETE CASCADE`.

@@ -18,6 +18,12 @@ class SentenceSegmentationResponse(BaseModel):
     preview: list[SentenceItem]
 
 
+class SentenceSegmentationLatestResponse(BaseModel):
+    processing: ProcessingItem | None = None
+    sentenceCount: int
+    preview: list[SentenceItem]
+
+
 class SentenceCursorPage(BaseModel):
     items: list[SentenceItem]
     nextAfterStartOffset: int | None = None

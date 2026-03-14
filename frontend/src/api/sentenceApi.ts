@@ -5,11 +5,16 @@ import type {
   MergeSentencesRequest,
   SentenceCursorPage,
   SentenceItem,
+  SentenceSegmentationResultSnapshot,
   SentenceSegmentationResponse,
 } from '@/types/sentences'
 
 function getSentenceSegmentationEndpoint(docId: string): string {
   return `/api/documents/${encodeURIComponent(docId)}/sentence-segmentations`
+}
+
+function getLatestSentenceSegmentationEndpoint(docId: string): string {
+  return `/api/documents/${encodeURIComponent(docId)}/sentence-segmentations/latest`
 }
 
 function getSentenceCursorPageEndpoint(docId: string): string {
@@ -26,6 +31,12 @@ function getClipSentenceEndpoint(sentenceId: string): string {
 
 export function segmentDocumentSentences(docId: string): Promise<SentenceSegmentationResponse> {
   return post<SentenceSegmentationResponse>(getSentenceSegmentationEndpoint(docId))
+}
+
+export function getLatestSentenceSegmentationResult(
+  docId: string,
+): Promise<SentenceSegmentationResultSnapshot> {
+  return get<SentenceSegmentationResultSnapshot>(getLatestSentenceSegmentationEndpoint(docId))
 }
 
 export function getSentenceCursorPage(

@@ -114,6 +114,7 @@ def init_db() -> None:
 
             _ensure_processings_schema(connection)
             _ensure_document_sentences_schema(connection)
+            _ensure_cascade_foreign_keys(connection)
     except Exception as error:
         log_event(
             LOGGER,
@@ -426,6 +427,140 @@ def _create_index_if_not_exists(
             function_name=function_name,
             table_name=table_name,
             index_name=index_name,
+            error=str(error),
+            exc_info=True,
+        )
+        raise
+
+
+def _ensure_cascade_foreign_keys(connection: Connection) -> None:
+    function_name = "_ensure_cascade_foreign_keys"
+    log_event(
+        LOGGER,
+        stage="CALL",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+    )
+    try:
+        missing_constraints: list[str] = []
+
+        if not _foreign_key_exists(
+            connection=connection,
+            table_name=PROCESSINGS_TABLE_NAME,
+            from_column="doc_id",
+            referenced_table=DOCUMENTS_TABLE_NAME,
+            referenced_column="id",
+            on_delete="CASCADE",
+        ):
+            missing_constraints.append(
+                f"{PROCESSINGS_TABLE_NAME}.doc_id -> {DOCUMENTS_TABLE_NAME}.id ON DELETE CASCADE"
+            )
+
+        if not _foreign_key_exists(
+            connection=connection,
+            table_name=DOCUMENT_SENTENCES_TABLE_NAME,
+            from_column="doc_id",
+            referenced_table=DOCUMENTS_TABLE_NAME,
+            referenced_column="id",
+            on_delete="CASCADE",
+        ):
+            missing_constraints.append(
+                f"{DOCUMENT_SENTENCES_TABLE_NAME}.doc_id -> {DOCUMENTS_TABLE_NAME}.id ON DELETE CASCADE"
+            )
+
+        if not _foreign_key_exists(
+            connection=connection,
+            table_name=DOCUMENT_SENTENCES_TABLE_NAME,
+            from_column="processing_id",
+            referenced_table=PROCESSINGS_TABLE_NAME,
+            referenced_column="id",
+            on_delete="CASCADE",
+        ):
+            missing_constraints.append(
+                f"{DOCUMENT_SENTENCES_TABLE_NAME}.processing_id -> {PROCESSINGS_TABLE_NAME}.id ON DELETE CASCADE"
+            )
+
+        if missing_constraints:
+            missing_details = "; ".join(missing_constraints)
+            raise RuntimeError(
+                "Detected legacy sqlite schema without required cascading foreign keys "
+                f"({missing_details}). Rebuild local database file at "
+                f"{settings.sqlite_database_path} and restart backend."
+            )
+
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result="cascade_constraints_verified",
+        )
+    except Exception as error:
+        log_event(
+            LOGGER,
+            stage="ERROR",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            error=str(error),
+            exc_info=True,
+        )
+        raise
+
+
+def _foreign_key_exists(
+    connection: Connection,
+    table_name: str,
+    from_column: str,
+    referenced_table: str,
+    referenced_column: str,
+    on_delete: str,
+) -> bool:
+    function_name = "_foreign_key_exists"
+    log_event(
+        LOGGER,
+        stage="CALL",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+        table_name=table_name,
+        from_column=from_column,
+        referenced_table=referenced_table,
+        referenced_column=referenced_column,
+        on_delete=on_delete,
+    )
+    try:
+        rows = connection.execute(f'PRAGMA foreign_key_list("{table_name}")').fetchall()
+        target_on_delete = on_delete.upper()
+        result = any(
+            str(row["from"]) == from_column
+            and str(row["table"]) == referenced_table
+            and str(row["to"]) == referenced_column
+            and str(row["on_delete"]).upper() == target_on_delete
+            for row in rows
+        )
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            table_name=table_name,
+            from_column=from_column,
+            referenced_table=referenced_table,
+            referenced_column=referenced_column,
+            on_delete=on_delete,
+            result=result,
+        )
+        return result
+    except Exception as error:
+        log_event(
+            LOGGER,
+            stage="ERROR",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            table_name=table_name,
+            from_column=from_column,
+            referenced_table=referenced_table,
+            referenced_column=referenced_column,
+            on_delete=on_delete,
             error=str(error),
             exc_info=True,
         )

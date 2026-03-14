@@ -15,10 +15,14 @@ export interface SentenceCursorPage {
   hasMore: boolean
 }
 
-export interface SentenceSegmentationResponse {
-  processing: ProcessingItem
+export interface SentenceSegmentationResultSnapshot {
+  processing: ProcessingItem | null
   sentenceCount: number
   preview: SentenceItem[]
+}
+
+export interface SentenceSegmentationResponse extends SentenceSegmentationResultSnapshot {
+  processing: ProcessingItem
 }
 
 export interface MergeSentencesRequest extends Record<string, unknown> {

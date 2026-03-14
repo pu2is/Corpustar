@@ -10,12 +10,14 @@ from app.socket.socket_publisher import publish_best_effort
 from app.services.document_repository import get_document_by_id
 from app.services.processing_repository import (
     create_processing,
+    get_latest_processing_by_doc_id_and_type,
     get_processing_by_id,
     map_processing_row_to_dto,
     update_processing_state,
 )
 from app.services.sentence_repository import (
     bulk_insert_sentences,
+    count_sentences_by_processing,
     list_sentences_by_processing_cursor,
 )
 from app.services.sentence_segmentation_service import segment_text_to_sentence_spans
@@ -24,6 +26,7 @@ SENTENCE_SEGMENTATION_PROCESSING_TYPE = "sentence_segmentation"
 SEGMENTATION_PREVIEW_LIMIT = 20
 MAX_CURSOR_LIMIT = 200
 DEFAULT_CURSOR_LIMIT = 50
+SentenceRow = dict[str, int | str]
 
 
 class SentenceItem(TypedDict):
@@ -36,7 +39,7 @@ class SentenceItem(TypedDict):
 
 
 class SentenceSegmentationResult(TypedDict):
-    processing: dict[str, Any]
+    processing: dict[str, Any] | None
     sentenceCount: int
     preview: list[SentenceItem]
 
@@ -72,7 +75,7 @@ def _validate_sentence_offsets(
         )
 
 
-def _map_sentence_row_to_item(sentence_row: dict[str, int | str], full_text: str) -> SentenceItem:
+def _map_sentence_row_to_item(sentence_row: SentenceRow, full_text: str) -> SentenceItem:
     sentence_id = str(sentence_row["id"])
     start_offset = int(sentence_row["start_offset"])
     end_offset = int(sentence_row["end_offset"])
@@ -99,6 +102,32 @@ def _normalize_page_limit(limit: int | None) -> int:
     if limit <= 0:
         raise ValueError("limit must be greater than 0")
     return min(limit, MAX_CURSOR_LIMIT)
+
+
+def _build_sentence_preview_items(
+    sentence_rows: list[SentenceRow],
+    full_text: str,
+) -> list[SentenceItem]:
+    return [
+        _map_sentence_row_to_item(sentence_row=row, full_text=full_text)
+        for row in sentence_rows
+    ]
+
+
+def _build_sentence_segmentation_result(
+    processing: dict[str, Any] | None,
+    sentence_count: int,
+    preview_rows: list[SentenceRow],
+    full_text: str,
+) -> SentenceSegmentationResult:
+    return {
+        "processing": processing,
+        "sentenceCount": sentence_count,
+        "preview": _build_sentence_preview_items(
+            sentence_rows=preview_rows,
+            full_text=full_text,
+        ),
+    }
 
 
 def segment_document_sentences(doc_id: str) -> SentenceSegmentationResult:
@@ -176,14 +205,12 @@ def segment_document_sentences(doc_id: str) -> SentenceSegmentationResult:
     )
 
     preview_rows = sentence_rows[:SEGMENTATION_PREVIEW_LIMIT]
-    return {
-        "processing": processing_dto,
-        "sentenceCount": len(sentence_rows),
-        "preview": [
-            _map_sentence_row_to_item(sentence_row=row, full_text=full_text)
-            for row in preview_rows
-        ],
-    }
+    return _build_sentence_segmentation_result(
+        processing=processing_dto,
+        sentence_count=len(sentence_rows),
+        preview_rows=preview_rows,
+        full_text=full_text,
+    )
 
 
 def get_sentence_cursor_page(
@@ -230,3 +257,44 @@ def get_sentence_cursor_page(
         "nextAfterStartOffset": next_after_start_offset,
         "hasMore": has_more,
     }
+
+
+def get_latest_sentence_segmentation_result(
+    doc_id: str,
+) -> SentenceSegmentationResult:
+    document = get_document_by_id(doc_id)
+    if document is None:
+        raise FileNotFoundError(f"Document not found: {doc_id}")
+
+    latest_processing = get_latest_processing_by_doc_id_and_type(
+        doc_id=doc_id,
+        processing_type=SENTENCE_SEGMENTATION_PROCESSING_TYPE,
+        state="succeed",
+    )
+    if latest_processing is None:
+        return _build_sentence_segmentation_result(
+            processing=None,
+            sentence_count=0,
+            preview_rows=[],
+            full_text="",
+        )
+
+    processing_id = str(latest_processing["id"])
+    full_text = _read_document_text_by_path(document["textPath"])
+    sentence_count = count_sentences_by_processing(
+        doc_id=doc_id,
+        processing_id=processing_id,
+    )
+    preview_rows = list_sentences_by_processing_cursor(
+        doc_id=doc_id,
+        processing_id=processing_id,
+        after_start_offset=None,
+        limit=SEGMENTATION_PREVIEW_LIMIT,
+    )
+
+    return _build_sentence_segmentation_result(
+        processing=map_processing_row_to_dto(latest_processing),
+        sentence_count=sentence_count,
+        preview_rows=preview_rows,
+        full_text=full_text,
+    )

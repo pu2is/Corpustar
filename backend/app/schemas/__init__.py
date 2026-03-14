@@ -5,6 +5,7 @@ from app.schemas.sentences import (
     MergeSentenceRequest,
     SentenceCursorPage,
     SentenceItem,
+    SentenceSegmentationLatestResponse,
     SentenceSegmentationResponse,
 )
 
@@ -18,5 +19,6 @@ __all__ = [
     "ProcessingType",
     "SentenceCursorPage",
     "SentenceItem",
+    "SentenceSegmentationLatestResponse",
     "SentenceSegmentationResponse",
 ]
