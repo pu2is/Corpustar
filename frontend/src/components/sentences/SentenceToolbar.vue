@@ -23,16 +23,12 @@ const emit = defineEmits<{
       Segment Sentences
     </button>
 
-    <template v-else>
-      <p class="text-sm text-text-muted">
-        processing: {{ processing.id }} | state: {{ processing.state }}
-      </p>
-      <button type="button"
-        :disabled="loading || !canMerge"
-        class="rounded border px-3 py-1 text-sm disabled:opacity-60"
-        @click="emit('merge')">
-        Merge Selected
-      </button>
-    </template>
+    <button v-else
+      type="button"
+      :disabled="loading || !canMerge"
+      class="rounded border px-3 py-1 text-sm disabled:opacity-60"
+      @click="emit('merge')">
+      Merge Selected
+    </button>
   </section>
 </template>

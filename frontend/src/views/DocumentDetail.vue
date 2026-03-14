@@ -4,7 +4,6 @@ import { storeToRefs } from 'pinia'
 import { useRoute, useRouter } from 'vue-router'
 
 import TopNav from '@/components/Nav/TopNav.vue'
-import ProcessingStatusBar from '@/components/sentences/ProcessingStatusBar.vue'
 import SentenceList from '@/components/sentences/SentenceList.vue'
 import SentenceToolbar from '@/components/sentences/SentenceToolbar.vue'
 import { useDocumentStore } from '@/stores/documentStore'
@@ -41,8 +40,18 @@ const sentenceLoading = computed(() => loadingByDocId.value[docId.value] ?? fals
 const selectedSentenceIds = computed(() => selectedSentenceIdsByDocId.value[docId.value] ?? [])
 const sentenceError = computed(() => errorByDocId.value[docId.value] ?? null)
 const canMerge = computed(() => selectedSentenceIds.value.length >= 2)
+const sourceTextPath = computed(() => {
+  if (activeProcessing.value) {
+    return ''
+  }
+  return documentItem.value?.textPath ?? ''
+})
 const pageLoading = ref(false)
+const sourceText = ref('')
+const sourceTextLoading = ref(false)
+const sourceTextError = ref<string | null>(null)
 let initializeRequestId = 0
+let textRequestId = 0
 
 function segmentSentences(): void {
   if (!docId.value) {
@@ -101,6 +110,32 @@ async function initializeAnalyzeWorkspace(targetDocId: string): Promise<void> {
   }
 }
 
+async function loadSourceText(textPath: string): Promise<void> {
+  const requestId = ++textRequestId
+  sourceTextLoading.value = true
+  sourceTextError.value = null
+
+  try {
+    if (!window.electronAPI?.readDocumentText) {
+      throw new Error('Document text reader unavailable. Start with npm run electron:dev.')
+    }
+
+    const content = await window.electronAPI.readDocumentText(textPath)
+    if (requestId === textRequestId) {
+      sourceText.value = content
+    }
+  } catch (error) {
+    if (requestId === textRequestId) {
+      sourceText.value = ''
+      sourceTextError.value = error instanceof Error ? error.message : String(error)
+    }
+  } finally {
+    if (requestId === textRequestId) {
+      sourceTextLoading.value = false
+    }
+  }
+}
+
 watch(
   docId,
   (nextDocId) => {
@@ -109,6 +144,21 @@ watch(
       return
     }
     void initializeAnalyzeWorkspace(nextDocId)
+  },
+  { immediate: true },
+)
+
+watch(
+  sourceTextPath,
+  (nextTextPath) => {
+    if (!nextTextPath) {
+      sourceText.value = ''
+      sourceTextLoading.value = false
+      sourceTextError.value = null
+      return
+    }
+
+    void loadSourceText(nextTextPath)
   },
   { immediate: true },
 )
@@ -160,8 +210,6 @@ function backToDocuments(): void {
         </header>
 
         <section class="min-h-0 flex flex-1 flex-col gap-3 overflow-hidden rounded border border-border p-3">
-          <ProcessingStatusBar :processing="activeProcessing" />
-
           <SentenceToolbar
             :processing="activeProcessing"
             :loading="sentenceLoading"
@@ -179,6 +227,7 @@ function backToDocuments(): void {
           </p>
 
           <SentenceList
+            v-if="activeProcessing"
             :processing="activeProcessing"
             :items="sentenceItems"
             :selected-sentence-ids="selectedSentenceIds"
@@ -189,6 +238,24 @@ function backToDocuments(): void {
             @clip="clipSentence"
             @load-more="loadMoreSentences"
           />
+
+          <section v-else
+            class="min-h-0 flex flex-1 flex-col overflow-hidden rounded border border-border/60 bg-background-elevated/25 p-3">
+            <p v-if="sourceTextLoading"
+              class="text-sm text-text-muted">
+              Loading full text...
+            </p>
+            <p v-else-if="sourceTextError"
+              class="text-sm text-error">
+              {{ sourceTextError }}
+            </p>
+            <div v-else
+              class="scroll-area min-h-0 flex-1 overflow-y-auto pr-1">
+              <p class="text-sm whitespace-pre-wrap break-words text-text">
+                {{ sourceText || 'This document has no text content.' }}
+              </p>
+            </div>
+          </section>
         </section>
       </section>
 
