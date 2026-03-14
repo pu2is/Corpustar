@@ -20,7 +20,7 @@ const emit = defineEmits<{
 
 <template>
   <section v-if="props.processing"
-    class="space-y-2">
+    class="min-h-0 flex flex-1 flex-col gap-2">
     <p
       v-if="!items.length"
       class="text-sm text-text-muted"
@@ -28,26 +28,28 @@ const emit = defineEmits<{
       No sentences in this segmentation result.
     </p>
 
-    <ul
+    <div
       v-else
-      class="space-y-2"
+      class="scroll-area min-h-0 flex-1 overflow-y-auto pr-1"
     >
-      <SentenceListItem
-        v-for="item in props.items"
-        :key="item.id"
-        :item="item"
-        :selected="props.selectedSentenceIds.includes(item.id)"
-        :loading="props.loading"
-        @toggle-select="(sentenceId) => emit('toggleSelect', sentenceId)"
-        @clip="(sentenceId, splitOffset) => emit('clip', sentenceId, splitOffset)"
-      />
-    </ul>
+      <ul class="space-y-2">
+        <SentenceListItem
+          v-for="item in props.items"
+          :key="item.id"
+          :item="item"
+          :selected="props.selectedSentenceIds.includes(item.id)"
+          :loading="props.loading"
+          @toggle-select="(sentenceId) => emit('toggleSelect', sentenceId)"
+          @clip="(sentenceId, splitOffset) => emit('clip', sentenceId, splitOffset)"
+        />
+      </ul>
+    </div>
 
     <button
       v-if="props.hasMore"
       type="button"
       :disabled="props.loading"
-      class="rounded border px-3 py-1 text-sm disabled:opacity-60"
+      class="shrink-0 rounded border px-3 py-1 text-sm disabled:opacity-60"
       @click="emit('loadMore')"
     >
       Load More

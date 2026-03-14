@@ -125,9 +125,9 @@ function backToDocuments(): void {
     </header>
 
     <!-- Content Header -->
-    <div class="scroll-area min-h-0 flex-1 px-16 ml-16 overflow-y-auto p-6">
+    <div class="min-h-0 flex flex-1 flex-col overflow-hidden px-16 ml-16 p-6">
       <button type="button"
-        class="mb-4 cursor-pointer inline-flex items-center gap-2 text-sm font-medium text-text-muted transition-colors hover:text-text"
+        class="mb-4 inline-flex shrink-0 cursor-pointer items-center gap-2 text-sm font-medium text-text-muted transition-colors hover:text-text"
         @click="backToDocuments">
         <ChevronLeft class="h-4 w-4" />
         Back to documents
@@ -139,7 +139,7 @@ function backToDocuments(): void {
       </p>
 
       <section v-else-if="documentItem"
-        class="space-y-3">
+        class="min-h-0 flex flex-1 flex-col gap-3">
 
         <header class="rounded border border-border p-3 space-y-1">
           <div class="flex flex-wrap items-center gap-3">
@@ -159,13 +159,14 @@ function backToDocuments(): void {
           </div>
         </header>
 
-        <section class="space-y-3 rounded border border-border p-3">
+        <section class="min-h-0 flex flex-1 flex-col gap-3 overflow-hidden rounded border border-border p-3">
           <ProcessingStatusBar :processing="activeProcessing" />
 
           <SentenceToolbar
             :processing="activeProcessing"
             :loading="sentenceLoading"
             :can-merge="canMerge"
+            class="shrink-0"
             @segment="segmentSentences"
             @merge="mergeSelectedSentences"
           />
@@ -183,6 +184,7 @@ function backToDocuments(): void {
             :selected-sentence-ids="selectedSentenceIds"
             :has-more="sentenceHasMore"
             :loading="sentenceLoading"
+            class="min-h-0 flex-1"
             @toggle-select="toggleSentenceSelection"
             @clip="clipSentence"
             @load-more="loadMoreSentences"

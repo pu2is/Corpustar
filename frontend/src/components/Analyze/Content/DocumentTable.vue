@@ -28,8 +28,8 @@ function removeDocument(id: string): void {
 </script>
 
 <template>
-  <section class="flex flex-col gap-3">
-    <header class="flex items-end justify-between gap-3">
+  <section class="min-h-0 flex flex-1 flex-col gap-3">
+    <header class="shrink-0 flex items-end justify-between gap-3">
       <div class="flex items-start gap-2.5">
         <div class="flex-col cursor-default select-none">
           <h2 class="m-0 text-[0.95rem] font-semibold tracking-[0.01em] text-text">
@@ -59,17 +59,19 @@ function removeDocument(id: string): void {
         Loading documents...
       </p>
     </header>
-    <div>
+    <div class="min-h-0 flex-1">
       <p v-if="!hasDocuments"
         class="m-0 px-2 py-1 text-sm text-text-muted">
         No documents found.
       </p>
       <template v-else>
-        <div class="flex flex-col gap-2">
-          <DocumentRow v-for="document in documents"
-            :key="document.id"
-            :doc-item="document"
-            @remove="removeDocument" />
+        <div class="scroll-area h-full overflow-y-auto pr-1">
+          <div class="flex flex-col gap-2">
+            <DocumentRow v-for="document in documents"
+              :key="document.id"
+              :doc-item="document"
+              @remove="removeDocument" />
+          </div>
         </div>
       </template>
     </div>

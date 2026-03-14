@@ -7,8 +7,8 @@ import DocumentTable from '@/components/Analyze/Content/DocumentTable.vue';
   <section class="-mx-16 flex h-full flex-col overflow-hidden">
     <AnalyzeHeader />
 
-    <div class="scroll-area min-h-0 flex-1 px-16 ml-16 overflow-y-auto p-6">
-      <DocumentTable />
+    <div class="min-h-0 flex flex-1 flex-col overflow-hidden px-16 ml-16 p-6">
+      <DocumentTable class="min-h-0 flex-1" />
     </div>
   </section>
 </template>
