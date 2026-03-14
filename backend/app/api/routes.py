@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.database import get_connection
 from app.core.log import get_logger, log_event
 from app.schemas.documents import DocItem
+from app.schemas.processings import ProcessingItem
 from app.schemas.sentences import (
     ClipSentenceRequest,
     MergeSentenceRequest,
@@ -20,6 +21,7 @@ from app.socket.socket_events import DOCUMENT_CREATED, DOCUMENT_REMOVED
 from app.socket.socket_publisher import publish
 from app.services.add_document_service import add_document
 from app.services.document_repository import get_all_documents
+from app.services.processing_repository import list_processings, map_processing_row_to_dto
 from app.services.remove_document_service import remove_document_with_text_cleanup
 from app.services.sentence_edit_service import clip_sentence, merge_sentences
 from app.services.sentence_processing_service import (
@@ -68,6 +70,38 @@ def get_documents_route() -> list[DocItem]:
             result=len(documents),
         )
         return documents
+    except Exception as error:
+        log_event(
+            LOGGER,
+            stage="ERROR",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            error=str(error),
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Internal server error") from error
+
+
+@router.get("/processes", response_model=list[ProcessingItem])
+def get_processes_route() -> list[ProcessingItem]:
+    function_name = "get_processes_route"
+    log_event(
+        LOGGER,
+        stage="CALL",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+    )
+
+    try:
+        processings = [map_processing_row_to_dto(row) for row in list_processings()]
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result=len(processings),
+        )
+        return processings
     except Exception as error:
         log_event(
             LOGGER,
@@ -198,7 +232,7 @@ async def add_document_route(payload: AddDocumentRequest) -> dict:
 
 
 @router.post(
-    "/documents/{doc_id}/sentence-segmentations",
+    "/process/sentence_segmentation/{doc_id}",
     response_model=SentenceSegmentationResponse,
 )
 def segment_document_sentences_route(doc_id: str) -> SentenceSegmentationResponse:

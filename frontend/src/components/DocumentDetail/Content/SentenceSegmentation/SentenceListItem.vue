@@ -4,21 +4,30 @@ import { ref } from 'vue'
 import ClipSentenceDialog from '@/components/DocumentDetail/Content/SentenceSegmentation/ClipSentenceDialog.vue'
 import type { SentenceItem } from '@/types/sentences'
 
+type MergeDirection = 'prev' | 'next'
+
 const props = defineProps<{
   item: SentenceItem
   selected: boolean
   loading: boolean
+  canMergePrev: boolean
+  canMergeNext: boolean
 }>()
 
 const emit = defineEmits<{
-  toggleSelect: [sentenceId: string]
+  selectSentence: [sentenceId: string]
+  requestMerge: [sentenceId: string, direction: MergeDirection]
   clip: [sentenceId: string, splitOffset: number]
 }>()
 
 const clipDialogOpen = ref(false)
 
 function toggleSelection(): void {
-  emit('toggleSelect', props.item.id)
+  emit('selectSentence', props.item.id)
+}
+
+function requestMerge(direction: MergeDirection): void {
+  emit('requestMerge', props.item.id, direction)
 }
 
 function openClipDialog(): void {
@@ -55,6 +64,20 @@ function submitClip(splitOffset: number): void {
         class="rounded border px-2 py-1 text-xs disabled:opacity-60"
         @click="openClipDialog">
         Clip
+      </button>
+    </div>
+    <div class="flex gap-2">
+      <button type="button"
+        :disabled="loading || !canMergePrev"
+        class="rounded border px-2 py-1 text-xs disabled:opacity-60"
+        @click="requestMerge('prev')">
+        Merge Prev
+      </button>
+      <button type="button"
+        :disabled="loading || !canMergeNext"
+        class="rounded border px-2 py-1 text-xs disabled:opacity-60"
+        @click="requestMerge('next')">
+        Merge Next
       </button>
     </div>
     <ClipSentenceDialog

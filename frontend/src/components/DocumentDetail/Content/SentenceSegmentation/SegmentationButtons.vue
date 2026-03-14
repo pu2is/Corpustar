@@ -1,40 +1,57 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useRoute } from 'vue-router'
+import type { SentenceItem } from '@/types/sentences'
 
-import { useSentenceStore } from '@/stores/sentenceStore'
+type MergeDirection = 'prev' | 'next'
 
-const route = useRoute()
-const sentenceStore = useSentenceStore()
-const { loadingByDocId, processingByDocId, selectedSentenceIdsByDocId } = storeToRefs(sentenceStore)
+const props = defineProps<{
+  loading: boolean
+  canMerge: boolean
+  pendingMergeDirection: MergeDirection | null
+  pendingMergeTarget: SentenceItem | null
+}>()
 
-const docId = computed(() => {
-  const value = route.params.doc_id
-  return typeof value === 'string' ? value : ''
+const emit = defineEmits<{
+  merge: []
+  clear: []
+}>()
+
+const mergeLabel = computed(() => {
+  if (props.pendingMergeDirection === 'prev') {
+    return 'Merge with Previous'
+  }
+  if (props.pendingMergeDirection === 'next') {
+    return 'Merge with Next'
+  }
+  return 'Merge'
 })
 
-const activeProcessing = computed(() => processingByDocId.value[docId.value] ?? null)
-const sentenceLoading = computed(() => loadingByDocId.value[docId.value] ?? false)
-const selectedSentenceIds = computed(() => selectedSentenceIdsByDocId.value[docId.value] ?? [])
-const canMerge = computed(() => selectedSentenceIds.value.length >= 2)
+function triggerMerge(): void {
+  emit('merge')
+}
 
-function mergeSelectedSentences(): void {
-  if (!docId.value) {
-    return
-  }
-  void sentenceStore.mergeSelected(docId.value).catch(() => undefined)
+function clearPendingMerge(): void {
+  emit('clear')
 }
 </script>
 
 <template>
   <section class="flex shrink-0 gap-2">
-    <button v-if="activeProcessing"
-      type="button"
-      :disabled="sentenceLoading || !canMerge"
+    <button type="button"
+      :disabled="loading || !canMerge"
       class="rounded border px-3 py-1 text-sm disabled:opacity-60"
-      @click="mergeSelectedSentences">
-      Merge Selected
+      @click="triggerMerge">
+      {{ mergeLabel }}
     </button>
+    <button type="button"
+      :disabled="loading || !pendingMergeDirection"
+      class="rounded border px-3 py-1 text-sm disabled:opacity-60"
+      @click="clearPendingMerge">
+      Clear
+    </button>
+    <p v-if="pendingMergeTarget"
+      class="self-center text-xs text-text-muted">
+      Target: {{ pendingMergeTarget.startOffset }} - {{ pendingMergeTarget.endOffset }}
+    </p>
   </section>
 </template>

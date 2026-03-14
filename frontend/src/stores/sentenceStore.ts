@@ -1,80 +1,65 @@
-import { defineStore } from 'pinia';
+import { defineStore } from 'pinia'
 
-import {
-  clipSentence as clipSentenceApi,
-  getLatestSentenceSegmentationResult,
-  getSentenceCursorPage as getSentenceCursorPageApi,
-  mergeSentences,
-  segmentDocumentSentences,
-} from '@/api/sentenceApi'
-import {
-  bindSentenceSocketHandlers,
-  type ProcessingEventPayload,
-  type SentenceClippedPayload,
-  type SentenceListRebuiltPayload,
-  type SentenceMergedPayload,
-} from '@/socket/sentenceSocket'
-import type { ProcessingItem, ProcessingState } from '@/types/processings'
+import { get, post } from '@/stores/fetchWrapper'
+import { on } from '@/socket/socket'
 import type {
+  ClipSentenceResponse,
   SentenceCursorPage,
   SentenceItem,
-  SentenceSegmentationResultSnapshot,
-  SentenceSegmentationResponse,
 } from '@/types/sentences'
 
 interface SentenceState {
-  processingByDocId: Record<string, ProcessingItem | null>
-  itemsByDocId: Record<string, SentenceItem[]>
-  nextAfterStartOffsetByDocId: Record<string, number | null>
-  hasMoreByDocId: Record<string, boolean>
-  loadingByDocId: Record<string, boolean>
-  pendingRefreshProcessingIdByDocId: Record<string, string | null>
-  selectedSentenceIdsByDocId: Record<string, string[]>
-  errorByDocId: Record<string, string | null>
+  itemsByDocProcessKey: Record<string, SentenceItem[]>
+  loadingByDocProcessKey: Record<string, boolean>
+  errorByDocProcessKey: Record<string, string | null>
+  socketBound: boolean
+  socketUnsubscribers: Array<() => void>
+}
+
+interface GetSentenceOptions {
+  afterStartOffset?: number | null
+  limit?: number
+  append?: boolean
+}
+
+interface DocProcessPayload {
+  docId: string
+  processingId: string
 }
 
 const DEFAULT_SENTENCE_PAGE_LIMIT = 20
-const PROCESSING_STATE_SET = new Set<ProcessingState>(['running', 'succeed', 'failed'])
-let socketBound = false
-let socketUnsubscribers: Array<() => void> = []
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-function toProcessingState(
-  candidate: string | undefined,
-  fallback: ProcessingState,
-): ProcessingState {
-  if (candidate && PROCESSING_STATE_SET.has(candidate as ProcessingState)) {
-    return candidate as ProcessingState
+function toNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null
   }
-  return fallback
+
+  const trimmed = value.trim()
+  return trimmed.length ? trimmed : null
 }
 
-function buildProcessingFromEvent(
-  existing: ProcessingItem | null | undefined,
-  payload: ProcessingEventPayload,
-  options?: {
-    fallbackState?: ProcessingState
-  },
-): ProcessingItem {
-  const nowIso = new Date().toISOString()
-  const isSameProcessing = existing?.id === payload.processingId
-  const fallbackState: ProcessingState = options?.fallbackState
-    ?? (isSameProcessing ? (existing?.state ?? 'running') : 'running')
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function toDocProcessPayload(payload: unknown): DocProcessPayload | null {
+  if (!isRecord(payload)) {
+    return null
+  }
+
+  const docId = toNonEmptyString(payload.docId)
+  const processingId = toNonEmptyString(payload.processingId)
+  if (!docId || !processingId) {
+    return null
+  }
 
   return {
-    id: payload.processingId,
-    docId: payload.docId,
-    type: isSameProcessing ? (existing?.type ?? 'sentence_segmentation') : 'sentence_segmentation',
-    state: toProcessingState(payload.state, fallbackState),
-    createdAt: isSameProcessing ? (existing?.createdAt ?? nowIso) : nowIso,
-    updatedAt: nowIso,
-    errorMessage: payload.errorMessage !== undefined
-      ? payload.errorMessage
-      : (isSameProcessing ? (existing?.errorMessage ?? null) : null),
-    meta: isSameProcessing ? (existing?.meta ?? null) : null,
+    docId,
+    processingId,
   }
 }
 
@@ -94,390 +79,146 @@ function uniqueNonEmptySentenceIds(sentenceIds: string[]): string[] {
   return normalized
 }
 
-function hasOwnRecord(record: Record<string, unknown>, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(record, key)
-}
-
-function getNextAfterStartOffsetFromPreview(
-  preview: SentenceItem[],
-  hasMore: boolean,
-): number | null {
-  if (!hasMore || !preview.length) {
-    return null
-  }
-  return preview[preview.length - 1].startOffset
+function getSentenceKey(docId: string, processId: string): string {
+  return `${docId}::${processId}`
 }
 
 export const useSentenceStore = defineStore('sentence-store', {
   state: (): SentenceState => ({
-    processingByDocId: {},
-    itemsByDocId: {},
-    nextAfterStartOffsetByDocId: {},
-    hasMoreByDocId: {},
-    loadingByDocId: {},
-    pendingRefreshProcessingIdByDocId: {},
-    selectedSentenceIdsByDocId: {},
-    errorByDocId: {},
+    itemsByDocProcessKey: {},
+    loadingByDocProcessKey: {},
+    errorByDocProcessKey: {},
+    socketBound: false,
+    socketUnsubscribers: [],
   }),
+  getters: {
+    getSentenceItems: (state) => (docId: string, processId: string): SentenceItem[] => {
+      if (!docId || !processId) {
+        return []
+      }
+
+      const key = getSentenceKey(docId, processId)
+      return state.itemsByDocProcessKey[key] ?? []
+    },
+    isSentenceLoading: (state) => (docId: string, processId: string): boolean => {
+      if (!docId || !processId) {
+        return false
+      }
+
+      const key = getSentenceKey(docId, processId)
+      return state.loadingByDocProcessKey[key] ?? false
+    },
+  },
   actions: {
     bindSocketEvents(): void {
-      if (socketBound) {
+      if (this.socketBound) {
         return
       }
 
-      socketUnsubscribers = bindSentenceSocketHandlers(
-        {
-          onProcessingCreated: (payload) => {
-            this.handleProcessingCreated(payload)
-          },
-          onProcessingUpdated: (payload) => {
-            this.handleProcessingUpdated(payload)
-          },
-          onSentenceListRebuilt: (payload) => {
-            this.handleSentenceListRebuilt(payload)
-          },
-          onSentenceMerged: (payload) => {
-            this.handleSentenceMerged(payload)
-          },
-          onSentenceClipped: (payload) => {
-            this.handleSentenceClipped(payload)
-          },
-        },
-      )
-      socketBound = true
+      const unbindOnMerged = on('sentence:merged', (payload) => {
+        this.handleSentenceChanged(payload)
+      })
+      const unbindOnClipped = on('sentence:clipped', (payload) => {
+        this.handleSentenceChanged(payload)
+      })
+      const unbindOnListRebuilt = on('sentence:list_rebuilt', (payload) => {
+        this.handleSentenceChanged(payload)
+      })
+
+      this.socketUnsubscribers = [unbindOnMerged, unbindOnClipped, unbindOnListRebuilt]
+      this.socketBound = true
     },
 
     unbindSocketEvents(): void {
-      for (const unsubscribe of socketUnsubscribers) {
+      for (const unsubscribe of this.socketUnsubscribers) {
         unsubscribe()
       }
-      socketUnsubscribers = []
-      socketBound = false
+
+      this.socketUnsubscribers = []
+      this.socketBound = false
     },
 
-    isDocTracked(docId: string): boolean {
-      return hasOwnRecord(this.processingByDocId, docId)
-        || hasOwnRecord(this.itemsByDocId, docId)
-    },
-
-    setActiveProcessingFromEvent(
-      payload: ProcessingEventPayload,
-      options?: {
-        fallbackState?: ProcessingState
-      },
-    ): void {
-      this.processingByDocId[payload.docId] = buildProcessingFromEvent(
-        this.processingByDocId[payload.docId],
-        payload,
-        options,
-      )
-    },
-
-    queueSentenceListRefresh(docId: string, processingId: string): void {
-      this.pendingRefreshProcessingIdByDocId[docId] = processingId
-    },
-
-    flushQueuedSentenceListRefresh(docId: string): void {
-      if (this.loadingByDocId[docId]) {
+    handleSentenceChanged(payload: unknown): void {
+      const parsed = toDocProcessPayload(payload)
+      if (!parsed) {
         return
       }
 
-      const pendingProcessingId = this.pendingRefreshProcessingIdByDocId[docId]
-      if (!pendingProcessingId) {
-        return
-      }
-
-      this.pendingRefreshProcessingIdByDocId[docId] = null
-      this.setActiveProcessingFromEvent(
-        {
-          docId,
-          processingId: pendingProcessingId,
-          state: 'succeed',
-          errorMessage: null,
-        },
-        {
-          fallbackState: 'succeed',
-        },
-      )
-      void this.loadInitialSentences(docId, pendingProcessingId).catch(() => undefined)
+      void this.getSentences(parsed.docId, parsed.processingId).catch(() => undefined)
     },
 
-    handleProcessingCreated(payload: ProcessingEventPayload): void {
-      this.setActiveProcessingFromEvent(
-        {
-          ...payload,
-          state: payload.state ?? 'running',
-          errorMessage: payload.errorMessage ?? null,
-        },
-        {
-          fallbackState: 'running',
-        },
-      )
-    },
-
-    handleProcessingUpdated(payload: ProcessingEventPayload): void {
-      this.setActiveProcessingFromEvent(payload)
-    },
-
-    handleSentenceListRebuilt(payload: SentenceListRebuiltPayload): void {
-      if (!this.isDocTracked(payload.docId)) {
-        return
-      }
-
-      this.setActiveProcessingFromEvent(
-        {
-          docId: payload.docId,
-          processingId: payload.processingId,
-          state: 'succeed',
-          errorMessage: null,
-        },
-        {
-          fallbackState: 'succeed',
-        },
-      )
-
-      if (this.loadingByDocId[payload.docId]) {
-        this.queueSentenceListRefresh(payload.docId, payload.processingId)
-        return
-      }
-
-      void this.loadInitialSentences(payload.docId, payload.processingId).catch(() => undefined)
-    },
-
-    handleSentenceMerged(payload: SentenceMergedPayload): void {
-      this.refreshActiveSentenceList(payload.docId, payload.processingId)
-    },
-
-    handleSentenceClipped(payload: SentenceClippedPayload): void {
-      this.refreshActiveSentenceList(payload.docId, payload.processingId)
-    },
-
-    refreshActiveSentenceList(docId: string, processingId: string): void {
-      const activeProcessing = this.processingByDocId[docId]
-      const isDocTracked = this.isDocTracked(docId)
-
-      if (!activeProcessing) {
-        if (!isDocTracked || this.loadingByDocId[docId]) {
-          return
-        }
-        void this.initializeAnalyzePage(docId).catch(() => undefined)
-        return
-      }
-
-      if (activeProcessing.id !== processingId) {
-        return
-      }
-      if (this.loadingByDocId[docId]) {
-        this.queueSentenceListRefresh(docId, processingId)
-        return
-      }
-
-      void this.loadInitialSentences(docId, processingId).catch(() => undefined)
-    },
-
-    resetDocSentenceState(docId: string): void {
-      this.processingByDocId[docId] = null
-      this.itemsByDocId[docId] = []
-      this.nextAfterStartOffsetByDocId[docId] = null
-      this.hasMoreByDocId[docId] = false
-      this.loadingByDocId[docId] = false
-      this.pendingRefreshProcessingIdByDocId[docId] = null
-      this.selectedSentenceIdsByDocId[docId] = []
-      this.errorByDocId[docId] = null
-    },
-
-    setSelectedSentenceIds(docId: string, sentenceIds: string[]): void {
-      this.selectedSentenceIdsByDocId[docId] = uniqueNonEmptySentenceIds(sentenceIds)
-    },
-
-    toggleSentenceSelection(docId: string, sentenceId: string): void {
-      if (!sentenceId) {
-        return
-      }
-
-      const current = this.selectedSentenceIdsByDocId[docId] ?? []
-      if (current.includes(sentenceId)) {
-        this.selectedSentenceIdsByDocId[docId] = current.filter((id) => id !== sentenceId)
-        return
-      }
-
-      this.selectedSentenceIdsByDocId[docId] = [...current, sentenceId]
-    },
-
-    clearSelection(docId: string): void {
-      this.selectedSentenceIdsByDocId[docId] = []
-    },
-
-    applySegmentationSnapshot(
+    async getSentences(
       docId: string,
-      response: SentenceSegmentationResultSnapshot,
-    ): void {
-      const preview = response.preview ?? []
-      const hasMore = response.sentenceCount > preview.length
+      processId: string,
+      options: GetSentenceOptions = {},
+    ): Promise<SentenceCursorPage> {
+      const key = getSentenceKey(docId, processId)
+      const afterStartOffset = options.afterStartOffset ?? null
+      const limit = options.limit ?? DEFAULT_SENTENCE_PAGE_LIMIT
+      const append = options.append ?? false
 
-      this.processingByDocId[docId] = response.processing
-      this.itemsByDocId[docId] = preview
-      this.nextAfterStartOffsetByDocId[docId] = getNextAfterStartOffsetFromPreview(
-        preview,
-        hasMore,
-      )
-      this.hasMoreByDocId[docId] = hasMore
-      this.pendingRefreshProcessingIdByDocId[docId] = null
-      this.selectedSentenceIdsByDocId[docId] = []
-    },
-
-    async initializeAnalyzePage(docId: string): Promise<SentenceSegmentationResultSnapshot> {
-      this.processingByDocId[docId] = null
-      this.itemsByDocId[docId] = []
-      this.nextAfterStartOffsetByDocId[docId] = null
-      this.hasMoreByDocId[docId] = false
-      this.pendingRefreshProcessingIdByDocId[docId] = null
-      this.selectedSentenceIdsByDocId[docId] = []
-      this.errorByDocId[docId] = null
-      this.loadingByDocId[docId] = true
+      this.loadingByDocProcessKey[key] = true
+      this.errorByDocProcessKey[key] = null
 
       try {
-        const response = await getLatestSentenceSegmentationResult(docId)
-        this.applySegmentationSnapshot(docId, response)
-        return response
-      } catch (error) {
-        this.errorByDocId[docId] = toErrorMessage(error)
-        throw error
-      } finally {
-        this.loadingByDocId[docId] = false
-        this.flushQueuedSentenceListRefresh(docId)
-      }
-    },
+        const page = await get<SentenceCursorPage>(
+          `/api/documents/${encodeURIComponent(docId)}/sentences`,
+          {
+            params: {
+              processingId: processId,
+              afterStartOffset,
+              limit,
+            },
+          },
+        )
 
-    async segmentDocument(docId: string): Promise<SentenceSegmentationResponse> {
-      this.loadingByDocId[docId] = true
-      this.errorByDocId[docId] = null
-
-      try {
-        const response = await segmentDocumentSentences(docId)
-        this.processingByDocId[docId] = response.processing
-        this.selectedSentenceIdsByDocId[docId] = []
-
-        if (response.processing.state === 'succeed') {
-          this.applySegmentationSnapshot(docId, response)
+        const nextItems = page.items ?? []
+        if (!append) {
+          this.itemsByDocProcessKey[key] = nextItems
+          return page
         }
 
-        return response
-      } catch (error) {
-        this.errorByDocId[docId] = toErrorMessage(error)
-        throw error
-      } finally {
-        this.loadingByDocId[docId] = false
-        this.flushQueuedSentenceListRefresh(docId)
-      }
-    },
-
-    async loadInitialSentences(docId: string, processingId: string): Promise<SentenceCursorPage> {
-      this.loadingByDocId[docId] = true
-      this.errorByDocId[docId] = null
-
-      try {
-        const page = await getSentenceCursorPageApi(
-          docId,
-          processingId,
-          null,
-          DEFAULT_SENTENCE_PAGE_LIMIT,
-        )
-        this.itemsByDocId[docId] = page.items ?? []
-        this.nextAfterStartOffsetByDocId[docId] = page.nextAfterStartOffset
-        this.hasMoreByDocId[docId] = page.hasMore
-        this.selectedSentenceIdsByDocId[docId] = []
-        return page
-      } catch (error) {
-        this.errorByDocId[docId] = toErrorMessage(error)
-        throw error
-      } finally {
-        this.loadingByDocId[docId] = false
-        this.flushQueuedSentenceListRefresh(docId)
-      }
-    },
-
-    async loadMoreSentences(docId: string, processingId: string): Promise<SentenceCursorPage | null> {
-      if (!this.hasMoreByDocId[docId]) {
-        return null
-      }
-
-      this.loadingByDocId[docId] = true
-      this.errorByDocId[docId] = null
-
-      try {
-        const page = await getSentenceCursorPageApi(
-          docId,
-          processingId,
-          this.nextAfterStartOffsetByDocId[docId] ?? null,
-          DEFAULT_SENTENCE_PAGE_LIMIT,
-        )
-
-        const existingItems = this.itemsByDocId[docId] ?? []
+        const existingItems = this.itemsByDocProcessKey[key] ?? []
         const existingIds = new Set(existingItems.map((item) => item.id))
-        const newItems = (page.items ?? []).filter((item) => !existingIds.has(item.id))
-
-        this.itemsByDocId[docId] = [...existingItems, ...newItems]
-        this.nextAfterStartOffsetByDocId[docId] = page.nextAfterStartOffset
-        this.hasMoreByDocId[docId] = page.hasMore
+        const dedupedNextItems = nextItems.filter((item) => !existingIds.has(item.id))
+        this.itemsByDocProcessKey[key] = [...existingItems, ...dedupedNextItems]
 
         return page
       } catch (error) {
-        this.errorByDocId[docId] = toErrorMessage(error)
+        this.errorByDocProcessKey[key] = toErrorMessage(error)
         throw error
       } finally {
-        this.loadingByDocId[docId] = false
-        this.flushQueuedSentenceListRefresh(docId)
+        this.loadingByDocProcessKey[key] = false
       }
     },
 
-    async mergeSelected(docId: string): Promise<void> {
-      const processing = this.processingByDocId[docId]
-      if (!processing) {
-        throw new Error(`No processing found for document: ${docId}`)
-      }
-
-      const selectedSentenceIds = uniqueNonEmptySentenceIds(
-        this.selectedSentenceIdsByDocId[docId] ?? [],
-      )
-      if (!selectedSentenceIds.length) {
+    async mergeSentences(
+      docId: string,
+      processId: string,
+      sentenceIds: string[],
+    ): Promise<void> {
+      const normalizedSentenceIds = uniqueNonEmptySentenceIds(sentenceIds)
+      if (!normalizedSentenceIds.length) {
         return
       }
 
-      this.loadingByDocId[docId] = true
-      this.errorByDocId[docId] = null
-
-      try {
-        await mergeSentences(selectedSentenceIds)
-        await this.loadInitialSentences(docId, processing.id)
-      } catch (error) {
-        this.errorByDocId[docId] = toErrorMessage(error)
-        throw error
-      } finally {
-        this.loadingByDocId[docId] = false
-        this.flushQueuedSentenceListRefresh(docId)
-      }
+      await post<SentenceItem>('/api/sentences/merge', {
+        sentenceIds: normalizedSentenceIds,
+      })
+      await this.getSentences(docId, processId)
     },
 
-    async clipSentence(docId: string, sentenceId: string, splitOffset: number): Promise<void> {
-      const processing = this.processingByDocId[docId]
-      if (!processing) {
-        throw new Error(`No processing found for document: ${docId}`)
-      }
-
-      this.loadingByDocId[docId] = true
-      this.errorByDocId[docId] = null
-
-      try {
-        await clipSentenceApi(sentenceId, splitOffset)
-        await this.loadInitialSentences(docId, processing.id)
-      } catch (error) {
-        this.errorByDocId[docId] = toErrorMessage(error)
-        throw error
-      } finally {
-        this.loadingByDocId[docId] = false
-        this.flushQueuedSentenceListRefresh(docId)
-      }
+    async clipSentence(
+      docId: string,
+      processId: string,
+      sentenceId: string,
+      splitOffset: number,
+    ): Promise<void> {
+      await post<ClipSentenceResponse>(
+        `/api/sentences/${encodeURIComponent(sentenceId)}/clip`,
+        { splitOffset },
+      )
+      await this.getSentences(docId, processId)
     },
   },
-});
+})

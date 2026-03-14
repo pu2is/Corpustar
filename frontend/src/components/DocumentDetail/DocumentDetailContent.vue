@@ -1,17 +1,15 @@
 ﻿<script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 
 import DocumentSourceTextPanel from '@/components/DocumentDetail/Content/DocumentSourceTextPanel.vue'
 import SentenceTable from '@/components/DocumentDetail/Content/SentenceTable.vue'
 import { useDocumentStore } from '@/stores/documentStore'
-import { useSentenceStore } from '@/stores/sentenceStore'
+import { useProcessStore } from '@/stores/processStore'
 
 const route = useRoute()
 const documentStore = useDocumentStore()
-const sentenceStore = useSentenceStore()
-const { processingByDocId } = storeToRefs(sentenceStore)
+const processStore = useProcessStore()
 
 const pageLoading = ref(true)
 
@@ -23,7 +21,7 @@ const docId = computed(() => {
 })
 
 const documentItem = computed(() => documentStore.getDocumentById(docId.value))
-const activeProcessing = computed(() => processingByDocId.value[docId.value] ?? null)
+const activeProcessing = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value))
 const docHasNoProcessing = computed(() => Boolean(documentItem.value) && !activeProcessing.value)
 
 async function initializeAnalyzeWorkspace(targetDocId: string): Promise<void> {
@@ -36,7 +34,7 @@ async function initializeAnalyzeWorkspace(targetDocId: string): Promise<void> {
       await documentStore.getAllDocuments()
     }
 
-    await sentenceStore.initializeAnalyzePage(targetDocId)
+    await processStore.getAllProcesses()
   } catch {
     // Store actions already preserve error state for rendering.
   } finally {

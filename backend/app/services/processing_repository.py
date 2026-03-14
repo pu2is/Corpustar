@@ -183,6 +183,30 @@ def get_processing_by_id(processing_id: str) -> ProcessingRow | None:
         connection_generator.close()
 
 
+def list_processings() -> list[ProcessingRow]:
+    connection_generator = get_connection()
+    connection = next(connection_generator)
+    try:
+        rows = connection.execute(
+            f"""
+            SELECT
+                id,
+                doc_id,
+                type,
+                state,
+                created_at,
+                updated_at,
+                error_message,
+                meta_json
+            FROM {PROCESSINGS_TABLE_NAME}
+            ORDER BY created_at DESC
+            """
+        ).fetchall()
+        return [_map_processing_row(row) for row in rows]
+    finally:
+        connection_generator.close()
+
+
 def list_processings_by_doc_id(doc_id: str) -> list[ProcessingRow]:
     connection_generator = get_connection()
     connection = next(connection_generator)

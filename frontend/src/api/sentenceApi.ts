@@ -10,7 +10,7 @@ import type {
 } from '@/types/sentences'
 
 function getSentenceSegmentationEndpoint(docId: string): string {
-  return `/api/documents/${encodeURIComponent(docId)}/sentence-segmentations`
+  return `/api/process/sentence_segmentation/${encodeURIComponent(docId)}`
 }
 
 function getLatestSentenceSegmentationEndpoint(docId: string): string {

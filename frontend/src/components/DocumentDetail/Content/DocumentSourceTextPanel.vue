@@ -4,12 +4,12 @@ import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 // store
 import { useDocumentStore } from '@/stores/documentStore'
-import { useSentenceStore } from '@/stores/sentenceStore'
+import { useProcessStore } from '@/stores/processStore'
 
 const route = useRoute()
 const documentStore = useDocumentStore()
-const sentenceStore = useSentenceStore()
-const { loadingByDocId } = storeToRefs(sentenceStore)
+const processStore = useProcessStore()
+const { loading: processLoading } = storeToRefs(processStore)
 
 const docId = computed(() => {
   const param = route.params.doc_id
@@ -18,7 +18,7 @@ const docId = computed(() => {
 
 const documentItem = computed(() => documentStore.getDocumentById(docId.value))
 const textPath = computed(() => documentItem.value?.textPath ?? '')
-const sentenceLoading = computed(() => loadingByDocId.value[docId.value] ?? false)
+const actionLoading = computed(() => processLoading.value)
 
 const sourceText = ref('')
 const sourceTextLoading = ref(false)
@@ -29,7 +29,7 @@ function segmentSentences(): void {
   if (!docId.value) {
     return
   }
-  void sentenceStore.segmentDocument(docId.value).catch(() => undefined)
+  void processStore.segmentDocument(docId.value).catch(() => undefined)
 }
 
 async function loadSourceText(textPath: string): Promise<void> {
@@ -70,7 +70,7 @@ watch(textPath, (nextTextPath) => {
 
 <template>
   <button type="button"
-    :disabled="sentenceLoading"
+    :disabled="actionLoading"
     class="w-fit rounded border px-3 py-1 mb-4 text-sm disabled:opacity-60"
     @click="segmentSentences">
     Segment Sentences

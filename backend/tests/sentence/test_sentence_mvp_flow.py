@@ -112,7 +112,7 @@ class SentenceMvpFlowTests(unittest.TestCase):
 
         with TestClient(app) as client:
             segmentation_response = client.post(
-                f"/api/documents/{document['id']}/sentence-segmentations"
+                f"/api/process/sentence_segmentation/{document['id']}"
             )
             self.assertEqual(segmentation_response.status_code, 200)
             segmentation_body = segmentation_response.json()
@@ -195,13 +195,13 @@ class SentenceMvpFlowTests(unittest.TestCase):
 
         with TestClient(app) as client:
             first_segmentation = client.post(
-                f"/api/documents/{document['id']}/sentence-segmentations"
+                f"/api/process/sentence_segmentation/{document['id']}"
             )
             self.assertEqual(first_segmentation.status_code, 200)
             first_processing_id = first_segmentation.json()["processing"]["id"]
 
             second_segmentation = client.post(
-                f"/api/documents/{document['id']}/sentence-segmentations"
+                f"/api/process/sentence_segmentation/{document['id']}"
             )
             self.assertEqual(second_segmentation.status_code, 200)
             second_body = second_segmentation.json()
@@ -260,7 +260,7 @@ class SentenceMvpFlowTests(unittest.TestCase):
         try:
             with TestClient(app) as client:
                 response = client.post(
-                    f"/api/documents/{document['id']}/sentence-segmentations"
+                    f"/api/process/sentence_segmentation/{document['id']}"
                 )
             self.assertEqual(response.status_code, 200)
             response_body = response.json()
