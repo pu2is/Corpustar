@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-import ClipSentenceDialog from '@/components/sentences/ClipSentenceDialog.vue'
+import ClipSentenceDialog from '@/components/DocumentDetail/Content/SentenceSegmentation/ClipSentenceDialog.vue'
 import type { SentenceItem } from '@/types/sentences'
 
 const props = defineProps<{
@@ -36,14 +36,12 @@ function submitClip(splitOffset: number): void {
 </script>
 
 <template>
-  <li class="rounded border p-2 space-y-2">
+  <div class="rounded border p-2 space-y-2">
     <div class="flex items-start gap-2">
-      <input
-        type="checkbox"
+      <input type="checkbox"
         :checked="selected"
         :disabled="loading"
-        @change="toggleSelection"
-      >
+        @change="toggleSelection">
       <div class="min-w-0 flex-1 space-y-1">
         <p class="text-xs text-text-muted">
           {{ item.startOffset }} - {{ item.endOffset }}
@@ -52,12 +50,10 @@ function submitClip(splitOffset: number): void {
           {{ item.text }}
         </p>
       </div>
-      <button
-        type="button"
+      <button type="button"
         :disabled="loading"
         class="rounded border px-2 py-1 text-xs disabled:opacity-60"
-        @click="openClipDialog"
-      >
+        @click="openClipDialog">
         Clip
       </button>
     </div>
@@ -66,5 +62,5 @@ function submitClip(splitOffset: number): void {
       @close="closeClipDialog"
       @submit="submitClip"
     />
-  </li>
+  </div>
 </template>

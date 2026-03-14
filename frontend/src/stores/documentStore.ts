@@ -73,6 +73,15 @@ export const useDocumentStore = defineStore('document-store', {
     socketBound: false,
     socketUnsubscribers: [],
   }),
+  getters: {
+    getDocumentById: (state) => (docId: string): DocItem | null => {
+      const documentMap = new Map<string, DocItem>(
+        state.documents.map((document) => [document.id, document] as const),
+      );
+
+      return documentMap.get(docId) ?? null;
+    },
+  },
   actions: {
     bindSocketEvents(): void {
       if (this.socketBound) {
@@ -102,65 +111,7 @@ export const useDocumentStore = defineStore('document-store', {
       this.socketBound = false;
     },
 
-    addDocumentToStore(doc: DocItem): void {
-      const existingIndex = this.documents.findIndex((existingDoc) => existingDoc.id === doc.id);
-      if (existingIndex >= 0) {
-        this.documents.splice(existingIndex, 1, doc);
-        return;
-      }
-
-      this.documents.unshift(doc);
-    },
-
-    replaceDocument(tempId: string, doc: DocItem): void {
-      const targetIndex = this.documents.findIndex((existingDoc) => existingDoc.id === tempId);
-      if (targetIndex >= 0) {
-        this.documents.splice(targetIndex, 1, doc);
-        return;
-      }
-
-      this.addDocumentToStore(doc);
-    },
-
-    removeDocumentFromStore(id: string): void {
-      this.documents = this.documents.filter((doc) => doc.id !== id);
-    },
-
-    handleDocumentCreated(payload: unknown): void {
-      if (!isRecord(payload)) {
-        return;
-      }
-
-      const tempId = toNonEmptyString(payload.tempId);
-      const candidate = toDocItemFromCreatedPayload(payload)
-        ?? toDocItemFromCreatedPayload(payload.doc)
-        ?? toDocItemFromCreatedPayload(payload.document);
-
-      if (!candidate) {
-        return;
-      }
-
-      if (tempId) {
-        this.replaceDocument(tempId, candidate);
-        return;
-      }
-
-      this.addDocumentToStore(candidate);
-    },
-
-    handleDocumentRemoved(payload: unknown): void {
-      if (!isRecord(payload)) {
-        return;
-      }
-
-      const removedId = toNonEmptyString(payload.id);
-      if (!removedId) {
-        return;
-      }
-
-      this.removeDocumentFromStore(removedId);
-    },
-
+    // Get
     async getAllDocuments(): Promise<DocItem[]> {
       this.loading = true;
       this.error = null;
@@ -208,6 +159,67 @@ export const useDocumentStore = defineStore('document-store', {
       } finally {
         this.loading = false;
       }
+    },
+
+    // Socket
+    handleDocumentCreated(payload: unknown): void {
+      if (!isRecord(payload)) {
+        return;
+      }
+
+      const tempId = toNonEmptyString(payload.tempId);
+      const candidate = toDocItemFromCreatedPayload(payload)
+        ?? toDocItemFromCreatedPayload(payload.doc)
+        ?? toDocItemFromCreatedPayload(payload.document);
+
+      if (!candidate) {
+        return;
+      }
+
+      if (tempId) {
+        this.replaceDocument(tempId, candidate);
+        return;
+      }
+
+      this.addDocumentToStore(candidate);
+    },
+
+    handleDocumentRemoved(payload: unknown): void {
+      if (!isRecord(payload)) {
+        return;
+      }
+
+      const removedId = toNonEmptyString(payload.id);
+      if (!removedId) {
+        return;
+      }
+
+      this.removeDocumentFromStore(removedId);
+    },
+
+    // Store manipulation
+    addDocumentToStore(doc: DocItem): void {
+      const existingIndex = this.documents.findIndex((existingDoc) => existingDoc.id === doc.id);
+      if (existingIndex >= 0) {
+        this.documents.splice(existingIndex, 1, doc);
+        return;
+      }
+
+      this.documents.unshift(doc);
+    },
+
+    replaceDocument(tempId: string, doc: DocItem): void {
+      const targetIndex = this.documents.findIndex((existingDoc) => existingDoc.id === tempId);
+      if (targetIndex >= 0) {
+        this.documents.splice(targetIndex, 1, doc);
+        return;
+      }
+
+      this.addDocumentToStore(doc);
+    },
+
+    removeDocumentFromStore(id: string): void {
+      this.documents = this.documents.filter((doc) => doc.id !== id);
     },
   },
 })
