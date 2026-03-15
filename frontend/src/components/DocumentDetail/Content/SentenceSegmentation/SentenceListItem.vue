@@ -8,23 +8,17 @@ type MergeDirection = 'prev' | 'next'
 
 const props = defineProps<{
   item: SentenceItem
-  selected: boolean
   loading: boolean
   canMergePrev: boolean
   canMergeNext: boolean
 }>()
 
 const emit = defineEmits<{
-  selectSentence: [sentenceId: string]
   requestMerge: [sentenceId: string, direction: MergeDirection]
   clip: [sentenceId: string, splitOffset: number]
 }>()
 
 const clipDialogOpen = ref(false)
-
-function toggleSelection(): void {
-  emit('selectSentence', props.item.id)
-}
 
 function requestMerge(direction: MergeDirection): void {
   emit('requestMerge', props.item.id, direction)
@@ -47,10 +41,6 @@ function submitClip(splitOffset: number): void {
 <template>
   <div class="rounded border p-2 space-y-2">
     <div class="flex items-start gap-2">
-      <input type="checkbox"
-        :checked="selected"
-        :disabled="loading"
-        @change="toggleSelection">
       <div class="min-w-0 flex-1 space-y-1">
         <p class="text-xs text-text-muted">
           {{ item.startOffset }} - {{ item.endOffset }}
@@ -59,12 +49,6 @@ function submitClip(splitOffset: number): void {
           {{ item.text }}
         </p>
       </div>
-      <button type="button"
-        :disabled="loading"
-        class="rounded border px-2 py-1 text-xs disabled:opacity-60"
-        @click="openClipDialog">
-        Clip
-      </button>
     </div>
     <div class="flex gap-2">
       <button type="button"
@@ -78,6 +62,12 @@ function submitClip(splitOffset: number): void {
         class="rounded border px-2 py-1 text-xs disabled:opacity-60"
         @click="requestMerge('next')">
         Merge Next
+      </button>
+      <button type="button"
+        :disabled="loading"
+        class="rounded border px-2 py-1 text-xs disabled:opacity-60"
+        @click="openClipDialog">
+        Clip
       </button>
     </div>
     <ClipSentenceDialog

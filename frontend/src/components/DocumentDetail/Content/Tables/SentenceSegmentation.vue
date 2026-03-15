@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 // components
-import SegmentationButtons from '@/components/DocumentDetail/Content/SentenceSegmentation/SegmentationButtons.vue'
 import SentenceListItem from '@/components/DocumentDetail/Content/SentenceSegmentation/SentenceListItem.vue'
 // store
 import { usePaginationStore } from '@/stores/local/paginationStore'
@@ -54,33 +53,6 @@ const sentenceLoading = computed(() => {
 })
 const actionLoading = computed(() => sentenceLoading.value || processLoading.value)
 
-const selectedSentenceId = ref<string | null>(null)
-const pendingMergeDirection = ref<MergeDirection | null>(null)
-const pendingMergeTargetId = ref<string | null>(null)
-
-const sentenceItemById = computed(() => {
-  return new Map(sentenceItems.value.map((item) => [item.id, item] as const))
-})
-const pendingMergeTarget = computed(() => {
-  if (!pendingMergeTargetId.value) {
-    return null
-  }
-  return sentenceItemById.value.get(pendingMergeTargetId.value) ?? null
-})
-const canMerge = computed(() => {
-  return Boolean(
-    selectedSentenceId.value
-    && pendingMergeDirection.value
-    && pendingMergeTargetId.value,
-  )
-})
-
-function clearPendingMerge(): void {
-  selectedSentenceId.value = null
-  pendingMergeDirection.value = null
-  pendingMergeTargetId.value = null
-}
-
 function getAdjacentSentenceId(sentenceId: string, direction: MergeDirection): string | null {
   const sentenceIndex = sentenceItems.value.findIndex((item) => item.id === sentenceId)
   if (sentenceIndex < 0) {
@@ -102,45 +74,20 @@ function loadMoreSentences(): void {
   void paginationStore.loadMore(docId.value, processingId).catch(() => undefined)
 }
 
-function selectSentence(sentenceId: string): void {
-  if (!sentenceId) {
-    return
-  }
-
-  if (selectedSentenceId.value === sentenceId) {
-    clearPendingMerge()
-    return
-  }
-
-  selectedSentenceId.value = sentenceId
-  pendingMergeDirection.value = null
-  pendingMergeTargetId.value = null
-}
-
-function requestMerge(sentenceId: string, direction: MergeDirection): void {
-  selectedSentenceId.value = sentenceId
-  pendingMergeDirection.value = direction
-  pendingMergeTargetId.value = getAdjacentSentenceId(sentenceId, direction)
-}
-
-function mergePendingSentences(): void {
+function mergeSentences(sentenceId: string, direction: MergeDirection): void {
   const processingId = activeProcessingId.value
-  if (!docId.value || !processingId || !selectedSentenceId.value || !pendingMergeTargetId.value || !pendingMergeDirection.value) {
+  const adjacentSentenceId = getAdjacentSentenceId(sentenceId, direction)
+  if (!docId.value || !processingId || !adjacentSentenceId) {
     return
   }
 
-  const selectedId = selectedSentenceId.value
-  const targetId = pendingMergeTargetId.value
-  const mergeSentenceIds = pendingMergeDirection.value === 'prev'
-    ? [targetId, selectedId]
-    : [selectedId, targetId]
+  const mergeSentenceIds = direction === 'prev'
+    ? [adjacentSentenceId, sentenceId]
+    : [sentenceId, adjacentSentenceId]
 
   void sentenceStore.mergeSentences(docId.value, processingId, mergeSentenceIds)
     .then(() => {
       return paginationStore.loadFirstPage(docId.value, processingId)
-    })
-    .then(() => {
-      clearPendingMerge()
     })
     .catch(() => undefined)
 }
@@ -150,7 +97,6 @@ function clipSentence(sentenceId: string, splitOffset: number): void {
   if (!docId.value || !processingId) {
     return
   }
-  clearPendingMerge()
   void sentenceStore.clipSentence(docId.value, processingId, sentenceId, splitOffset)
     .then(() => {
       return paginationStore.loadFirstPage(docId.value, processingId)
@@ -161,7 +107,6 @@ function clipSentence(sentenceId: string, splitOffset: number): void {
 watch(
   activeDocProcessKey,
   (nextKey) => {
-    clearPendingMerge()
     if (!nextKey || !docId.value || !activeProcessingId.value) {
       return
     }
@@ -170,26 +115,6 @@ watch(
   },
   { immediate: true },
 )
-
-watch(sentenceItems, (nextItems) => {
-  if (!nextItems.length) {
-    clearPendingMerge()
-    return
-  }
-
-  const itemIds = new Set(nextItems.map((item) => item.id))
-  const selectedId = selectedSentenceId.value
-  if (selectedId && !itemIds.has(selectedId)) {
-    clearPendingMerge()
-    return
-  }
-
-  const pendingTargetId = pendingMergeTargetId.value
-  if (pendingTargetId && !itemIds.has(pendingTargetId)) {
-    pendingMergeDirection.value = null
-    pendingMergeTargetId.value = null
-  }
-})
 </script>
 
 <template>
@@ -200,23 +125,13 @@ watch(sentenceItems, (nextItems) => {
     </p>
 
     <div v-else class="min-h-0 flex flex-1 flex-col gap-3 overflow-hidden">
-      <SegmentationButtons v-if="activeProcessing"
-        :loading="actionLoading"
-        :can-merge="canMerge"
-        :pending-merge-direction="pendingMergeDirection"
-        :pending-merge-target="pendingMergeTarget"
-        @merge="mergePendingSentences"
-        @clear="clearPendingMerge" />
-
       <div class="scroll-area min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         <SentenceListItem v-for="(item, index) in sentenceItems"
           :key="item.id" :item="item"
-          :selected="selectedSentenceId === item.id"
           :loading="actionLoading"
           :can-merge-prev="index > 0"
           :can-merge-next="index < sentenceItems.length - 1"
-          @select-sentence="selectSentence"
-          @request-merge="requestMerge"
+          @request-merge="mergeSentences"
           @clip="clipSentence" />
       </div>
 
