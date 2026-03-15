@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 // components
@@ -9,7 +9,7 @@ import { usePaginationStore } from '@/stores/local/paginationStore'
 import { useProcessStore } from '@/stores/processStore'
 import { useSentenceStore } from '@/stores/sentenceStore'
 
-type MergeDirection = 'prev' | 'next'
+const DEFAULT_SENTENCE_PAGE_LIMIT = 20
 
 const route = useRoute()
 const paginationStore = usePaginationStore()
@@ -52,18 +52,46 @@ const sentenceLoading = computed(() => {
     || sentenceStore.isSentenceLoading(docId.value, activeProcessingId.value)
 })
 const actionLoading = computed(() => sentenceLoading.value || processLoading.value)
+const sentenceListRef = ref<HTMLDivElement | null>(null)
+const highlightedSentenceIds = ref<string[]>([])
+const highlightedSentenceIdSet = computed(() => new Set(highlightedSentenceIds.value))
 
-function getAdjacentSentenceId(sentenceId: string, direction: MergeDirection): string | null {
+function setHighlightedSentenceIds(sentenceIds: string[]): void {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+
+  for (const sentenceId of sentenceIds) {
+    if (!sentenceId || seen.has(sentenceId)) {
+      continue
+    }
+    seen.add(sentenceId)
+    normalized.push(sentenceId)
+  }
+
+  highlightedSentenceIds.value = normalized
+}
+
+function restoreSentenceListScrollTop(scrollTop: number): void {
+  void nextTick(() => {
+    const listElement = sentenceListRef.value
+    if (!listElement) {
+      return
+    }
+    listElement.scrollTop = scrollTop
+  })
+}
+
+function getPreviousSentenceId(sentenceId: string): string | null {
   const sentenceIndex = sentenceItems.value.findIndex((item) => item.id === sentenceId)
   if (sentenceIndex < 0) {
     return null
   }
 
-  if (direction === 'prev') {
-    return sentenceItems.value[sentenceIndex - 1]?.id ?? null
-  }
+  return sentenceItems.value[sentenceIndex - 1]?.id ?? null
+}
 
-  return sentenceItems.value[sentenceIndex + 1]?.id ?? null
+function getCurrentSentenceLoadLimit(): number {
+  return Math.max(sentenceItems.value.length, DEFAULT_SENTENCE_PAGE_LIMIT)
 }
 
 function loadMoreSentences(): void {
@@ -74,39 +102,57 @@ function loadMoreSentences(): void {
   void paginationStore.loadMore(docId.value, processingId).catch(() => undefined)
 }
 
-function mergeSentences(sentenceId: string, direction: MergeDirection): void {
+function runSentenceMutation<T>(
+  operation: () => Promise<T>,
+  onSuccess?: (result: T) => void,
+): void {
+  const currentDocId = docId.value
   const processingId = activeProcessingId.value
-  const adjacentSentenceId = getAdjacentSentenceId(sentenceId, direction)
-  if (!docId.value || !processingId || !adjacentSentenceId) {
+  if (!currentDocId || !processingId) {
     return
   }
 
-  const mergeSentenceIds = direction === 'prev'
-    ? [adjacentSentenceId, sentenceId]
-    : [sentenceId, adjacentSentenceId]
+  const currentScrollTop = sentenceListRef.value?.scrollTop ?? 0
+  const currentLoadLimit = getCurrentSentenceLoadLimit()
 
-  void sentenceStore.mergeSentences(docId.value, processingId, mergeSentenceIds)
+  void operation()
+    .then((result) => {
+      onSuccess?.(result)
+      return paginationStore.loadFirstPage(currentDocId, processingId, currentLoadLimit)
+    })
     .then(() => {
-      return paginationStore.loadFirstPage(docId.value, processingId)
+      restoreSentenceListScrollTop(currentScrollTop)
     })
     .catch(() => undefined)
 }
 
-function clipSentence(sentenceId: string, splitOffset: number): void {
-  const processingId = activeProcessingId.value
-  if (!docId.value || !processingId) {
+function mergePreviousSentence(sentenceId: string): void {
+  const previousSentenceId = getPreviousSentenceId(sentenceId)
+  if (!previousSentenceId) {
     return
   }
-  void sentenceStore.clipSentence(docId.value, processingId, sentenceId, splitOffset)
-    .then(() => {
-      return paginationStore.loadFirstPage(docId.value, processingId)
-    })
-    .catch(() => undefined)
+
+  runSentenceMutation(
+    () => sentenceStore.mergeSentences([previousSentenceId, sentenceId]),
+    (mergedItem) => {
+      setHighlightedSentenceIds([mergedItem.id])
+    },
+  )
+}
+
+function clipSentence(sentenceId: string, splitOffset: number): void {
+  runSentenceMutation(
+    () => sentenceStore.clipSentence(sentenceId, splitOffset),
+    (clippedItems) => {
+      setHighlightedSentenceIds(clippedItems.slice(0, 2).map((item) => item.id))
+    },
+  )
 }
 
 watch(
   activeDocProcessKey,
   (nextKey) => {
+    highlightedSentenceIds.value = []
     if (!nextKey || !docId.value || !activeProcessingId.value) {
       return
     }
@@ -125,13 +171,14 @@ watch(
     </p>
 
     <div v-else class="min-h-0 flex flex-1 flex-col gap-3 overflow-hidden">
-      <div class="scroll-area min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+      <div ref="sentenceListRef"
+        class="scroll-area min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         <SentenceListItem v-for="(item, index) in sentenceItems"
           :key="item.id" :item="item"
           :loading="actionLoading"
           :can-merge-prev="index > 0"
-          :can-merge-next="index < sentenceItems.length - 1"
-          @request-merge="mergeSentences"
+          :highlighted="highlightedSentenceIdSet.has(item.id)"
+          @request-merge="mergePreviousSentence"
           @clip="clipSentence" />
       </div>
 

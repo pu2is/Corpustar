@@ -3,17 +3,15 @@ import { nextTick, ref } from 'vue'
 
 import type { SentenceItem } from '@/types/sentences'
 
-type MergeDirection = 'prev' | 'next'
-
 const props = defineProps<{
   item: SentenceItem
   loading: boolean
   canMergePrev: boolean
-  canMergeNext: boolean
+  highlighted: boolean
 }>()
 
 const emit = defineEmits<{
-  requestMerge: [sentenceId: string, direction: MergeDirection]
+  requestMerge: [sentenceId: string]
   clip: [sentenceId: string, splitOffset: number]
 }>()
 
@@ -21,8 +19,8 @@ const clipInputMode = ref(false)
 const clipInputRef = ref<HTMLTextAreaElement | null>(null)
 const sanitizeInputEnabled = ref(false)
 
-function requestMerge(direction: MergeDirection): void {
-  emit('requestMerge', props.item.id, direction)
+function requestMergePrev(): void {
+  emit('requestMerge', props.item.id)
 }
 
 function openClipInput(): void {
@@ -112,7 +110,8 @@ function handleClipClick(): void {
 </script>
 
 <template>
-  <div class="rounded border p-2 space-y-2">
+  <div class="rounded border p-2 space-y-2 transition-colors duration-200"
+    :class="highlighted ? 'border-emerald-500 bg-emerald-50/60' : 'border-border'">
     <div class="flex items-start gap-2">
       <div class="min-w-0 flex-1 space-y-1">
         <p class="text-xs text-text-muted">
@@ -139,14 +138,8 @@ function handleClipClick(): void {
       <button type="button"
         :disabled="loading || !canMergePrev"
         class="rounded border px-2 py-1 text-xs disabled:opacity-60"
-        @click="requestMerge('prev')">
+        @click="requestMergePrev">
         Merge Prev
-      </button>
-      <button type="button"
-        :disabled="loading || !canMergeNext"
-        class="rounded border px-2 py-1 text-xs disabled:opacity-60"
-        @click="requestMerge('next')">
-        Merge Next
       </button>
       <button type="button"
         :disabled="loading"

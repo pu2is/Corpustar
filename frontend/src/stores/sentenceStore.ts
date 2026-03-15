@@ -144,7 +144,19 @@ export const useSentenceStore = defineStore('sentence-store', {
         return
       }
 
-      void this.getSentences(parsed.docId, parsed.processingId).catch(() => undefined)
+      void this.refreshLoadedSentences(parsed.docId, parsed.processingId).catch(() => undefined)
+    },
+
+    async refreshLoadedSentences(docId: string, processId: string): Promise<SentenceCursorPage> {
+      const key = getSentenceKey(docId, processId)
+      const existingItems = this.itemsByDocProcessKey[key] ?? []
+      const limit = Math.max(existingItems.length, DEFAULT_SENTENCE_PAGE_LIMIT)
+
+      return this.getSentences(docId, processId, {
+        afterStartOffset: null,
+        limit,
+        append: false,
+      })
     },
 
     async getSentences(
@@ -193,32 +205,28 @@ export const useSentenceStore = defineStore('sentence-store', {
     },
 
     async mergeSentences(
-      docId: string,
-      processId: string,
       sentenceIds: string[],
-    ): Promise<void> {
+    ): Promise<SentenceItem> {
       const normalizedSentenceIds = uniqueNonEmptySentenceIds(sentenceIds)
-      if (!normalizedSentenceIds.length) {
-        return
+      if (normalizedSentenceIds.length < 2) {
+        throw new Error('At least two sentence IDs are required for merge.')
       }
 
-      await post<SentenceItem>('/api/sentences/merge', {
+      const mergedItem = await post<SentenceItem>('/api/sentences/merge', {
         sentenceIds: normalizedSentenceIds,
       })
-      await this.getSentences(docId, processId)
+      return mergedItem
     },
 
     async clipSentence(
-      docId: string,
-      processId: string,
       sentenceId: string,
       splitOffset: number,
-    ): Promise<void> {
-      await post<ClipSentenceResponse>(
+    ): Promise<SentenceItem[]> {
+      const response = await post<ClipSentenceResponse>(
         `/api/sentences/${encodeURIComponent(sentenceId)}/clip`,
         { splitOffset },
       )
-      await this.getSentences(docId, processId)
+      return response.items ?? []
     },
   },
 })
