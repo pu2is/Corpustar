@@ -3,7 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import router as api_router
 from app.api.ws import router as ws_router
 from app.core.config import settings
-from app.core.db import init_db
+from app.infrastructure.db.migrations import apply_migrations
+from app.infrastructure.db.schema import init_schema
 from app.core.log import get_logger, log_event
 
 LOGGER = get_logger(__name__)
@@ -13,14 +14,29 @@ log_event(
     LOGGER,
     stage="CALL",
     module_file=MODULE_FILE,
-    function_name="init_db",
+    function_name="apply_migrations",
 )
-init_db()
+apply_migrations()
 log_event(
     LOGGER,
     stage="OK",
     module_file=MODULE_FILE,
-    function_name="init_db",
+    function_name="apply_migrations",
+    result="applied",
+)
+
+log_event(
+    LOGGER,
+    stage="CALL",
+    module_file=MODULE_FILE,
+    function_name="init_schema",
+)
+init_schema()
+log_event(
+    LOGGER,
+    stage="OK",
+    module_file=MODULE_FILE,
+    function_name="init_schema",
     result="initialized",
 )
 

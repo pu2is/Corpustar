@@ -6,14 +6,14 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.core.db import (
+from app.infrastructure.db import apply_migrations, init_schema
+from app.infrastructure.db.connection import connection_scope
+from app.infrastructure.db.schema import (
     DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME,
     DOCUMENT_SENTENCES_TABLE_NAME,
     DOCUMENTS_TABLE_NAME,
     PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME,
     PROCESSINGS_TABLE_NAME,
-    get_connection,
-    init_db,
 )
 from app.main import app
 from app.services.add_document_service import add_document
@@ -34,7 +34,8 @@ class SentenceMvpFlowTests(unittest.TestCase):
         cls._original_db_path = settings.sqlite_database_path
         cls._db_tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         settings.sqlite_database_path = Path(cls._db_tmpdir.name) / "sentence-mvp-tests.sqlite3"
-        init_db()
+        apply_migrations()
+        init_schema()
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -67,7 +68,8 @@ class SentenceMvpFlowTests(unittest.TestCase):
         return document
 
     def test_init_db_creates_sentence_tables_and_indexes(self) -> None:
-        init_db()
+        apply_migrations()
+        init_schema()
 
         with sqlite3.connect(settings.sqlite_database_path) as connection:
             table_rows = connection.execute(
@@ -86,13 +88,9 @@ class SentenceMvpFlowTests(unittest.TestCase):
         self.assertIn(PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME, indexes)
         self.assertIn(DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME, indexes)
 
-        connection_generator = get_connection()
-        connection = next(connection_generator)
-        try:
+        with connection_scope() as connection:
             foreign_keys = connection.execute("PRAGMA foreign_keys;").fetchone()[0]
             self.assertEqual(foreign_keys, 1)
-        finally:
-            connection_generator.close()
 
     def test_sentence_segmentation_offsets_are_absolute(self) -> None:
         text = "  Hallo Welt! Wie geht's? Letzte Zeile"

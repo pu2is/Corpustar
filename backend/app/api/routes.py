@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.core.config import settings
-from app.core.database import get_connection
 from app.core.log import get_logger, log_event
+from app.infrastructure.db.deps import get_db_connection
 from app.schemas.documents import DocItem
 from app.schemas.processings import ProcessingItem
 from app.schemas.sentences import (
@@ -115,7 +115,7 @@ def get_processes_route() -> list[ProcessingItem]:
 
 
 @router.get("/health")
-def health(connection: Connection = Depends(get_connection)):
+def health(connection: Connection = Depends(get_db_connection)):
     function_name = "health"
     log_event(
         LOGGER,

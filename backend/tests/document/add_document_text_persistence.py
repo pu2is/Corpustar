@@ -6,7 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.core.config import settings
-from app.core.db import init_db
+from app.infrastructure.db import apply_migrations, init_schema
 from app.services.add_document_service import add_document
 
 
@@ -16,7 +16,8 @@ class AddDocumentTextPersistenceTests(unittest.TestCase):
         cls._original_db_path = settings.sqlite_database_path
         cls._db_tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         settings.sqlite_database_path = Path(cls._db_tmpdir.name) / "test.sqlite3"
-        init_db()
+        apply_migrations()
+        init_schema()
         cls._expected_text_dir = (
             Path(__file__).resolve().parents[2] / "storage" / "texts"
         ).resolve()

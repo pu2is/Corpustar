@@ -7,7 +7,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.core.db import init_db
+from app.infrastructure.db import apply_migrations, init_schema
 from app.main import app
 from app.socket.socket_events import DOCUMENT_CREATED, DOCUMENT_REMOVED
 from app.socket.socket_manager import connection_manager
@@ -20,7 +20,8 @@ class SocketEventFlowTests(unittest.TestCase):
         cls._original_db_path = settings.sqlite_database_path
         cls._db_tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         settings.sqlite_database_path = Path(cls._db_tmpdir.name) / "socket-tests.sqlite3"
-        init_db()
+        apply_migrations()
+        init_schema()
 
     @classmethod
     def tearDownClass(cls) -> None:

@@ -3,7 +3,7 @@ from sqlite3 import Row
 from typing import TypedDict
 from uuid import uuid4
 
-from app.core.db import get_connection
+from app.infrastructure.db.connection import connection_scope
 
 DOCUMENT_SENTENCES_TABLE_NAME = "document_sentences"
 
@@ -45,9 +45,7 @@ def bulk_insert_sentences(
     if not sentences:
         return []
 
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         connection.executemany(
             f"""
             INSERT INTO {DOCUMENT_SENTENCES_TABLE_NAME} (
@@ -71,8 +69,6 @@ def bulk_insert_sentences(
         )
         connection.commit()
         return sentences
-    finally:
-        connection_generator.close()
 
 
 def list_sentences_by_processing_cursor(
@@ -92,9 +88,7 @@ def list_sentences_by_processing_cursor(
 
     parameters.append(limit)
 
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         rows = connection.execute(
             f"""
             SELECT
@@ -113,14 +107,10 @@ def list_sentences_by_processing_cursor(
             tuple(parameters),
         ).fetchall()
         return [_map_sentence_row(row) for row in rows]
-    finally:
-        connection_generator.close()
 
 
 def get_sentence_by_id(sentence_id: str) -> SentenceRow | None:
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         row = connection.execute(
             f"""
             SELECT
@@ -137,8 +127,6 @@ def get_sentence_by_id(sentence_id: str) -> SentenceRow | None:
         if row is None:
             return None
         return _map_sentence_row(row)
-    finally:
-        connection_generator.close()
 
 
 def get_sentences_by_ids(sentence_ids: list[str]) -> list[SentenceRow]:
@@ -146,9 +134,7 @@ def get_sentences_by_ids(sentence_ids: list[str]) -> list[SentenceRow]:
         return []
 
     placeholders = ", ".join("?" for _ in sentence_ids)
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         rows = connection.execute(
             f"""
             SELECT
@@ -164,8 +150,6 @@ def get_sentences_by_ids(sentence_ids: list[str]) -> list[SentenceRow]:
             tuple(sentence_ids),
         ).fetchall()
         return [_map_sentence_row(row) for row in rows]
-    finally:
-        connection_generator.close()
 
 
 def delete_sentences_by_ids(sentence_ids: list[str]) -> int:
@@ -173,9 +157,7 @@ def delete_sentences_by_ids(sentence_ids: list[str]) -> int:
         return 0
 
     placeholders = ", ".join("?" for _ in sentence_ids)
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         cursor = connection.execute(
             f"""
             DELETE FROM {DOCUMENT_SENTENCES_TABLE_NAME}
@@ -185,8 +167,6 @@ def delete_sentences_by_ids(sentence_ids: list[str]) -> int:
         )
         connection.commit()
         return cursor.rowcount
-    finally:
-        connection_generator.close()
 
 
 def insert_sentence(
@@ -203,9 +183,7 @@ def insert_sentence(
         "end_offset": end_offset,
     }
 
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         connection.execute(
             f"""
             INSERT INTO {DOCUMENT_SENTENCES_TABLE_NAME} (
@@ -226,14 +204,10 @@ def insert_sentence(
         )
         connection.commit()
         return sentence
-    finally:
-        connection_generator.close()
 
 
 def count_sentences_by_processing(doc_id: str, processing_id: str) -> int:
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         row = connection.execute(
             f"""
             SELECT COUNT(*) AS count
@@ -246,5 +220,3 @@ def count_sentences_by_processing(doc_id: str, processing_id: str) -> int:
         if row is None:
             return 0
         return int(row["count"])
-    finally:
-        connection_generator.close()

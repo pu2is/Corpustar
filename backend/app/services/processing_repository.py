@@ -5,7 +5,7 @@ from sqlite3 import Row
 from typing import Any
 from uuid import uuid4
 
-from app.core.db import get_connection
+from app.infrastructure.db.connection import connection_scope
 from app.schemas.processings import ProcessingState, ProcessingType
 
 PROCESSINGS_TABLE_NAME = "processings"
@@ -72,9 +72,7 @@ def create_processing(
         "meta_json": meta_json,
     }
 
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         connection.execute(
             f"""
             INSERT INTO {PROCESSINGS_TABLE_NAME} (
@@ -101,8 +99,6 @@ def create_processing(
         )
         connection.commit()
         return processing
-    finally:
-        connection_generator.close()
 
 
 def update_processing_state(
@@ -112,9 +108,7 @@ def update_processing_state(
 ) -> ProcessingRow:
     updated_at = _now_iso()
 
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         cursor = connection.execute(
             f"""
             UPDATE {PROCESSINGS_TABLE_NAME}
@@ -152,14 +146,10 @@ def update_processing_state(
 
         connection.commit()
         return _map_processing_row(row)
-    finally:
-        connection_generator.close()
 
 
 def get_processing_by_id(processing_id: str) -> ProcessingRow | None:
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         row = connection.execute(
             f"""
             SELECT
@@ -179,14 +169,10 @@ def get_processing_by_id(processing_id: str) -> ProcessingRow | None:
         if row is None:
             return None
         return _map_processing_row(row)
-    finally:
-        connection_generator.close()
 
 
 def list_processings() -> list[ProcessingRow]:
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         rows = connection.execute(
             f"""
             SELECT
@@ -203,14 +189,10 @@ def list_processings() -> list[ProcessingRow]:
             """
         ).fetchall()
         return [_map_processing_row(row) for row in rows]
-    finally:
-        connection_generator.close()
 
 
 def list_processings_by_doc_id(doc_id: str) -> list[ProcessingRow]:
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         rows = connection.execute(
             f"""
             SELECT
@@ -229,8 +211,6 @@ def list_processings_by_doc_id(doc_id: str) -> list[ProcessingRow]:
             (doc_id,),
         ).fetchall()
         return [_map_processing_row(row) for row in rows]
-    finally:
-        connection_generator.close()
 
 
 def list_processings_by_doc_id_and_type(
@@ -244,9 +224,7 @@ def list_processings_by_doc_id_and_type(
         state_sql = "AND state = ?"
         parameters.append(state)
 
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         rows = connection.execute(
             f"""
             SELECT
@@ -267,8 +245,6 @@ def list_processings_by_doc_id_and_type(
             tuple(parameters),
         ).fetchall()
         return [_map_processing_row(row) for row in rows]
-    finally:
-        connection_generator.close()
 
 
 def get_latest_processing_by_doc_id_and_type(
@@ -282,9 +258,7 @@ def get_latest_processing_by_doc_id_and_type(
         state_sql = "AND state = ?"
         parameters.append(state)
 
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-    try:
+    with connection_scope() as connection:
         row = connection.execute(
             f"""
             SELECT
@@ -308,5 +282,3 @@ def get_latest_processing_by_doc_id_and_type(
         if row is None:
             return None
         return _map_processing_row(row)
-    finally:
-        connection_generator.close()

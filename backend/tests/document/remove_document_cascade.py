@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 
 from app.core.config import settings
-from app.core.db import init_db
+from app.infrastructure.db import apply_migrations, init_schema
 from app.services.add_document_service import add_document
 from app.services.document_repository import get_document_by_id
 from app.services.processing_repository import list_processings_by_doc_id
@@ -18,7 +18,8 @@ class RemoveDocumentCascadeTests(unittest.TestCase):
         cls._original_db_path = settings.sqlite_database_path
         cls._db_tmpdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         settings.sqlite_database_path = Path(cls._db_tmpdir.name) / "remove-cascade-tests.sqlite3"
-        init_db()
+        apply_migrations()
+        init_schema()
 
     @classmethod
     def tearDownClass(cls) -> None:

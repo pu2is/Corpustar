@@ -1,11 +1,8 @@
-from app.core.db import get_connection
+from app.infrastructure.db.connection import connection_scope
 
 
 def insert_document(doc: dict) -> None:
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-
-    try:
+    with connection_scope() as connection:
         connection.execute(
             """
             INSERT INTO documents (
@@ -37,15 +34,10 @@ def insert_document(doc: dict) -> None:
             ),
         )
         connection.commit()
-    finally:
-        connection_generator.close()
 
 
 def get_all_documents() -> list[dict]:
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-
-    try:
+    with connection_scope() as connection:
         rows = connection.execute(
             """
             SELECT
@@ -81,15 +73,10 @@ def get_all_documents() -> list[dict]:
             }
             for row in rows
         ]
-    finally:
-        connection_generator.close()
 
 
 def get_document_by_id(document_id: str) -> dict | None:
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-
-    try:
+    with connection_scope() as connection:
         row = connection.execute(
             """
             SELECT
@@ -126,15 +113,10 @@ def get_document_by_id(document_id: str) -> dict | None:
             "createdAt": row["created_at"],
             "updatedAt": row["updated_at"],
         }
-    finally:
-        connection_generator.close()
 
 
 def remove_document(document_id: str) -> bool:
-    connection_generator = get_connection()
-    connection = next(connection_generator)
-
-    try:
+    with connection_scope() as connection:
         cursor = connection.execute(
             """
             DELETE FROM documents
@@ -144,5 +126,3 @@ def remove_document(document_id: str) -> bool:
         )
         connection.commit()
         return cursor.rowcount > 0
-    finally:
-        connection_generator.close()
