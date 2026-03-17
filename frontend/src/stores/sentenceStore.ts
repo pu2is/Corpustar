@@ -12,8 +12,6 @@ interface SentenceState {
   itemsByDocProcessKey: Record<string, SentenceItem[]>
   loadingByDocProcessKey: Record<string, boolean>
   errorByDocProcessKey: Record<string, string | null>
-  socketBound: boolean
-  socketUnsubscribers: Array<() => void>
 }
 
 interface GetSentenceOptions {
@@ -28,6 +26,8 @@ interface DocProcessPayload {
 }
 
 const DEFAULT_SENTENCE_PAGE_LIMIT = 20
+// Keep socket lifecycle in socket.ts; store only consumes events.
+let hasBoundSocketEvents = false
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -88,8 +88,6 @@ export const useSentenceStore = defineStore('sentence-store', {
     itemsByDocProcessKey: {},
     loadingByDocProcessKey: {},
     errorByDocProcessKey: {},
-    socketBound: false,
-    socketUnsubscribers: [],
   }),
   getters: {
     getSentenceItems: (state) => (docId: string, processId: string): SentenceItem[] => {
@@ -111,35 +109,25 @@ export const useSentenceStore = defineStore('sentence-store', {
   },
   actions: {
     bindSocketEvents(): void {
-      if (this.socketBound) {
+      if (hasBoundSocketEvents) {
         return
       }
 
-      const unbindOnMerged = on('sentence:merged', (payload) => {
+      on('sentence:merged', (payload) => {
         this.handleSentenceChanged(payload)
       })
-      const unbindOnClipped = on('sentence:clipped', (payload) => {
+      on('sentence:clipped', (payload) => {
         this.handleSentenceChanged(payload)
       })
-      const unbindOnListRebuilt = on('sentence:list_rebuilt', (payload) => {
+      on('sentence:list_rebuilt', (payload) => {
         this.handleSentenceChanged(payload)
       })
 
-      this.socketUnsubscribers = [unbindOnMerged, unbindOnClipped, unbindOnListRebuilt]
-      this.socketBound = true
+      hasBoundSocketEvents = true
     },
 
-    unbindSocketEvents(): void {
-      for (const unsubscribe of this.socketUnsubscribers) {
-        unsubscribe()
-      }
-
-      this.socketUnsubscribers = []
-      this.socketBound = false
-    },
-
-        // Get
-    async getSentences( docId: string, processId: string, options: GetSentenceOptions = {} ): Promise<SentenceCursorPage> {
+    // Get
+    async getSentences(docId: string, processId: string, options: GetSentenceOptions = {}): Promise<SentenceCursorPage> {
       const key = getSentenceKey(docId, processId)
       const afterStartOffset = options.afterStartOffset ?? null
       const limit = options.limit ?? DEFAULT_SENTENCE_PAGE_LIMIT

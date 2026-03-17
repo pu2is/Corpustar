@@ -1,6 +1,8 @@
 const GLOBAL_SOCKET_KEY = '__corpustar_global_socket__'
 const RECONNECT_DELAY_MS = 2000
 const HEARTBEAT_INTERVAL_MS = 30000
+export const SOCKET_CONNECTED_EVENT = 'socket:connected'
+export const SOCKET_DISCONNECTED_EVENT = 'socket:disconnected'
 
 type SocketEventHandler = (payload: unknown) => void
 type SocketEnvelope = {
@@ -103,7 +105,7 @@ export function connect(): WebSocket {
 
   socket.addEventListener('open', () => {
     startHeartbeat(socket)
-    emitEvent('socket:connected', undefined)
+    emitEvent(SOCKET_CONNECTED_EVENT, undefined)
   })
 
   socket.addEventListener('close', () => {
@@ -111,7 +113,7 @@ export function connect(): WebSocket {
     if (getGlobalScope()[GLOBAL_SOCKET_KEY] === socket) {
       delete getGlobalScope()[GLOBAL_SOCKET_KEY]
     }
-    emitEvent('socket:disconnected', undefined)
+    emitEvent(SOCKET_DISCONNECTED_EVENT, undefined)
     scheduleReconnect()
   })
 

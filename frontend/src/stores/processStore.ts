@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { get, post } from '@/stores/fetchWrapper'
-import { on } from '@/socket/socket'
+import { on, SOCKET_CONNECTED_EVENT } from '@/socket/socket'
 import type { ProcessingItem, ProcessingState, ProcessingType } from '@/types/processings'
 import type { SentenceSegmentationResponse } from '@/types/sentences'
 
@@ -10,8 +10,6 @@ interface ProcessState {
   processes: ProcessItem[]
   loading: boolean
   error: string | null
-  socketBound: boolean
-  socketUnsubscribers: Array<() => void>
 }
 
 interface ProcessingEventPayload {
@@ -27,6 +25,8 @@ interface SentenceListRebuiltPayload {
 }
 
 const PROCESSING_STATE_SET = new Set<ProcessingState>(['running', 'succeed', 'failed'])
+// Keep socket lifecycle in socket.ts; store only consumes events.
+let hasBoundSocketEvents = false
 
 function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -126,8 +126,6 @@ export const useProcessStore = defineStore('process-store', {
     processes: [],
     loading: false,
     error: null,
-    socketBound: false,
-    socketUnsubscribers: [],
   }),
   getters: {
     getProcessesByDocId: (state) => (docId: string): ProcessItem[] => {
@@ -150,46 +148,31 @@ export const useProcessStore = defineStore('process-store', {
   },
   actions: {
     bindSocketEvents(): void {
-      if (this.socketBound) {
+      if (hasBoundSocketEvents) {
         return
       }
 
-      const unbindOnConnected = on('socket:connected', () => {
+      on(SOCKET_CONNECTED_EVENT, () => {
         void this.getAllProcesses().catch(() => undefined)
       })
-      const unbindOnCreated = on('processing:created', (payload) => {
+      on('processing:created', (payload) => {
         this.handleProcessingCreated(payload)
       })
-      const unbindOnUpdated = on('processing:updated', (payload) => {
+      on('processing:updated', (payload) => {
         this.handleProcessingUpdated(payload)
       })
-      const unbindOnListRebuilt = on('sentence:list_rebuilt', (payload) => {
+      on('sentence:list_rebuilt', (payload) => {
         this.handleSentenceListRebuilt(payload)
       })
 
-      this.socketUnsubscribers = [
-        unbindOnConnected,
-        unbindOnCreated,
-        unbindOnUpdated,
-        unbindOnListRebuilt,
-      ]
-      this.socketBound = true
-    },
-
-    unbindSocketEvents(): void {
-      for (const unsubscribe of this.socketUnsubscribers) {
-        unsubscribe()
-      }
-
-      this.socketUnsubscribers = []
-      this.socketBound = false
+      hasBoundSocketEvents = true
     },
 
     findProcessById(processingId: string): ProcessItem | undefined {
       return this.processes.find((process) => process.id === processingId)
     },
 
-        // Get
+    // Get
     async getAllProcesses(): Promise<ProcessItem[]> {
       this.loading = true
       this.error = null

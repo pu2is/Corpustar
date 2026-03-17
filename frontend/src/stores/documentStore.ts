@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 // fetch wrapper
 import { del, get, post } from '@/stores/fetchWrapper';
-import { on } from '@/socket/socket';
+import { on, SOCKET_CONNECTED_EVENT } from '@/socket/socket';
 // types
 import type { DocItem } from '@/types/documents';
 
@@ -9,11 +9,11 @@ interface DocumentState {
   documents: DocItem[]
   loading: boolean
   error: string | null
-  socketBound: boolean
-  socketUnsubscribers: Array<() => void>
 }
 
 const DOC_FILE_TYPES = new Set(['doc', 'docx', 'odt', 'txt']);
+// Keep socket lifecycle in socket.ts; store only consumes events.
+let hasBoundSocketEvents = false;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -70,8 +70,6 @@ export const useDocumentStore = defineStore('document-store', {
     documents: [],
     loading: false,
     error: null,
-    socketBound: false,
-    socketUnsubscribers: [],
   }),
   getters: {
     getDocumentById: (state) => (docId: string): DocItem | null => {
@@ -84,31 +82,21 @@ export const useDocumentStore = defineStore('document-store', {
   },
   actions: {
     bindSocketEvents(): void {
-      if (this.socketBound) {
+      if (hasBoundSocketEvents) {
         return;
       }
 
-      const unbindOnConnected = on('socket:connected', () => {
+      on(SOCKET_CONNECTED_EVENT, () => {
         void this.getAllDocuments().catch(() => undefined);
       });
-      const unbindOnCreated = on('document:created', (payload) => {
+      on('document:created', (payload) => {
         this.handleDocumentCreated(payload);
       });
-      const unbindOnRemoved = on('document:removed', (payload) => {
+      on('document:removed', (payload) => {
         this.handleDocumentRemoved(payload);
       });
 
-      this.socketUnsubscribers = [unbindOnConnected, unbindOnCreated, unbindOnRemoved];
-      this.socketBound = true;
-    },
-
-    unbindSocketEvents(): void {
-      for (const unsubscribe of this.socketUnsubscribers) {
-        unsubscribe();
-      }
-
-      this.socketUnsubscribers = [];
-      this.socketBound = false;
+      hasBoundSocketEvents = true;
     },
 
     // Get
