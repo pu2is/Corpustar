@@ -189,6 +189,42 @@ export const useProcessStore = defineStore('process-store', {
       return this.processes.find((process) => process.id === processingId)
     },
 
+        // Get
+    async getAllProcesses(): Promise<ProcessItem[]> {
+      this.loading = true
+      this.error = null
+
+      try {
+        const processes = await get<ProcessItem[]>('/api/processes')
+        this.processes = processes
+        return processes
+      } catch (error) {
+        this.error = toErrorMessage(error)
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // Post: segment sentence
+    async segmentDocument(docId: string): Promise<SentenceSegmentationResponse> {
+      this.loading = true
+      this.error = null
+
+      try {
+        const response = await post<SentenceSegmentationResponse>(
+          `/api/process/sentence_segmentation/${encodeURIComponent(docId)}`,
+        )
+        this.upsertProcess(response.processing)
+        return response
+      } catch (error) {
+        this.error = toErrorMessage(error)
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
     upsertProcess(processing: ProcessItem): void {
       const existingIndex = this.processes.findIndex((existing) => existing.id === processing.id)
       if (existingIndex >= 0) {
@@ -241,40 +277,6 @@ export const useProcessStore = defineStore('process-store', {
         },
       )
       this.upsertProcess(processing)
-    },
-
-    async getAllProcesses(): Promise<ProcessItem[]> {
-      this.loading = true
-      this.error = null
-
-      try {
-        const processes = await get<ProcessItem[]>('/api/processes')
-        this.processes = processes
-        return processes
-      } catch (error) {
-        this.error = toErrorMessage(error)
-        throw error
-      } finally {
-        this.loading = false
-      }
-    },
-
-    async segmentDocument(docId: string): Promise<SentenceSegmentationResponse> {
-      this.loading = true
-      this.error = null
-
-      try {
-        const response = await post<SentenceSegmentationResponse>(
-          `/api/process/sentence_segmentation/${encodeURIComponent(docId)}`,
-        )
-        this.upsertProcess(response.processing)
-        return response
-      } catch (error) {
-        this.error = toErrorMessage(error)
-        throw error
-      } finally {
-        this.loading = false
-      }
     },
   },
 })

@@ -138,32 +138,8 @@ export const useSentenceStore = defineStore('sentence-store', {
       this.socketBound = false
     },
 
-    handleSentenceChanged(payload: unknown): void {
-      const parsed = toDocProcessPayload(payload)
-      if (!parsed) {
-        return
-      }
-
-      void this.refreshLoadedSentences(parsed.docId, parsed.processingId).catch(() => undefined)
-    },
-
-    async refreshLoadedSentences(docId: string, processId: string): Promise<SentenceCursorPage> {
-      const key = getSentenceKey(docId, processId)
-      const existingItems = this.itemsByDocProcessKey[key] ?? []
-      const limit = Math.max(existingItems.length, DEFAULT_SENTENCE_PAGE_LIMIT)
-
-      return this.getSentences(docId, processId, {
-        afterStartOffset: null,
-        limit,
-        append: false,
-      })
-    },
-
-    async getSentences(
-      docId: string,
-      processId: string,
-      options: GetSentenceOptions = {},
-    ): Promise<SentenceCursorPage> {
+        // Get
+    async getSentences( docId: string, processId: string, options: GetSentenceOptions = {} ): Promise<SentenceCursorPage> {
       const key = getSentenceKey(docId, processId)
       const afterStartOffset = options.afterStartOffset ?? null
       const limit = options.limit ?? DEFAULT_SENTENCE_PAGE_LIMIT
@@ -204,9 +180,8 @@ export const useSentenceStore = defineStore('sentence-store', {
       }
     },
 
-    async mergeSentences(
-      sentenceIds: string[],
-    ): Promise<SentenceItem> {
+    // Post: merge
+    async mergeSentences(sentenceIds: string[]): Promise<SentenceItem> {
       const normalizedSentenceIds = uniqueNonEmptySentenceIds(sentenceIds)
       if (normalizedSentenceIds.length < 2) {
         throw new Error('At least two sentence IDs are required for merge.')
@@ -218,15 +193,35 @@ export const useSentenceStore = defineStore('sentence-store', {
       return mergedItem
     },
 
-    async clipSentence(
-      sentenceId: string,
-      splitOffset: number,
-    ): Promise<SentenceItem[]> {
+    // Post: clip
+    async clipSentence(sentenceId: string, splitOffset: number): Promise<SentenceItem[]> {
       const response = await post<ClipSentenceResponse>(
         `/api/sentences/${encodeURIComponent(sentenceId)}/clip`,
         { splitOffset },
       )
       return response.items ?? []
+    },
+
+    // Socket event handler
+    handleSentenceChanged(payload: unknown): void {
+      const parsed = toDocProcessPayload(payload)
+      if (!parsed) {
+        return
+      }
+
+      void this.refreshLoadedSentences(parsed.docId, parsed.processingId).catch(() => undefined)
+    },
+
+    async refreshLoadedSentences(docId: string, processId: string): Promise<SentenceCursorPage> {
+      const key = getSentenceKey(docId, processId)
+      const existingItems = this.itemsByDocProcessKey[key] ?? []
+      const limit = Math.max(existingItems.length, DEFAULT_SENTENCE_PAGE_LIMIT)
+
+      return this.getSentences(docId, processId, {
+        afterStartOffset: null,
+        limit,
+        append: false,
+      })
     },
   },
 })
