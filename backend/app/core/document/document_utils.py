@@ -130,7 +130,7 @@ def ensure_storage_dir() -> Path:
     )
 
     try:
-        storage_dir = Path(__file__).resolve().parents[2] / "storage" / "texts"
+        storage_dir = Path(__file__).resolve().parents[3] / "storage" / "texts"
         storage_dir.mkdir(parents=True, exist_ok=True)
         log_event(
             LOGGER,

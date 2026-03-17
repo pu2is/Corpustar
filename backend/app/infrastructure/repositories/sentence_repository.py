@@ -206,6 +206,102 @@ def insert_sentence(
         return sentence
 
 
+def merge_sentences_to_one(
+    sentence_ids: list[str],
+    merged_sentence: SentenceRow,
+) -> None:
+    if not sentence_ids:
+        raise ValueError("sentence_ids is required")
+
+    placeholders = ", ".join("?" for _ in sentence_ids)
+    with connection_scope() as connection:
+        try:
+            connection.execute("BEGIN")
+            delete_cursor = connection.execute(
+                f"""
+                DELETE FROM {DOCUMENT_SENTENCES_TABLE_NAME}
+                WHERE id IN ({placeholders})
+                """,
+                tuple(sentence_ids),
+            )
+            if delete_cursor.rowcount != len(sentence_ids):
+                raise RuntimeError("Sentence merge failed: expected rows were not fully deleted.")
+
+            connection.execute(
+                f"""
+                INSERT INTO {DOCUMENT_SENTENCES_TABLE_NAME} (
+                    id,
+                    doc_id,
+                    processing_id,
+                    start_offset,
+                    end_offset
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    str(merged_sentence["id"]),
+                    str(merged_sentence["doc_id"]),
+                    str(merged_sentence["processing_id"]),
+                    int(merged_sentence["start_offset"]),
+                    int(merged_sentence["end_offset"]),
+                ),
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+
+
+def replace_sentence_with_split(
+    sentence_id: str,
+    left_sentence: SentenceRow,
+    right_sentence: SentenceRow,
+) -> None:
+    with connection_scope() as connection:
+        try:
+            connection.execute("BEGIN")
+            delete_cursor = connection.execute(
+                f"""
+                DELETE FROM {DOCUMENT_SENTENCES_TABLE_NAME}
+                WHERE id = ?
+                """,
+                (sentence_id,),
+            )
+            if delete_cursor.rowcount != 1:
+                raise RuntimeError("Sentence clip failed: original sentence was not deleted.")
+
+            connection.executemany(
+                f"""
+                INSERT INTO {DOCUMENT_SENTENCES_TABLE_NAME} (
+                    id,
+                    doc_id,
+                    processing_id,
+                    start_offset,
+                    end_offset
+                ) VALUES (?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        str(left_sentence["id"]),
+                        str(left_sentence["doc_id"]),
+                        str(left_sentence["processing_id"]),
+                        int(left_sentence["start_offset"]),
+                        int(left_sentence["end_offset"]),
+                    ),
+                    (
+                        str(right_sentence["id"]),
+                        str(right_sentence["doc_id"]),
+                        str(right_sentence["processing_id"]),
+                        int(right_sentence["start_offset"]),
+                        int(right_sentence["end_offset"]),
+                    ),
+                ],
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+
+
 def count_sentences_by_processing(doc_id: str, processing_id: str) -> int:
     with connection_scope() as connection:
         row = connection.execute(

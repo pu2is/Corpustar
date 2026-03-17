@@ -3,7 +3,7 @@ from pathlib import Path
 
 def save_text_content(doc_id: str, text: str) -> str:
     # Canonical storage for extracted text: backend/storage/texts/{sha256}.txt
-    text_dir = Path(__file__).resolve().parents[2] / "storage" / "texts"
+    text_dir = Path(__file__).resolve().parents[3] / "storage" / "texts"
     text_dir.mkdir(parents=True, exist_ok=True)
 
     text_path = text_dir / f"{doc_id}.txt"

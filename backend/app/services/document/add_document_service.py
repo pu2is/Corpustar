@@ -1,11 +1,11 @@
 from datetime import datetime, timezone
 from pathlib import Path
 
-from app.core.doc_to_text import convert_document_to_text
-from app.core.document_utils import calculate_sha256, get_file_size, get_file_type
+from app.core.document.doc_to_text import convert_document_to_text
+from app.core.document.document_utils import calculate_sha256, get_file_size, get_file_type
 from app.core.log import get_logger, log_event
-from app.core.text_storage import save_text_content
-from app.services.document_repository import insert_document
+from app.core.document.text_storage import save_text_content
+from app.infrastructure.repositories.document_repository import insert_document
 
 LOGGER = get_logger(__name__)
 MODULE_FILE = __file__

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from app.core.log import get_logger, log_event
-from app.services.document_repository import get_document_by_id, remove_document
+from app.infrastructure.repositories.document_repository import get_document_by_id, remove_document
 
 LOGGER = get_logger(__name__)
 MODULE_FILE = __file__

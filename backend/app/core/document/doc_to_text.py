@@ -5,7 +5,7 @@ import tempfile
 import xml.etree.ElementTree as ET
 import zipfile
 
-from app.core.document_utils import get_file_type
+from app.core.document.document_utils import get_file_type
 from app.core.log import get_logger, log_event
 
 LOGGER = get_logger(__name__)

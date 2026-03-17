@@ -7,20 +7,20 @@ from app.socket.socket_events import (
     SENTENCE_LIST_REBUILT,
 )
 from app.socket.socket_publisher import publish_best_effort
-from app.services.document_repository import get_document_by_id
-from app.services.processing_repository import (
+from app.infrastructure.repositories.document_repository import get_document_by_id
+from app.infrastructure.repositories.processing_repository import (
     create_processing,
     get_latest_processing_by_doc_id_and_type,
     get_processing_by_id,
     map_processing_row_to_dto,
     update_processing_state,
 )
-from app.services.sentence_repository import (
+from app.infrastructure.repositories.sentence_repository import (
     bulk_insert_sentences,
     count_sentences_by_processing,
     list_sentences_by_processing_cursor,
 )
-from app.services.sentence_segmentation_service import segment_text_to_sentence_spans
+from app.services.process.sentence_segmentation_service import segment_text_to_sentence_spans
 
 SENTENCE_SEGMENTATION_PROCESSING_TYPE = "sentence_segmentation"
 SEGMENTATION_PREVIEW_LIMIT = 20

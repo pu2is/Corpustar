@@ -2,13 +2,15 @@ from pathlib import Path
 from typing import TypedDict
 from uuid import uuid4
 
-from app.infrastructure.db.connection import connection_scope
+from app.infrastructure.repositories.document_repository import get_document_by_id
+from app.infrastructure.repositories.sentence_repository import (
+    get_sentence_by_id,
+    get_sentences_by_ids,
+    merge_sentences_to_one,
+    replace_sentence_with_split,
+)
 from app.socket.socket_events import SENTENCE_CLIPPED, SENTENCE_MERGED
 from app.socket.socket_publisher import publish_best_effort
-from app.services.document_repository import get_document_by_id
-from app.services.sentence_repository import get_sentence_by_id, get_sentences_by_ids
-
-DOCUMENT_SENTENCES_TABLE_NAME = "document_sentences"
 
 
 class SentenceItem(TypedDict):
@@ -121,43 +123,16 @@ def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
     merged_id = str(uuid4())
     processing_id = str(sorted_rows[0]["processing_id"])
 
-    with connection_scope() as connection:
-        try:
-            connection.execute("BEGIN")
-
-            delete_placeholders = ", ".join("?" for _ in unique_sentence_ids)
-            delete_cursor = connection.execute(
-                f"""
-                DELETE FROM {DOCUMENT_SENTENCES_TABLE_NAME}
-                WHERE id IN ({delete_placeholders})
-                """,
-                tuple(unique_sentence_ids),
-            )
-            if delete_cursor.rowcount != len(unique_sentence_ids):
-                raise RuntimeError("Sentence merge failed: expected rows were not fully deleted.")
-
-            connection.execute(
-                f"""
-                INSERT INTO {DOCUMENT_SENTENCES_TABLE_NAME} (
-                    id,
-                    doc_id,
-                    processing_id,
-                    start_offset,
-                    end_offset
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                (
-                    merged_id,
-                    doc_id,
-                    processing_id,
-                    merged_start_offset,
-                    merged_end_offset,
-                ),
-            )
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
+    merge_sentences_to_one(
+        sentence_ids=unique_sentence_ids,
+        merged_sentence={
+            "id": merged_id,
+            "doc_id": doc_id,
+            "processing_id": processing_id,
+            "start_offset": merged_start_offset,
+            "end_offset": merged_end_offset,
+        },
+    )
 
     publish_best_effort(
         SENTENCE_MERGED,
@@ -210,53 +185,25 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
     left_id = str(uuid4())
     right_id = str(uuid4())
 
-    with connection_scope() as connection:
-        try:
-            connection.execute("BEGIN")
-
-            delete_cursor = connection.execute(
-                f"""
-                DELETE FROM {DOCUMENT_SENTENCES_TABLE_NAME}
-                WHERE id = ?
-                """,
-                (sentence_id,),
-            )
-            if delete_cursor.rowcount != 1:
-                raise RuntimeError("Sentence clip failed: original sentence was not deleted.")
-
-            # Future evolution: if we need edit history, write split output into a
-            # manual_sentence_edit processing result set instead of in-place updates.
-            connection.executemany(
-                f"""
-                INSERT INTO {DOCUMENT_SENTENCES_TABLE_NAME} (
-                    id,
-                    doc_id,
-                    processing_id,
-                    start_offset,
-                    end_offset
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                [
-                    (
-                        left_id,
-                        doc_id,
-                        processing_id,
-                        start_offset,
-                        split_offset,
-                    ),
-                    (
-                        right_id,
-                        doc_id,
-                        processing_id,
-                        split_offset,
-                        end_offset,
-                    ),
-                ],
-            )
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
+    # Future evolution: if we need edit history, write split output into a
+    # manual_sentence_edit processing result set instead of in-place updates.
+    replace_sentence_with_split(
+        sentence_id=sentence_id,
+        left_sentence={
+            "id": left_id,
+            "doc_id": doc_id,
+            "processing_id": processing_id,
+            "start_offset": start_offset,
+            "end_offset": split_offset,
+        },
+        right_sentence={
+            "id": right_id,
+            "doc_id": doc_id,
+            "processing_id": processing_id,
+            "start_offset": split_offset,
+            "end_offset": end_offset,
+        },
+    )
 
     left_item = _build_sentence_item(
         sentence_id=left_id,
