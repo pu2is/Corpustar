@@ -94,7 +94,11 @@ def _map_sentence_row_to_item(sentence_row: SentenceRow, full_text: str) -> Sent
         "processingId": str(sentence_row["processing_id"]),
         "startOffset": start_offset,
         "endOffset": end_offset,
-        "text": full_text[start_offset:end_offset],
+        "text": (
+            str(sentence_row["source_text"])
+            if sentence_row.get("source_text")
+            else full_text[start_offset:end_offset]
+        ),
         "lemmaText": str(lemma_text) if lemma_text is not None else None,
     }
 
@@ -161,6 +165,7 @@ def segment_document_sentences(doc_id: str) -> SentenceSegmentationResult:
             doc_id=doc_id,
             spans=spans,
             lemma_text=None,
+            full_text=full_text,
         )
         processing = update_processing_state(
             processing_id=processing_id,

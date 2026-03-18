@@ -17,13 +17,8 @@ LIBREOFFICE_BINARIES = ("soffice", "libreoffice")
 
 def convert_document_to_text(file_path: str) -> str:
     function_name = "convert_document_to_text"
-    log_event(
-        LOGGER,
-        stage="CALL",
-        module_file=MODULE_FILE,
-        function_name=function_name,
-        file_path=file_path,
-    )
+    log_event(LOGGER, stage="CALL", module_file=MODULE_FILE,
+      function_name=function_name, file_path=file_path)
 
     try:
         file_type = get_file_type(file_path)
@@ -39,25 +34,12 @@ def convert_document_to_text(file_path: str) -> str:
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
 
-        log_event(
-            LOGGER,
-            stage="OK",
-            module_file=MODULE_FILE,
-            function_name=function_name,
-            file_type=file_type,
-            result_length=len(text),
-        )
+        log_event(LOGGER, stage="OK", module_file=MODULE_FILE,
+          function_name=function_name, file_type=file_type, result_length=len(text))
         return text
     except Exception as error:
-        log_event(
-            LOGGER,
-            stage="ERROR",
-            module_file=MODULE_FILE,
-            function_name=function_name,
-            file_path=file_path,
-            error=str(error),
-            exc_info=True,
-        )
+        log_event(LOGGER, stage="ERROR", module_file=MODULE_FILE,
+          function_name=function_name, file_path=file_path, error=str(error), exc_info=True)
         raise
 
 

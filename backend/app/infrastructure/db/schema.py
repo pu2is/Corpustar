@@ -8,10 +8,73 @@ DOCUMENTS_TABLE_NAME = "documents"
 DOCUMENTS_TEXT_CHAR_COUNT_COLUMN = "text_char_count"
 PROCESSINGS_TABLE_NAME = "processings"
 DOCUMENT_SENTENCES_TABLE_NAME = "document_sentences"
+DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN = "source_text"
 DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN = "lemma_text"
 PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME = "idx_processings_doc_type_created_at"
+RULES_TABLE_NAME = "rules"
+RULE_FVG_TABLE_NAME = "rule_fvg"
+RULE_FVG_RULE_ID_INDEX_NAME = "idx_rule_fvg_rule_id"
 DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME = (
     "idx_document_sentences_processing_doc_start_offset"
+)
+DOCUMENT_SENTENCES_SOURCE_TEXT_LOCK_TRIGGER_NAME = (
+    "trg_document_sentences_source_text_locked"
+)
+
+EXPECTED_TABLE_COLUMNS: dict[str, tuple[str, ...]] = {
+    DOCUMENTS_TABLE_NAME: (
+        "id",
+        "filename",
+        "display_name",
+        "note",
+        "source_path",
+        "text_path",
+        DOCUMENTS_TEXT_CHAR_COUNT_COLUMN,
+        "file_type",
+        "file_size",
+        "created_at",
+        "updated_at",
+    ),
+    PROCESSINGS_TABLE_NAME: (
+        "id",
+        "doc_id",
+        "type",
+        "state",
+        "created_at",
+        "updated_at",
+        "error_message",
+        "meta_json",
+    ),
+    DOCUMENT_SENTENCES_TABLE_NAME: (
+        "id",
+        "doc_id",
+        "processing_id",
+        "start_offset",
+        "end_offset",
+        DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN,
+        DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN,
+    ),
+    RULES_TABLE_NAME: (
+        "id",
+        "type",
+        "path",
+    ),
+    RULE_FVG_TABLE_NAME: (
+        "id",
+        "rule_id",
+        "verb",
+        "phrase",
+    ),
+}
+
+EXPECTED_INDEXES = (
+    PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME,
+    DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME,
+    RULE_FVG_RULE_ID_INDEX_NAME,
+)
+
+EXPECTED_TRIGGERS = (
+    DOCUMENT_SENTENCES_SOURCE_TEXT_LOCK_TRIGGER_NAME,
 )
 
 LOGGER = get_logger(__name__)
@@ -38,33 +101,19 @@ def init_schema(connection: Connection | None = None) -> None:
 def _init_schema_with_connection(connection: Connection) -> None:
     function_name = "_init_schema_with_connection"
     try:
-        if not _table_exists(connection, DOCUMENTS_TABLE_NAME):
-            _create_documents_table(connection)
-        if not _table_exists(connection, PROCESSINGS_TABLE_NAME):
-            _create_processings_table(connection)
-        if not _table_exists(connection, DOCUMENT_SENTENCES_TABLE_NAME):
-            _create_document_sentences_table(connection)
+        if _is_uninitialized_database(connection):
+            _create_schema(connection)
+            result = "schema_created"
+        else:
+            _validate_schema(connection)
+            result = "schema_validated"
 
-        _create_index_if_not_exists(
-            connection=connection,
-            index_name=PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME,
-            table_name=PROCESSINGS_TABLE_NAME,
-            columns=("doc_id", "type", "created_at"),
-        )
-        _create_index_if_not_exists(
-            connection=connection,
-            index_name=DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME,
-            table_name=DOCUMENT_SENTENCES_TABLE_NAME,
-            columns=("processing_id", "doc_id", "start_offset"),
-        )
-
-        _validate_schema(connection)
         log_event(
             LOGGER,
             stage="OK",
             module_file=MODULE_FILE,
             function_name="init_schema",
-            result="schema_initialized",
+            result=result,
         )
     except Exception as error:
         log_event(
@@ -78,8 +127,12 @@ def _init_schema_with_connection(connection: Connection) -> None:
         raise
 
 
-def _create_documents_table(connection: Connection) -> None:
-    connection.execute(
+def _is_uninitialized_database(connection: Connection) -> bool:
+    return len(_list_user_tables(connection)) == 0
+
+
+def _create_schema(connection: Connection) -> None:
+    connection.executescript(
         f"""
         CREATE TABLE {DOCUMENTS_TABLE_NAME} (
             id TEXT PRIMARY KEY,
@@ -93,15 +146,8 @@ def _create_documents_table(connection: Connection) -> None:
             file_size INTEGER NOT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
-        )
-        """
-    )
-    connection.commit()
+        );
 
-
-def _create_processings_table(connection: Connection) -> None:
-    connection.execute(
-        f"""
         CREATE TABLE {PROCESSINGS_TABLE_NAME} (
             id TEXT PRIMARY KEY,
             doc_id TEXT NOT NULL,
@@ -113,123 +159,122 @@ def _create_processings_table(connection: Connection) -> None:
             meta_json TEXT NULL,
             FOREIGN KEY (doc_id) REFERENCES {DOCUMENTS_TABLE_NAME}(id) ON DELETE CASCADE,
             CHECK(state IN ('running', 'succeed', 'failed'))
-        )
-        """
-    )
-    connection.commit()
+        );
 
-
-def _create_document_sentences_table(connection: Connection) -> None:
-    connection.execute(
-        f"""
         CREATE TABLE {DOCUMENT_SENTENCES_TABLE_NAME} (
             id TEXT PRIMARY KEY,
             doc_id TEXT NOT NULL,
             processing_id TEXT NOT NULL,
             start_offset INTEGER NOT NULL,
             end_offset INTEGER NOT NULL,
+            {DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN} TEXT NOT NULL,
             {DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN} TEXT NULL,
             FOREIGN KEY (doc_id) REFERENCES {DOCUMENTS_TABLE_NAME}(id) ON DELETE CASCADE,
             FOREIGN KEY (processing_id) REFERENCES {PROCESSINGS_TABLE_NAME}(id) ON DELETE CASCADE,
             CHECK(start_offset >= 0),
             CHECK(end_offset > start_offset)
-        )
-        """
-    )
-    connection.commit()
+        );
 
+        CREATE TABLE {RULES_TABLE_NAME} (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL CHECK(type IN ('fvg')),
+            path TEXT NOT NULL
+        );
 
-def _create_index_if_not_exists(
-    connection: Connection,
-    index_name: str,
-    table_name: str,
-    columns: tuple[str, ...],
-) -> None:
-    columns_sql = ", ".join(columns)
-    connection.execute(
-        f"""
-        CREATE INDEX IF NOT EXISTS {index_name}
-        ON {table_name} ({columns_sql})
+        CREATE TABLE {RULE_FVG_TABLE_NAME} (
+            id TEXT PRIMARY KEY,
+            rule_id TEXT NOT NULL,
+            verb TEXT NOT NULL,
+            phrase TEXT NOT NULL,
+            FOREIGN KEY (rule_id) REFERENCES {RULES_TABLE_NAME}(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX {PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME}
+        ON {PROCESSINGS_TABLE_NAME} (doc_id, type, created_at);
+
+        CREATE INDEX {DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME}
+        ON {DOCUMENT_SENTENCES_TABLE_NAME} (processing_id, doc_id, start_offset);
+
+        CREATE INDEX {RULE_FVG_RULE_ID_INDEX_NAME}
+        ON {RULE_FVG_TABLE_NAME} (rule_id);
+
+        CREATE TRIGGER {DOCUMENT_SENTENCES_SOURCE_TEXT_LOCK_TRIGGER_NAME}
+        BEFORE UPDATE OF {DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN}
+        ON {DOCUMENT_SENTENCES_TABLE_NAME}
+        FOR EACH ROW
+        WHEN NEW.{DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN}
+             IS NOT OLD.{DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN}
+        BEGIN
+            SELECT RAISE(ABORT, 'document_sentences.source_text is locked');
+        END;
         """
     )
     connection.commit()
 
 
 def _validate_schema(connection: Connection) -> None:
-    required_tables = (
-        DOCUMENTS_TABLE_NAME,
-        PROCESSINGS_TABLE_NAME,
-        DOCUMENT_SENTENCES_TABLE_NAME,
+    expected_tables = set(EXPECTED_TABLE_COLUMNS)
+    actual_tables = _list_user_tables(connection)
+    if actual_tables != expected_tables:
+        missing_tables = sorted(expected_tables - actual_tables)
+        extra_tables = sorted(actual_tables - expected_tables)
+        raise _schema_drift_error(
+            f"tables_mismatch missing={missing_tables} extra={extra_tables}"
+        )
+
+    for table_name, expected_columns in EXPECTED_TABLE_COLUMNS.items():
+        actual_columns = _table_columns(connection, table_name)
+        if actual_columns != expected_columns:
+            raise _schema_drift_error(
+                "columns_mismatch "
+                f"table={table_name} expected={list(expected_columns)} actual={list(actual_columns)}"
+            )
+
+    actual_indexes = _list_indexes(connection)
+    missing_indexes = sorted(
+        index_name for index_name in EXPECTED_INDEXES if index_name not in actual_indexes
     )
-    for table_name in required_tables:
-        if not _table_exists(connection, table_name):
-            raise RuntimeError(f"Missing required sqlite table: {table_name}")
+    if missing_indexes:
+        raise _schema_drift_error(f"missing_indexes={missing_indexes}")
 
-    required_indexes = (
-        PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME,
-        DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME,
+    actual_triggers = _list_triggers(connection)
+    missing_triggers = sorted(
+        trigger_name
+        for trigger_name in EXPECTED_TRIGGERS
+        if trigger_name not in actual_triggers
     )
-    for index_name in required_indexes:
-        if not _index_exists(connection, index_name):
-            raise RuntimeError(f"Missing required sqlite index: {index_name}")
-
-    required_columns = {
-        DOCUMENTS_TABLE_NAME: (
-            "id",
-            "filename",
-            "display_name",
-            "note",
-            "source_path",
-            "text_path",
-            "file_type",
-            "file_size",
-            "created_at",
-            "updated_at",
-        ),
-        PROCESSINGS_TABLE_NAME: (
-            "id",
-            "doc_id",
-            "type",
-            "state",
-            "created_at",
-            "updated_at",
-            "error_message",
-            "meta_json",
-        ),
-        DOCUMENT_SENTENCES_TABLE_NAME: (
-            "id",
-            "doc_id",
-            "processing_id",
-            "start_offset",
-            "end_offset",
-            DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN,
-        ),
-    }
-
-    for table_name, column_names in required_columns.items():
-        for column_name in column_names:
-            if not _column_exists(connection, table_name, column_name):
-                raise RuntimeError(
-                    f"Missing required sqlite column: {table_name}.{column_name}"
-                )
+    if missing_triggers:
+        raise _schema_drift_error(f"missing_triggers={missing_triggers}")
 
 
-def _table_exists(connection: Connection, table_name: str) -> bool:
-    row = connection.execute(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
-        (table_name,),
-    ).fetchone()
-    return row is not None
+def _schema_drift_error(reason: str) -> RuntimeError:
+    return RuntimeError(
+        "SQLite schema drift detected. "
+        f"reason={reason}. 请developer先清空sqlite3: {settings.sqlite_database_path}"
+    )
 
 
-def _index_exists(connection: Connection, index_name: str) -> bool:
-    row = connection.execute(
-        "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
-        (index_name,),
-    ).fetchone()
-    return row is not None
+def _list_user_tables(connection: Connection) -> set[str]:
+    rows = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()
+    return {str(row["name"]) for row in rows}
 
 
-def _column_exists(connection: Connection, table_name: str, column_name: str) -> bool:
+def _table_columns(connection: Connection, table_name: str) -> tuple[str, ...]:
     rows = connection.execute(f'PRAGMA table_info("{table_name}")').fetchall()
-    return any(row["name"] == column_name for row in rows)
+    return tuple(str(row["name"]) for row in rows)
+
+
+def _list_indexes(connection: Connection) -> set[str]:
+    rows = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'index' AND name NOT LIKE 'sqlite_%'"
+    ).fetchall()
+    return {str(row["name"]) for row in rows}
+
+
+def _list_triggers(connection: Connection) -> set[str]:
+    rows = connection.execute(
+        "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+    ).fetchall()
+    return {str(row["name"]) for row in rows}

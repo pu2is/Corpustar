@@ -23,6 +23,7 @@ def _map_sentence_row(row: Row) -> SentenceRow:
         "processing_id": row["processing_id"],
         "start_offset": row["start_offset"],
         "end_offset": row["end_offset"],
+        "source_text": row["source_text"],
         "lemma_text": row["lemma_text"],
     }
 
@@ -32,6 +33,7 @@ def bulk_insert_sentences(
     doc_id: str,
     spans: Iterable[Mapping[str, int]],
     lemma_text: str | None,
+    full_text: str | None = None,
 ) -> list[SentenceRow]:
     sentences: list[SentenceRow] = []
     for span in spans:
@@ -41,6 +43,11 @@ def bulk_insert_sentences(
             "processing_id": processing_id,
             "start_offset": int(span["start_offset"]),
             "end_offset": int(span["end_offset"]),
+            "source_text": (
+                full_text[int(span["start_offset"]):int(span["end_offset"])]
+                if full_text is not None
+                else ""
+            ),
             "lemma_text": lemma_text,
         }
         sentences.append(sentence)
@@ -57,8 +64,9 @@ def bulk_insert_sentences(
                 processing_id,
                 start_offset,
                 end_offset,
+                source_text,
                 lemma_text
-            ) VALUES (?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -67,6 +75,7 @@ def bulk_insert_sentences(
                     sentence["processing_id"],
                     sentence["start_offset"],
                     sentence["end_offset"],
+                    sentence["source_text"],
                     sentence["lemma_text"],
                 )
                 for sentence in sentences
@@ -102,6 +111,7 @@ def list_sentences_by_processing_cursor(
                 processing_id,
                 start_offset,
                 end_offset,
+                source_text,
                 lemma_text
             FROM {DOCUMENT_SENTENCES_TABLE_NAME}
             WHERE doc_id = ?
@@ -125,6 +135,7 @@ def get_sentence_by_id(sentence_id: str) -> SentenceRow | None:
                 processing_id,
                 start_offset,
                 end_offset,
+                source_text,
                 lemma_text
             FROM {DOCUMENT_SENTENCES_TABLE_NAME}
             WHERE id = ?
@@ -150,6 +161,7 @@ def get_sentences_by_ids(sentence_ids: list[str]) -> list[SentenceRow]:
                 processing_id,
                 start_offset,
                 end_offset,
+                source_text,
                 lemma_text
             FROM {DOCUMENT_SENTENCES_TABLE_NAME}
             WHERE id IN ({placeholders})
@@ -182,6 +194,7 @@ def insert_sentence(
     doc_id: str,
     start_offset: int,
     end_offset: int,
+    source_text: str = "",
     lemma_text: str | None = None,
 ) -> SentenceRow:
     sentence = {
@@ -190,6 +203,7 @@ def insert_sentence(
         "processing_id": processing_id,
         "start_offset": start_offset,
         "end_offset": end_offset,
+        "source_text": source_text,
         "lemma_text": lemma_text,
     }
 
@@ -202,8 +216,9 @@ def insert_sentence(
                 processing_id,
                 start_offset,
                 end_offset,
+                source_text,
                 lemma_text
-            ) VALUES (?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 sentence["id"],
@@ -211,6 +226,7 @@ def insert_sentence(
                 sentence["processing_id"],
                 sentence["start_offset"],
                 sentence["end_offset"],
+                sentence["source_text"],
                 sentence["lemma_text"],
             ),
         )
@@ -247,8 +263,9 @@ def merge_sentences_to_one(
                     processing_id,
                     start_offset,
                     end_offset,
+                    source_text,
                     lemma_text
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     str(merged_sentence["id"]),
@@ -256,6 +273,7 @@ def merge_sentences_to_one(
                     str(merged_sentence["processing_id"]),
                     int(merged_sentence["start_offset"]),
                     int(merged_sentence["end_offset"]),
+                    str(merged_sentence["source_text"]),
                     merged_sentence["lemma_text"],
                 ),
             )
@@ -291,8 +309,9 @@ def replace_sentence_with_split(
                     processing_id,
                     start_offset,
                     end_offset,
+                    source_text,
                     lemma_text
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     (
@@ -301,6 +320,7 @@ def replace_sentence_with_split(
                         str(left_sentence["processing_id"]),
                         int(left_sentence["start_offset"]),
                         int(left_sentence["end_offset"]),
+                        str(left_sentence["source_text"]),
                         left_sentence["lemma_text"],
                     ),
                     (
@@ -309,6 +329,7 @@ def replace_sentence_with_split(
                         str(right_sentence["processing_id"]),
                         int(right_sentence["start_offset"]),
                         int(right_sentence["end_offset"]),
+                        str(right_sentence["source_text"]),
                         right_sentence["lemma_text"],
                     ),
                 ],

@@ -134,6 +134,7 @@ def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
             "processing_id": processing_id,
             "start_offset": merged_start_offset,
             "end_offset": merged_end_offset,
+            "source_text": full_text[merged_start_offset:merged_end_offset],
             "lemma_text": None,
         },
     )
@@ -200,6 +201,7 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
             "processing_id": processing_id,
             "start_offset": start_offset,
             "end_offset": split_offset,
+            "source_text": full_text[start_offset:split_offset],
             "lemma_text": None,
         },
         right_sentence={
@@ -208,6 +210,7 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
             "processing_id": processing_id,
             "start_offset": split_offset,
             "end_offset": end_offset,
+            "source_text": full_text[split_offset:end_offset],
             "lemma_text": None,
         },
     )
