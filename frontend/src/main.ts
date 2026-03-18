@@ -6,14 +6,20 @@ import router from './router'
 import { connect } from '@/socket/socket'
 import { useDocumentStore } from './stores/documentStore'
 import { useProcessStore } from './stores/processStore'
+import { useRuleStore } from './stores/ruleStore'
+import { useRuleFvgStore } from './stores/ruleFvgStore'
 import { useSentenceStore } from './stores/sentenceStore'
 
 const pinia = createPinia()
 const documentStore = useDocumentStore(pinia)
 const processStore = useProcessStore(pinia)
+const ruleStore = useRuleStore(pinia)
+const ruleFvgStore = useRuleFvgStore(pinia)
 const sentenceStore = useSentenceStore(pinia)
 documentStore.bindSocketEvents()
 processStore.bindSocketEvents()
+ruleStore.bindSocketEvents()
+ruleFvgStore.bindSocketEvents()
 sentenceStore.bindSocketEvents()
 connect()
 

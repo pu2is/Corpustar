@@ -2,11 +2,7 @@ import { defineStore } from 'pinia'
 
 import { get, post } from '@/stores/fetchWrapper'
 import { on } from '@/socket/socket'
-import type {
-  ClipSentenceResponse,
-  SentenceCursorPage,
-  SentenceItem,
-} from '@/types/sentences'
+import type { ClipSentenceResponse, SentenceCursorPage, SentenceItem} from '@/types/sentences'
 
 interface SentenceState {
   itemsByDocProcessKey: Record<string, SentenceItem[]>
