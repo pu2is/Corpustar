@@ -7,6 +7,7 @@ export interface SentenceItem {
   startOffset: number
   endOffset: number
   text: string
+  lemmaText: string | null
 }
 
 export interface SentenceCursorPage {

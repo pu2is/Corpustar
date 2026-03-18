@@ -20,6 +20,7 @@ class SentenceItem(TypedDict):
     startOffset: int
     endOffset: int
     text: str
+    lemmaText: str | None
 
 
 class ClipSentenceResult(TypedDict):
@@ -34,9 +35,9 @@ def _read_document_text_by_path(text_path: str) -> str:
 
 
 def _validate_sentence_rows_for_merge(
-    sentence_rows: list[dict[str, int | str]],
+    sentence_rows: list[dict[str, int | str | None]],
     full_text: str,
-) -> list[dict[str, int | str]]:
+) -> list[dict[str, int | str | None]]:
     sorted_rows = sorted(
         sentence_rows,
         key=lambda row: (int(row["start_offset"]), int(row["end_offset"])),
@@ -78,6 +79,7 @@ def _build_sentence_item(
     processing_id: str,
     start_offset: int,
     end_offset: int,
+    lemma_text: str | None,
     full_text: str,
 ) -> SentenceItem:
     if start_offset < 0:
@@ -98,6 +100,7 @@ def _build_sentence_item(
         "startOffset": start_offset,
         "endOffset": end_offset,
         "text": full_text[start_offset:end_offset],
+        "lemmaText": lemma_text,
     }
 
 
@@ -131,6 +134,7 @@ def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
             "processing_id": processing_id,
             "start_offset": merged_start_offset,
             "end_offset": merged_end_offset,
+            "lemma_text": None,
         },
     )
 
@@ -149,6 +153,7 @@ def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
         processing_id=processing_id,
         start_offset=merged_start_offset,
         end_offset=merged_end_offset,
+        lemma_text=None,
         full_text=full_text,
     )
 
@@ -195,6 +200,7 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
             "processing_id": processing_id,
             "start_offset": start_offset,
             "end_offset": split_offset,
+            "lemma_text": None,
         },
         right_sentence={
             "id": right_id,
@@ -202,6 +208,7 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
             "processing_id": processing_id,
             "start_offset": split_offset,
             "end_offset": end_offset,
+            "lemma_text": None,
         },
     )
 
@@ -211,6 +218,7 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
         processing_id=processing_id,
         start_offset=start_offset,
         end_offset=split_offset,
+        lemma_text=None,
         full_text=full_text,
     )
     right_item = _build_sentence_item(
@@ -219,6 +227,7 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
         processing_id=processing_id,
         start_offset=split_offset,
         end_offset=end_offset,
+        lemma_text=None,
         full_text=full_text,
     )
 

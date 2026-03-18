@@ -26,7 +26,7 @@ SENTENCE_SEGMENTATION_PROCESSING_TYPE = "sentence_segmentation"
 SEGMENTATION_PREVIEW_LIMIT = 20
 MAX_CURSOR_LIMIT = 200
 DEFAULT_CURSOR_LIMIT = 50
-SentenceRow = dict[str, int | str]
+SentenceRow = dict[str, int | str | None]
 
 
 class SentenceItem(TypedDict):
@@ -36,6 +36,7 @@ class SentenceItem(TypedDict):
     startOffset: int
     endOffset: int
     text: str
+    lemmaText: str | None
 
 
 class SentenceSegmentationResult(TypedDict):
@@ -79,6 +80,7 @@ def _map_sentence_row_to_item(sentence_row: SentenceRow, full_text: str) -> Sent
     sentence_id = str(sentence_row["id"])
     start_offset = int(sentence_row["start_offset"])
     end_offset = int(sentence_row["end_offset"])
+    lemma_text = sentence_row.get("lemma_text")
     _validate_sentence_offsets(
         sentence_id=sentence_id,
         start_offset=start_offset,
@@ -93,6 +95,7 @@ def _map_sentence_row_to_item(sentence_row: SentenceRow, full_text: str) -> Sent
         "startOffset": start_offset,
         "endOffset": end_offset,
         "text": full_text[start_offset:end_offset],
+        "lemmaText": str(lemma_text) if lemma_text is not None else None,
     }
 
 
@@ -157,6 +160,7 @@ def segment_document_sentences(doc_id: str) -> SentenceSegmentationResult:
             processing_id=processing_id,
             doc_id=doc_id,
             spans=spans,
+            lemma_text=None,
         )
         processing = update_processing_state(
             processing_id=processing_id,

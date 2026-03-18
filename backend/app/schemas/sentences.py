@@ -9,6 +9,7 @@ class SentenceItem(BaseModel):
     processingId: str
     startOffset: int
     endOffset: int
+    lemmaText: str | None
     text: str
 
 

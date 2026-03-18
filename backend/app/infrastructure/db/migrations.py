@@ -5,6 +5,7 @@ from app.core.config import settings
 from app.core.log import get_logger, log_event
 from app.infrastructure.db.connection import connection_scope
 from app.infrastructure.db.schema import (
+    DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN,
     DOCUMENT_SENTENCES_TABLE_NAME,
     DOCUMENTS_TABLE_NAME,
     DOCUMENTS_TEXT_CHAR_COUNT_COLUMN,
@@ -82,6 +83,18 @@ def _ordered_migration_steps() -> tuple[MigrationStep, ...]:
         (
             "20260317_verify_legacy_cascade_foreign_keys",
             _ensure_legacy_foreign_key_compatibility,
+        ),
+        (
+            "20260318_add_document_sentences_lemma_text",
+            _ensure_document_sentences_lemma_text_column,
+        ),
+        (
+            "20260318_normalize_legacy_document_sentences_text_columns",
+            _normalize_legacy_document_sentences_text_columns,
+        ),
+        (
+            "20260318_drop_legacy_documents_sentence_amount",
+            _drop_legacy_documents_sentence_amount_column,
         ),
     )
 
@@ -215,6 +228,294 @@ def _ensure_legacy_foreign_key_compatibility(connection: Connection) -> None:
         function_name=function_name,
         result="cascade_constraints_verified",
     )
+
+
+def _ensure_document_sentences_lemma_text_column(connection: Connection) -> None:
+    function_name = "_ensure_document_sentences_lemma_text_column"
+    log_event(
+        LOGGER,
+        stage="CALL",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+        table_name=DOCUMENT_SENTENCES_TABLE_NAME,
+        column_name=DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN,
+    )
+    if not _table_exists(connection, DOCUMENT_SENTENCES_TABLE_NAME):
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result="table_missing_skip",
+        )
+        return
+
+    if _column_exists(
+        connection,
+        DOCUMENT_SENTENCES_TABLE_NAME,
+        DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN,
+    ):
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result="column_already_exists",
+        )
+        return
+
+    connection.execute(
+        f"""
+        ALTER TABLE {DOCUMENT_SENTENCES_TABLE_NAME}
+        ADD COLUMN {DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN} TEXT NULL
+        """
+    )
+    connection.commit()
+    log_event(
+        LOGGER,
+        stage="OK",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+        result="column_added",
+    )
+
+
+def _normalize_legacy_document_sentences_text_columns(connection: Connection) -> None:
+    function_name = "_normalize_legacy_document_sentences_text_columns"
+    log_event(
+        LOGGER,
+        stage="CALL",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+        table_name=DOCUMENT_SENTENCES_TABLE_NAME,
+    )
+    if not _table_exists(connection, DOCUMENT_SENTENCES_TABLE_NAME):
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result="table_missing_skip",
+        )
+        return
+
+    table_info_rows = connection.execute(
+        f'PRAGMA table_info("{DOCUMENT_SENTENCES_TABLE_NAME}")'
+    ).fetchall()
+    column_names = {str(row["name"]) for row in table_info_rows}
+    legacy_columns = tuple(
+        column_name
+        for column_name in ("source_text", "corrected_text")
+        if column_name in column_names
+    )
+    if not legacy_columns:
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result="legacy_columns_missing_skip",
+        )
+        return
+
+    has_lemma_column = DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN in column_names
+    temp_table_name = f"{DOCUMENT_SENTENCES_TABLE_NAME}__normalized_tmp"
+    lemma_select_sql = DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN if has_lemma_column else "NULL"
+
+    try:
+        connection.execute("BEGIN")
+        connection.execute(f"DROP TABLE IF EXISTS {temp_table_name}")
+        connection.execute(
+            f"""
+            CREATE TABLE {temp_table_name} (
+                id TEXT PRIMARY KEY,
+                doc_id TEXT NOT NULL,
+                processing_id TEXT NOT NULL,
+                start_offset INTEGER NOT NULL,
+                end_offset INTEGER NOT NULL,
+                {DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN} TEXT NULL,
+                FOREIGN KEY (doc_id) REFERENCES {DOCUMENTS_TABLE_NAME}(id) ON DELETE CASCADE,
+                FOREIGN KEY (processing_id) REFERENCES {PROCESSINGS_TABLE_NAME}(id) ON DELETE CASCADE,
+                CHECK(start_offset >= 0),
+                CHECK(end_offset > start_offset)
+            )
+            """
+        )
+        connection.execute(
+            f"""
+            INSERT INTO {temp_table_name} (
+                id,
+                doc_id,
+                processing_id,
+                start_offset,
+                end_offset,
+                {DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN}
+            )
+            SELECT
+                id,
+                doc_id,
+                processing_id,
+                start_offset,
+                end_offset,
+                {lemma_select_sql}
+            FROM {DOCUMENT_SENTENCES_TABLE_NAME}
+            """
+        )
+        connection.execute(f"DROP TABLE {DOCUMENT_SENTENCES_TABLE_NAME}")
+        connection.execute(
+            f"ALTER TABLE {temp_table_name} RENAME TO {DOCUMENT_SENTENCES_TABLE_NAME}"
+        )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+
+    log_event(
+        LOGGER,
+        stage="OK",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+        legacy_columns=",".join(legacy_columns),
+        result="table_normalized",
+    )
+
+
+def _drop_legacy_documents_sentence_amount_column(connection: Connection) -> None:
+    function_name = "_drop_legacy_documents_sentence_amount_column"
+    legacy_column_name = "sentence_amount"
+    log_event(
+        LOGGER,
+        stage="CALL",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+        table_name=DOCUMENTS_TABLE_NAME,
+        column_name=legacy_column_name,
+    )
+    if not _table_exists(connection, DOCUMENTS_TABLE_NAME):
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result="table_missing_skip",
+        )
+        return
+
+    if not _column_exists(connection, DOCUMENTS_TABLE_NAME, legacy_column_name):
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result="column_missing_skip",
+        )
+        return
+
+    try:
+        connection.execute(
+            f"""
+            ALTER TABLE {DOCUMENTS_TABLE_NAME}
+            DROP COLUMN {legacy_column_name}
+            """
+        )
+        connection.commit()
+        log_event(
+            LOGGER,
+            stage="OK",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result="column_dropped_with_alter",
+        )
+        return
+    except Exception as error:
+        log_event(
+            LOGGER,
+            stage="CALL",
+            module_file=MODULE_FILE,
+            function_name=function_name,
+            result="alter_drop_failed_fallback_to_rebuild",
+            error=str(error),
+        )
+
+    _rebuild_documents_table_without_sentence_amount(connection)
+    log_event(
+        LOGGER,
+        stage="OK",
+        module_file=MODULE_FILE,
+        function_name=function_name,
+        result="column_dropped_with_rebuild",
+    )
+
+
+def _rebuild_documents_table_without_sentence_amount(connection: Connection) -> None:
+    temp_table_name = f"{DOCUMENTS_TABLE_NAME}__normalized_tmp"
+    text_char_count_select_sql = (
+        DOCUMENTS_TEXT_CHAR_COUNT_COLUMN
+        if _column_exists(connection, DOCUMENTS_TABLE_NAME, DOCUMENTS_TEXT_CHAR_COUNT_COLUMN)
+        else "0"
+    )
+
+    try:
+        connection.execute("PRAGMA foreign_keys = OFF;")
+        connection.execute("BEGIN")
+        connection.execute(f"DROP TABLE IF EXISTS {temp_table_name}")
+        connection.execute(
+            f"""
+            CREATE TABLE {temp_table_name} (
+                id TEXT PRIMARY KEY,
+                filename TEXT NOT NULL,
+                display_name TEXT NOT NULL,
+                note TEXT NOT NULL,
+                source_path TEXT NOT NULL,
+                text_path TEXT NOT NULL,
+                {DOCUMENTS_TEXT_CHAR_COUNT_COLUMN} INTEGER NOT NULL,
+                file_type TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            f"""
+            INSERT INTO {temp_table_name} (
+                id,
+                filename,
+                display_name,
+                note,
+                source_path,
+                text_path,
+                {DOCUMENTS_TEXT_CHAR_COUNT_COLUMN},
+                file_type,
+                file_size,
+                created_at,
+                updated_at
+            )
+            SELECT
+                id,
+                filename,
+                display_name,
+                note,
+                source_path,
+                text_path,
+                {text_char_count_select_sql},
+                file_type,
+                file_size,
+                created_at,
+                updated_at
+            FROM {DOCUMENTS_TABLE_NAME}
+            """
+        )
+        connection.execute(f"DROP TABLE {DOCUMENTS_TABLE_NAME}")
+        connection.execute(
+            f"ALTER TABLE {temp_table_name} RENAME TO {DOCUMENTS_TABLE_NAME}"
+        )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.execute("PRAGMA foreign_keys = ON;")
 
 
 def _foreign_key_exists(

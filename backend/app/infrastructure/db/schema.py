@@ -8,6 +8,7 @@ DOCUMENTS_TABLE_NAME = "documents"
 DOCUMENTS_TEXT_CHAR_COUNT_COLUMN = "text_char_count"
 PROCESSINGS_TABLE_NAME = "processings"
 DOCUMENT_SENTENCES_TABLE_NAME = "document_sentences"
+DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN = "lemma_text"
 PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME = "idx_processings_doc_type_created_at"
 DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME = (
     "idx_document_sentences_processing_doc_start_offset"
@@ -127,6 +128,7 @@ def _create_document_sentences_table(connection: Connection) -> None:
             processing_id TEXT NOT NULL,
             start_offset INTEGER NOT NULL,
             end_offset INTEGER NOT NULL,
+            {DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN} TEXT NULL,
             FOREIGN KEY (doc_id) REFERENCES {DOCUMENTS_TABLE_NAME}(id) ON DELETE CASCADE,
             FOREIGN KEY (processing_id) REFERENCES {PROCESSINGS_TABLE_NAME}(id) ON DELETE CASCADE,
             CHECK(start_offset >= 0),
@@ -200,6 +202,7 @@ def _validate_schema(connection: Connection) -> None:
             "processing_id",
             "start_offset",
             "end_offset",
+            DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN,
         ),
     }
 
