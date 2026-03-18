@@ -3,7 +3,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 // components
-import SentenceListItem from '@/components/DocumentDetail/Content/SentenceSegmentation/SentenceListItem.vue'
+import SentencesOfDocument from '@/components/DocumentDetail/Content/SentenceSegmentation/SentencesOfDocument.vue'
 // store
 import { usePaginationStore } from '@/stores/local/paginationStore'
 import { useProcessStore } from '@/stores/processStore'
@@ -173,13 +173,11 @@ watch(
     <div v-else class="min-h-0 flex flex-1 flex-col gap-3 overflow-hidden">
       <div ref="sentenceListRef"
         class="scroll-area min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
-        <SentenceListItem v-for="(item, index) in sentenceItems"
+        <SentencesOfDocument v-for="(item, index) in sentenceItems"
           :key="item.id" :item="item"
-          :loading="actionLoading"
-          :can-merge-prev="index > 0"
+          :loading="actionLoading" :can-merge-prev="index > 0"
           :highlighted="highlightedSentenceIdSet.has(item.id)"
-          @request-merge="mergePreviousSentence"
-          @clip="clipSentence" />
+          @request-merge="mergePreviousSentence" @clip="clipSentence" />
       </div>
 
       <button v-if="sentenceHasMore"
