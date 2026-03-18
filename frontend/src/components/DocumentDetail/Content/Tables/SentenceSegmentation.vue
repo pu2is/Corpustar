@@ -164,7 +164,7 @@ watch(
 </script>
 
 <template>
-  <div class="min-h-0 flex flex-1 flex-col gap-3 overflow-hidden rounded border border-border p-3">
+  <div class="min-h-0 flex flex-1 flex-col gap-3 overflow-hidden">
     <p v-if="sentenceItems.length === 0"
       class="text-sm text-text-muted">
       No sentences in this segmentation result.
