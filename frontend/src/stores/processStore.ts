@@ -19,11 +19,6 @@ interface ProcessingEventPayload {
   errorMessage?: string | null
 }
 
-interface SentenceListRebuiltPayload {
-  docId: string
-  processingId: string
-}
-
 const PROCESSING_STATE_SET = new Set<ProcessingState>(['running', 'succeed', 'failed'])
 // Keep socket lifecycle in socket.ts; store only consumes events.
 let hasBoundSocketEvents = false
@@ -74,23 +69,6 @@ function parseProcessingEventPayload(payload: unknown): ProcessingEventPayload |
     processingId,
     state,
     errorMessage,
-  }
-}
-
-function parseSentenceListRebuiltPayload(payload: unknown): SentenceListRebuiltPayload | null {
-  if (!isRecord(payload)) {
-    return null
-  }
-
-  const docId = toNonEmptyString(payload.docId)
-  const processingId = toNonEmptyString(payload.processingId)
-  if (!docId || !processingId) {
-    return null
-  }
-
-  return {
-    docId,
-    processingId,
   }
 }
 
@@ -161,10 +139,6 @@ export const useProcessStore = defineStore('process-store', {
       on('processing:updated', (payload) => {
         this.handleProcessingUpdated(payload)
       })
-      on('sentence:list_rebuilt', (payload) => {
-        this.handleSentenceListRebuilt(payload)
-      })
-
       hasBoundSocketEvents = true
     },
 
@@ -208,16 +182,7 @@ export const useProcessStore = defineStore('process-store', {
       }
     },
 
-    upsertProcess(processing: ProcessItem): void {
-      const existingIndex = this.processes.findIndex((existing) => existing.id === processing.id)
-      if (existingIndex >= 0) {
-        this.processes.splice(existingIndex, 1, processing)
-        return
-      }
-
-      this.processes.unshift(processing)
-    },
-
+    // Socket event handlers
     handleProcessingCreated(payload: unknown): void {
       const parsed = parseProcessingEventPayload(payload)
       if (!parsed) {
@@ -240,26 +205,15 @@ export const useProcessStore = defineStore('process-store', {
       this.upsertProcess(processing)
     },
 
-    handleSentenceListRebuilt(payload: unknown): void {
-      const parsed = parseSentenceListRebuiltPayload(payload)
-      if (!parsed) {
+    // helper
+    upsertProcess(processing: ProcessItem): void {
+      const existingIndex = this.processes.findIndex((existing) => existing.id === processing.id)
+      if (existingIndex >= 0) {
+        this.processes.splice(existingIndex, 1, processing)
         return
       }
 
-      const existing = this.findProcessById(parsed.processingId)
-      const processing = buildProcessingFromEvent(
-        existing,
-        {
-          docId: parsed.docId,
-          processingId: parsed.processingId,
-          state: 'succeed',
-          errorMessage: null,
-        },
-        {
-          fallbackState: 'succeed',
-        },
-      )
-      this.upsertProcess(processing)
+      this.processes.unshift(processing)
     },
   },
 })

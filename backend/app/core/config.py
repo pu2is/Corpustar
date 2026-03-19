@@ -41,11 +41,10 @@ class Settings:
         self.backend_port = self._get_int("BACKEND_PORT")
         self.frontend_origin = self._get_required("FRONTEND_ORIGIN")
         self.sqlite_database_path = Path(
-            os.getenv(
-                "SQLITE_DATABASE_PATH",
-                str(self.backend_dir / "data" / "corpustar.sqlite3"),
-            )
+            os.getenv("SQLITE_DATABASE_PATH",
+                str(self.backend_dir / "data" / "corpustar.sqlite3"))
         ).resolve()
+        self.default_sentence_per_page = self._get_int_or_default("DEFAULT_SENTENCE_PER_PAGE", 20)
 
     @staticmethod
     def _get_required(name: str) -> str:
@@ -55,6 +54,16 @@ class Settings:
 
         return value.strip()
 
+    @staticmethod
+    def _get_int_or_default(name: str, default: int) -> int:
+        value = os.getenv(name)
+        if value is None or not value.strip():
+            return default
+        try:
+            return int(value)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be an integer") from exc
+
     @classmethod
     def _get_int(cls, name: str) -> int:
         value = cls._get_required(name)
@@ -63,6 +72,5 @@ class Settings:
             return int(value)
         except ValueError as exc:
             raise ValueError(f"{name} must be an integer") from exc
-
 
 settings = Settings()

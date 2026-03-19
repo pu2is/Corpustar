@@ -1,10 +1,6 @@
 import argparse
-
-from app.services.process.sentence_processing_service import (
-    get_latest_sentence_segmentation_result,
-    get_sentence_cursor_page,
-    segment_document_sentences,
-)
+from app.services.process.sentence_segmentation import segment_document_sentences
+from app.services.sentence.pagination import get_sentence_cursor_page
 
 
 def register(subparsers) -> None:
@@ -26,7 +22,6 @@ def register(subparsers) -> None:
         help="Get latest sentence segmentation result",
     )
     latest_parser.add_argument("doc_id", help="Document id")
-    latest_parser.set_defaults(handler=_handle_latest_segmentation)
 
     page_parser = process_subparsers.add_parser(
         "sentence-page",
@@ -51,10 +46,6 @@ def register(subparsers) -> None:
 
 def _handle_segment_sentences(args: argparse.Namespace) -> dict:
     return segment_document_sentences(args.doc_id)
-
-
-def _handle_latest_segmentation(args: argparse.Namespace) -> dict:
-    return get_latest_sentence_segmentation_result(args.doc_id)
 
 
 def _handle_sentence_page(args: argparse.Namespace) -> dict:

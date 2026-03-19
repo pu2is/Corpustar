@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia'
-
 import { get, post } from '@/stores/fetchWrapper'
 import { on } from '@/socket/socket'
 import type { ClipSentenceResponse, SentenceCursorPage, SentenceItem} from '@/types/sentences'
@@ -21,7 +20,6 @@ interface DocProcessPayload {
   processingId: string
 }
 
-const DEFAULT_SENTENCE_PAGE_LIMIT = 20
 // Keep socket lifecycle in socket.ts; store only consumes events.
 let hasBoundSocketEvents = false
 
@@ -115,10 +113,6 @@ export const useSentenceStore = defineStore('sentence-store', {
       on('sentence:clipped', (payload) => {
         this.handleSentenceChanged(payload)
       })
-      on('sentence:list_rebuilt', (payload) => {
-        this.handleSentenceChanged(payload)
-      })
-
       hasBoundSocketEvents = true
     },
 
@@ -126,7 +120,7 @@ export const useSentenceStore = defineStore('sentence-store', {
     async getSentences(docId: string, processId: string, options: GetSentenceOptions = {}): Promise<SentenceCursorPage> {
       const key = getSentenceKey(docId, processId)
       const afterStartOffset = options.afterStartOffset ?? null
-      const limit = options.limit ?? DEFAULT_SENTENCE_PAGE_LIMIT
+      const limit = options.limit ?? 20
       const append = options.append ?? false
 
       this.loadingByDocProcessKey[key] = true
@@ -134,7 +128,7 @@ export const useSentenceStore = defineStore('sentence-store', {
 
       try {
         const page = await get<SentenceCursorPage>(
-          `/api/documents/${encodeURIComponent(docId)}/sentences`,
+          `/api/sentences/${encodeURIComponent(docId)}`,
           {
             params: {
               processingId: processId,
@@ -199,7 +193,7 @@ export const useSentenceStore = defineStore('sentence-store', {
     async refreshLoadedSentences(docId: string, processId: string): Promise<SentenceCursorPage> {
       const key = getSentenceKey(docId, processId)
       const existingItems = this.itemsByDocProcessKey[key] ?? []
-      const limit = Math.max(existingItems.length, DEFAULT_SENTENCE_PAGE_LIMIT)
+      const limit = Math.max(existingItems.length, 20)
 
       return this.getSentences(docId, processId, {
         afterStartOffset: null,

@@ -28,12 +28,8 @@ def _map_sentence_row(row: Row) -> SentenceRow:
     }
 
 
-def bulk_insert_sentences(
-    processing_id: str,
-    doc_id: str,
-    spans: Iterable[Mapping[str, int]],
-    lemma_text: str | None,
-    full_text: str | None = None,
+def bulk_insert_sentences( processing_id: str, doc_id: str,
+    spans: Iterable[Mapping[str, int]], lemma_text: str | None, full_text: str | None = None,
 ) -> list[SentenceRow]:
     sentences: list[SentenceRow] = []
     for span in spans:
@@ -85,22 +81,21 @@ def bulk_insert_sentences(
         return sentences
 
 
-def list_sentences_by_processing_cursor(
-    doc_id: str,
-    processing_id: str,
-    after_start_offset: int | None,
-    limit: int,
-) -> list[SentenceRow]:
-    if limit <= 0:
+def list_sentences_by_processing_cursor(doc_id: str, processing_id: str,
+    after_start_offset: int | None, limit: int | None = None) -> list[SentenceRow]:
+    if limit is not None and limit <= 0:
         return []
 
     parameters: list[int | str] = [doc_id, processing_id]
     cursor_sql = ""
+    limit_sql = ""
     if after_start_offset is not None:
         cursor_sql = "AND start_offset > ?"
         parameters.append(after_start_offset)
 
-    parameters.append(limit)
+    if limit is not None:
+        limit_sql = "LIMIT ?"
+        parameters.append(limit)
 
     with connection_scope() as connection:
         rows = connection.execute(
@@ -118,7 +113,7 @@ def list_sentences_by_processing_cursor(
               AND processing_id = ?
               {cursor_sql}
             ORDER BY start_offset ASC
-            LIMIT ?
+            {limit_sql}
             """,
             tuple(parameters),
         ).fetchall()
@@ -170,74 +165,9 @@ def get_sentences_by_ids(sentence_ids: list[str]) -> list[SentenceRow]:
             tuple(sentence_ids),
         ).fetchall()
         return [_map_sentence_row(row) for row in rows]
+    
 
-
-def delete_sentences_by_ids(sentence_ids: list[str]) -> int:
-    if not sentence_ids:
-        return 0
-
-    placeholders = ", ".join("?" for _ in sentence_ids)
-    with connection_scope() as connection:
-        cursor = connection.execute(
-            f"""
-            DELETE FROM {DOCUMENT_SENTENCES_TABLE_NAME}
-            WHERE id IN ({placeholders})
-            """,
-            tuple(sentence_ids),
-        )
-        connection.commit()
-        return cursor.rowcount
-
-
-def insert_sentence(
-    processing_id: str,
-    doc_id: str,
-    start_offset: int,
-    end_offset: int,
-    source_text: str = "",
-    lemma_text: str | None = None,
-) -> SentenceRow:
-    sentence = {
-        "id": str(uuid4()),
-        "doc_id": doc_id,
-        "processing_id": processing_id,
-        "start_offset": start_offset,
-        "end_offset": end_offset,
-        "source_text": source_text,
-        "lemma_text": lemma_text,
-    }
-
-    with connection_scope() as connection:
-        connection.execute(
-            f"""
-            INSERT INTO {DOCUMENT_SENTENCES_TABLE_NAME} (
-                id,
-                doc_id,
-                processing_id,
-                start_offset,
-                end_offset,
-                source_text,
-                lemma_text
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                sentence["id"],
-                sentence["doc_id"],
-                sentence["processing_id"],
-                sentence["start_offset"],
-                sentence["end_offset"],
-                sentence["source_text"],
-                sentence["lemma_text"],
-            ),
-        )
-        connection.commit()
-        return sentence
-
-
-def merge_sentences_to_one(
-    sentence_ids: list[str],
-    merged_sentence: SentenceRow,
-) -> None:
+def merge_sentences_to_one(sentence_ids: list[str], merged_sentence: SentenceRow) -> None:
     if not sentence_ids:
         raise ValueError("sentence_ids is required")
 
@@ -283,11 +213,7 @@ def merge_sentences_to_one(
             raise
 
 
-def replace_sentence_with_split(
-    sentence_id: str,
-    left_sentence: SentenceRow,
-    right_sentence: SentenceRow,
-) -> None:
+def replace_sentence_with_split(sentence_id: str, left_sentence: SentenceRow, right_sentence: SentenceRow) -> None:
     with connection_scope() as connection:
         try:
             connection.execute("BEGIN")
@@ -338,19 +264,3 @@ def replace_sentence_with_split(
         except Exception:
             connection.rollback()
             raise
-
-
-def count_sentences_by_processing(doc_id: str, processing_id: str) -> int:
-    with connection_scope() as connection:
-        row = connection.execute(
-            f"""
-            SELECT COUNT(*) AS count
-            FROM {DOCUMENT_SENTENCES_TABLE_NAME}
-            WHERE doc_id = ?
-              AND processing_id = ?
-            """,
-            (doc_id, processing_id),
-        ).fetchone()
-        if row is None:
-            return 0
-        return int(row["count"])

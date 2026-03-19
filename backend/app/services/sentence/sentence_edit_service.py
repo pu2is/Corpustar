@@ -1,43 +1,19 @@
-from pathlib import Path
-from typing import TypedDict
 from uuid import uuid4
 
+from app.core.document.document_utils import load_txt_by_path
+from app.core.sentence.build_sentence_items import build_sentence_item
 from app.infrastructure.repositories.document_repository import get_document_by_id
-from app.infrastructure.repositories.sentence_repository import (
-    get_sentence_by_id,
-    get_sentences_by_ids,
-    merge_sentences_to_one,
-    replace_sentence_with_split,
-)
+from app.infrastructure.repositories.sentence_repository import (get_sentence_by_id, get_sentences_by_ids,
+    merge_sentences_to_one, replace_sentence_with_split)
+from app.services.sentence.types import ClipSentenceResult, SentenceItem, SentenceRow
 from app.socket.socket_events import SENTENCE_CLIPPED, SENTENCE_MERGED
 from app.socket.socket_publisher import publish_best_effort
 
 
-class SentenceItem(TypedDict):
-    id: str
-    docId: str
-    processingId: str
-    startOffset: int
-    endOffset: int
-    text: str
-    lemmaText: str | None
-
-
-class ClipSentenceResult(TypedDict):
-    items: list[SentenceItem]
-
-
-def _read_document_text_by_path(text_path: str) -> str:
-    resolved_text_path = Path(text_path)
-    if not resolved_text_path.exists() or not resolved_text_path.is_file():
-        raise FileNotFoundError(f"Document text file not found: {text_path}")
-    return resolved_text_path.read_text(encoding="utf-8")
-
-
 def _validate_sentence_rows_for_merge(
-    sentence_rows: list[dict[str, int | str | None]],
+    sentence_rows: list[SentenceRow],
     full_text: str,
-) -> list[dict[str, int | str | None]]:
+) -> list[SentenceRow]:
     sorted_rows = sorted(
         sentence_rows,
         key=lambda row: (int(row["start_offset"]), int(row["end_offset"])),
@@ -72,38 +48,6 @@ def _validate_sentence_rows_for_merge(
 
     return sorted_rows
 
-
-def _build_sentence_item(
-    sentence_id: str,
-    doc_id: str,
-    processing_id: str,
-    start_offset: int,
-    end_offset: int,
-    lemma_text: str | None,
-    full_text: str,
-) -> SentenceItem:
-    if start_offset < 0:
-        raise ValueError(f"Sentence {sentence_id} has negative start offset: {start_offset}")
-    if end_offset <= start_offset:
-        raise ValueError(
-            f"Sentence {sentence_id} has invalid offsets: start={start_offset}, end={end_offset}"
-        )
-    if end_offset > len(full_text):
-        raise ValueError(
-            f"Sentence {sentence_id} offset out of range: end={end_offset}, text_length={len(full_text)}"
-        )
-
-    return {
-        "id": sentence_id,
-        "docId": doc_id,
-        "processingId": processing_id,
-        "startOffset": start_offset,
-        "endOffset": end_offset,
-        "text": full_text[start_offset:end_offset],
-        "lemmaText": lemma_text,
-    }
-
-
 def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
     unique_sentence_ids = list(dict.fromkeys(sentence_ids))
     if len(unique_sentence_ids) < 2:
@@ -118,7 +62,7 @@ def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
     if document is None:
         raise FileNotFoundError(f"Document not found: {doc_id}")
 
-    full_text = _read_document_text_by_path(document["textPath"])
+    full_text = load_txt_by_path(document["textPath"])
     sorted_rows = _validate_sentence_rows_for_merge(sentence_rows, full_text)
 
     merged_start_offset = int(min(row["start_offset"] for row in sorted_rows))
@@ -148,7 +92,7 @@ def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
         },
     )
 
-    return _build_sentence_item(
+    return build_sentence_item(
         sentence_id=merged_id,
         doc_id=doc_id,
         processing_id=processing_id,
@@ -178,7 +122,7 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
     if document is None:
         raise FileNotFoundError(f"Document not found: {doc_id}")
 
-    full_text = _read_document_text_by_path(document["textPath"])
+    full_text = load_txt_by_path(document["textPath"])
     original_text = full_text[start_offset:end_offset]
     left_text = full_text[start_offset:split_offset]
     right_text = full_text[split_offset:end_offset]
@@ -215,7 +159,7 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
         },
     )
 
-    left_item = _build_sentence_item(
+    left_item = build_sentence_item(
         sentence_id=left_id,
         doc_id=doc_id,
         processing_id=processing_id,
@@ -224,7 +168,7 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
         lemma_text=None,
         full_text=full_text,
     )
-    right_item = _build_sentence_item(
+    right_item = build_sentence_item(
         sentence_id=right_id,
         doc_id=doc_id,
         processing_id=processing_id,

@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string
+  readonly VITE_SENTENCE_ITEM_PER_PAGE?: number
   readonly BACKEND_HOST: string
   readonly BACKEND_PORT: string
   readonly FRONTEND_DEV_HOST: string

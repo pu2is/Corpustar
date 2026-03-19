@@ -4,12 +4,11 @@ import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 // components
 import SentencesOfDocument from '@/components/DocumentDetail/Content/SentenceSegmentation/SentencesOfDocument.vue'
+import { sentenceItemPerPage } from '@/config/sentences'
 // store
 import { usePaginationStore } from '@/stores/local/paginationStore'
 import { useProcessStore } from '@/stores/processStore'
 import { useSentenceStore } from '@/stores/sentenceStore'
-
-const DEFAULT_SENTENCE_PAGE_LIMIT = 20
 
 const route = useRoute()
 const paginationStore = usePaginationStore()
@@ -91,7 +90,7 @@ function getPreviousSentenceId(sentenceId: string): string | null {
 }
 
 function getCurrentSentenceLoadLimit(): number {
-  return Math.max(sentenceItems.value.length, DEFAULT_SENTENCE_PAGE_LIMIT)
+  return Math.max(sentenceItems.value.length, sentenceItemPerPage)
 }
 
 function loadMoreSentences(): void {

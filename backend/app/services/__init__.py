@@ -7,9 +7,9 @@ _LEGACY_MODULE_ALIASES = {
     "remove_document_service": "app.services.document.remove_document_service",
     "processing_repository": "app.infrastructure.repositories.processing_repository",
     "sentence_edit_service": "app.services.sentence.sentence_edit_service",
-    "sentence_processing_service": "app.services.process.sentence_processing_service",
+    "sentence_processing_service": "app.services.process.sentence_segmentation",
     "sentence_repository": "app.infrastructure.repositories.sentence_repository",
-    "sentence_segmentation_service": "app.services.process.sentence_segmentation_service",
+    "sentence_segmentation_service": "app.services.process.sentence_segmentation",
 }
 
 
