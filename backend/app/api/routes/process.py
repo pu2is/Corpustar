@@ -46,13 +46,13 @@ def get_processes_route() -> list[ProcessingItem]:
 
 
 @router.post("/process/sentence_segmentation/{doc_id}", response_model=SentenceSegmentationResponse)
-def segment_document_sentences_route(doc_id: str) -> SentenceSegmentationResponse:
+def segment_document_sentences_route(doc_id: str, preview_length: int) -> SentenceSegmentationResponse:
     function_name = "segment_document_sentences_route"
     log_event(LOGGER, stage="CALL", module_file=MODULE_FILE,
         function_name=function_name, doc_id=doc_id)
 
     try:
-        response = segment_document_sentences(doc_id)
+        response = segment_document_sentences(doc_id, preview_length)
         log_event(LOGGER, stage="OK", module_file=MODULE_FILE, function_name=function_name,
             doc_id=doc_id, processing_id=response["processing"]["id"], sentence_count=response["sentenceCount"])
         return response

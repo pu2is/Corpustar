@@ -1,31 +1,13 @@
 import { defineStore } from 'pinia'
 import { get, post } from '@/stores/fetchWrapper'
-import { on, SOCKET_CONNECTED_EVENT } from '@/socket/socket'
+import { on, SOCKET_CONNECTED_EVENT, SOCKET_DISCONNECTED_EVENT } from '@/socket/socket'
 import type { ProcessingItem, ProcessingState, ProcessingType } from '@/types/processings'
 import type { SentenceSegmentationResponse } from '@/types/sentences'
 
 type ProcessItem = ProcessingItem
 
-interface ProcessState {
-  processes: ProcessItem[]
-  loading: boolean
-  error: string | null
-}
-
-interface ProcessingEventPayload {
-  docId: string
-  processingId: string
-  state?: ProcessingState
-  errorMessage?: string | null
-}
-
 const PROCESSING_STATE_SET = new Set<ProcessingState>(['running', 'succeed', 'failed'])
-// Keep socket lifecycle in socket.ts; store only consumes events.
-let hasBoundSocketEvents = false
-
-function toErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
+const sentenceItemPerPage = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '20', 10)
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -48,62 +30,43 @@ function toProcessingState(value: unknown): ProcessingState | undefined {
   return normalized as ProcessingState
 }
 
-function parseProcessingEventPayload(payload: unknown): ProcessingEventPayload | null {
+function toProcessingItem(payload: unknown): ProcessItem | null {
   if (!isRecord(payload)) {
     return null
   }
 
+  const id = toNonEmptyString(payload.id)
   const docId = toNonEmptyString(payload.docId)
-  const processingId = toNonEmptyString(payload.processingId)
-  if (!docId || !processingId) {
+  const type = toNonEmptyString(payload.type) as ProcessingType | null
+  const state = toProcessingState(payload.state)
+  const createdAt = toNonEmptyString(payload.createdAt)
+  const updatedAt = toNonEmptyString(payload.updatedAt)
+  const errorMessage = payload.errorMessage === null
+    ? null
+    : (toNonEmptyString(payload.errorMessage) ?? null)
+  const meta = isRecord(payload.meta) ? payload.meta : null
+
+  if (!id || !docId || !type || !state || !createdAt || !updatedAt) {
     return null
   }
 
-  const state = toProcessingState(payload.state)
-  const errorMessage = payload.errorMessage === null
-    ? null
-    : (toNonEmptyString(payload.errorMessage) ?? undefined)
-
   return {
+    id,
     docId,
-    processingId,
-    state,
-    errorMessage,
-  }
-}
-
-function buildProcessingFromEvent(
-  existing: ProcessItem | undefined,
-  payload: ProcessingEventPayload,
-  options?: {
-    fallbackState?: ProcessingState
-  },
-): ProcessItem {
-  const nowIso = new Date().toISOString()
-  const fallbackState: ProcessingState = options?.fallbackState
-    ?? existing?.state
-    ?? 'running'
-  const type: ProcessingType = existing?.type ?? 'sentence_segmentation'
-
-  return {
-    id: payload.processingId,
-    docId: payload.docId,
     type,
-    state: payload.state ?? fallbackState,
-    createdAt: existing?.createdAt ?? nowIso,
-    updatedAt: nowIso,
-    errorMessage: payload.errorMessage !== undefined
-      ? payload.errorMessage
-      : (existing?.errorMessage ?? null),
-    meta: existing?.meta ?? null,
+    state,
+    createdAt,
+    updatedAt,
+    errorMessage,
+    meta,
   }
 }
 
 export const useProcessStore = defineStore('process-store', {
-  state: (): ProcessState => ({
-    processes: [],
-    loading: false,
-    error: null,
+  state: () => ({
+    processes: [] as ProcessItem[],
+    connected: false,
+    segmentationRunning: false,
   }),
   getters: {
     getProcessesByDocId: (state) => (docId: string): ProcessItem[] => {
@@ -121,17 +84,18 @@ export const useProcessStore = defineStore('process-store', {
       return state.processes.find((process) => (
         process.docId === docId
         && process.type === 'sentence_segmentation'
+        && process.state === 'succeed'
       )) ?? null
     },
   },
   actions: {
     bindSocketEvents(): void {
-      if (hasBoundSocketEvents) {
-        return
-      }
-
       on(SOCKET_CONNECTED_EVENT, () => {
+        this.connected = true
         void this.getAllProcesses().catch(() => undefined)
+      })
+      on(SOCKET_DISCONNECTED_EVENT, () => {
+        this.connected = false
       })
       on('processing:created', (payload) => {
         this.handleProcessingCreated(payload)
@@ -139,7 +103,6 @@ export const useProcessStore = defineStore('process-store', {
       on('processing:updated', (payload) => {
         this.handleProcessingUpdated(payload)
       })
-      hasBoundSocketEvents = true
     },
 
     findProcessById(processingId: string): ProcessItem | undefined {
@@ -148,61 +111,52 @@ export const useProcessStore = defineStore('process-store', {
 
     // Get
     async getAllProcesses(): Promise<ProcessItem[]> {
-      this.loading = true
-      this.error = null
-
-      try {
-        const processes = await get<ProcessItem[]>('/api/processes')
-        this.processes = processes
-        return processes
-      } catch (error) {
-        this.error = toErrorMessage(error)
-        throw error
-      } finally {
-        this.loading = false
-      }
+      const processes = await get<ProcessItem[]>('/api/processes')
+      this.processes = processes
+      return processes
     },
 
     // Post: segment sentence
     async segmentDocument(docId: string): Promise<SentenceSegmentationResponse> {
-      this.loading = true
-      this.error = null
-
+      this.segmentationRunning = true
       try {
         const response = await post<SentenceSegmentationResponse>(
           `/api/process/sentence_segmentation/${encodeURIComponent(docId)}`,
+          undefined,
+          {params: {preview_length: sentenceItemPerPage},
+          },
         )
         this.upsertProcess(response.processing)
+        if (response.processing.type === 'sentence_segmentation' && response.processing.state !== 'running') {
+          this.segmentationRunning = false
+        }
         return response
       } catch (error) {
-        this.error = toErrorMessage(error)
+        this.segmentationRunning = false
         throw error
-      } finally {
-        this.loading = false
       }
     },
 
     // Socket event handlers
     handleProcessingCreated(payload: unknown): void {
-      const parsed = parseProcessingEventPayload(payload)
-      if (!parsed) {
+      const processing = toProcessingItem(payload)
+      if (!processing) {
         return
       }
 
-      const existing = this.findProcessById(parsed.processingId)
-      const processing = buildProcessingFromEvent(existing, parsed, { fallbackState: 'running' })
       this.upsertProcess(processing)
     },
 
     handleProcessingUpdated(payload: unknown): void {
-      const parsed = parseProcessingEventPayload(payload)
-      if (!parsed) {
+      const processing = toProcessingItem(payload)
+      if (!processing) {
         return
       }
 
-      const existing = this.findProcessById(parsed.processingId)
-      const processing = buildProcessingFromEvent(existing, parsed)
       this.upsertProcess(processing)
+      if (processing.type === 'sentence_segmentation' && processing.state !== 'running') {
+        this.segmentationRunning = false
+      }
     },
 
     // helper

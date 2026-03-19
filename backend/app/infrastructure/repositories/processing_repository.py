@@ -101,11 +101,7 @@ def create_processing(
         return processing
 
 
-def update_processing_state(
-    processing_id: str,
-    new_state: ProcessingState,
-    error_message: str | None = None,
-) -> ProcessingRow:
+def update_processing_state(processing_id: str, new_state: ProcessingState, error_message: str | None = None) -> ProcessingRow:
     updated_at = _now_iso()
 
     with connection_scope() as connection:

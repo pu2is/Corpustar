@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 // store
 import { useDocumentStore } from '@/stores/documentStore'
@@ -9,7 +8,6 @@ import { useProcessStore } from '@/stores/processStore'
 const route = useRoute()
 const documentStore = useDocumentStore()
 const processStore = useProcessStore()
-const { loading: processLoading } = storeToRefs(processStore)
 
 const docId = computed(() => {
   const param = route.params.doc_id
@@ -18,7 +16,7 @@ const docId = computed(() => {
 
 const documentItem = computed(() => documentStore.getDocumentById(docId.value))
 const textPath = computed(() => documentItem.value?.textPath ?? '')
-const actionLoading = computed(() => processLoading.value)
+const actionLoading = computed(() => processStore.segmentationRunning)
 
 const sourceText = ref('')
 const sourceTextLoading = ref(false)
@@ -26,10 +24,12 @@ const sourceTextLoading = ref(false)
 let textRequestId = 0
 
 function segmentSentences(): void {
-  if (!docId.value) {
+  if (!docId.value || processStore.segmentationRunning) {
     return
   }
-  void processStore.segmentDocument(docId.value).catch(() => undefined)
+
+  void processStore.segmentDocument(docId.value)
+    .catch(() => undefined)
 }
 
 async function loadSourceText(textPath: string): Promise<void> {

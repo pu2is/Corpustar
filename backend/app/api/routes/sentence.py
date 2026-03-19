@@ -9,7 +9,10 @@ from app.schemas.sentences import (
     SentenceItem,
 )
 from app.services.sentence.pagination import get_sentence_cursor_page
-from app.services.sentence.sentence_edit_service import clip_sentence, merge_sentences
+from app.services.sentence.sentence_edit_service import (
+    clip_sentence as clip_sentence_service,
+    merge_sentences as merge_sentences_service,
+)
 
 router = APIRouter()
 LOGGER = get_logger(__name__)
@@ -52,13 +55,13 @@ def get_document_sentences(doc_id: str, processing_id: str = Query(..., alias="p
 
 
 @router.post("/sentences/merge", response_model=SentenceItem)
-def merge_sentences(payload: MergeSentenceRequest) -> SentenceItem:
+def merge_sentences_route(payload: MergeSentenceRequest) -> SentenceItem:
     function_name = "merge_sentences_route"
     log_event( LOGGER, stage="CALL", module_file=MODULE_FILE,
         function_name=function_name, sentence_ids_count=len(payload.sentenceIds))
 
     try:
-        response = merge_sentences(payload.sentenceIds)
+        response = merge_sentences_service(payload.sentenceIds)
         log_event(LOGGER, stage="OK", module_file=MODULE_FILE,
             function_name=function_name, result=response["id"])
         return response
@@ -80,13 +83,13 @@ def merge_sentences(payload: MergeSentenceRequest) -> SentenceItem:
 
 
 @router.post("/sentences/{sentence_id}/clip", response_model=ClipSentenceResponse)
-def clip_sentence(sentence_id: str, payload: ClipSentenceRequest) -> ClipSentenceResponse:
+def clip_sentence_route(sentence_id: str, payload: ClipSentenceRequest) -> ClipSentenceResponse:
     function_name = "clip_sentence_route"
     log_event(LOGGER, stage="CALL", module_file=MODULE_FILE,
         function_name=function_name, sentence_id=sentence_id, split_offset=payload.splitOffset)
 
     try:
-        response = clip_sentence(sentence_id=sentence_id, split_offset=payload.splitOffset)
+        response = clip_sentence_service(sentence_id=sentence_id, split_offset=payload.splitOffset)
         log_event(LOGGER, stage="OK", module_file=MODULE_FILE,
             function_name=function_name, sentence_id=sentence_id, result=len(response["items"]))
         return response

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 // components
 import SentencesOfDocument from '@/components/DocumentDetail/Content/SentenceSegmentation/SentencesOfDocument.vue'
@@ -11,8 +10,6 @@ import { useSentenceStore } from '@/stores/sentenceStore'
 const route = useRoute()
 const processStore = useProcessStore()
 const sentenceStore = useSentenceStore()
-
-const { loading: processLoading } = storeToRefs(processStore)
 
 const docId = computed(() => {
   const value = route.params.doc_id
@@ -34,8 +31,7 @@ const sentenceItems = computed(() => {
   return sentenceStore.getSentenceItems(docId.value, activeProcessingId.value)
 })
 const actionLoading = computed(() => (
-  processLoading.value
-  || sentenceStore.isSentenceLoading(docId.value, activeProcessingId.value)
+  sentenceStore.isSentenceLoading(docId.value, activeProcessingId.value)
 ))
 const highlightedSentenceIds = ref<string[]>([])
 const highlightedSentenceIdSet = computed(() => new Set(highlightedSentenceIds.value))

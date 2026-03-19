@@ -23,8 +23,6 @@ TRAILING_CLOSER_CHARS = frozenset(
     }
 )
 SENTENCE_SEGMENTATION_PROCESSING_TYPE = "sentence_segmentation"
-SEGMENTATION_PREVIEW_LIMIT = 20
-
 
 def _skip_leading_whitespace(text: str, start_index: int) -> int:
     index = max(start_index, 0)
@@ -91,7 +89,7 @@ def segment_sentences(full_text: str) -> list[SentenceSpan]:
     return spans
 
 
-def segment_document_sentences(doc_id: str) -> SentenceSegmentationResult:
+def segment_document_sentences(doc_id: str, preview_length: int) -> SentenceSegmentationResult:
     document = get_document_by_id(doc_id)
     if document is None:
         raise FileNotFoundError(f"Document not found: {doc_id}")
@@ -102,14 +100,11 @@ def segment_document_sentences(doc_id: str) -> SentenceSegmentationResult:
         type=SENTENCE_SEGMENTATION_PROCESSING_TYPE,
         state="running",
     )
+    processing_dto = map_processing_row_to_dto(processing)
     processing_id = str(processing["id"])
     publish_best_effort(
         PROCESSING_CREATED,
-        {
-            "docId": doc_id,
-            "processingId": processing_id,
-            "state": str(processing["state"]),
-        },
+        processing_dto,
     )
 
     try:
@@ -131,34 +126,20 @@ def segment_document_sentences(doc_id: str) -> SentenceSegmentationResult:
                 new_state="failed",
                 error_message=failed_message,
             )
+            failed_processing_dto = map_processing_row_to_dto(failed_processing)
             failed_message = str(failed_processing["error_message"] or failed_message)
 
         except Exception:
             # Keep the original segmentation failure for API-layer mapping.
             pass
-        publish_best_effort(
-            PROCESSING_UPDATED,
-            {
-                "docId": doc_id,
-                "processingId": processing_id,
-                "state": "failed",
-                "errorMessage": failed_message,
-            },
-        )
+        else:
+            publish_best_effort(PROCESSING_UPDATED, failed_processing_dto)
         raise
 
     processing_dto = map_processing_row_to_dto(processing)
-    publish_best_effort(
-        PROCESSING_UPDATED,
-        {
-            "docId": doc_id,
-            "processingId": processing_id,
-            "state": str(processing_dto["state"]),
-            "errorMessage": processing_dto["errorMessage"],
-        },
-    )
+    publish_best_effort(PROCESSING_UPDATED, processing_dto)
 
-    preview_rows = sentence_rows[:SEGMENTATION_PREVIEW_LIMIT]
+    preview_rows = sentence_rows[:preview_length]
     return {
         "processing": processing_dto,
         "sentenceCount": len(sentence_rows),
