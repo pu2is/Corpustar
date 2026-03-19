@@ -1,17 +1,14 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRoute } from 'vue-router'
 // components
 import SentencesOfDocument from '@/components/DocumentDetail/Content/SentenceSegmentation/SentencesOfDocument.vue'
-import { sentenceItemPerPage } from '@/config/sentences'
 // store
-import { usePaginationStore } from '@/stores/local/paginationStore'
 import { useProcessStore } from '@/stores/processStore'
 import { useSentenceStore } from '@/stores/sentenceStore'
 
 const route = useRoute()
-const paginationStore = usePaginationStore()
 const processStore = useProcessStore()
 const sentenceStore = useSentenceStore()
 
@@ -36,22 +33,10 @@ const sentenceItems = computed(() => {
   }
   return sentenceStore.getSentenceItems(docId.value, activeProcessingId.value)
 })
-const sentenceHasMore = computed(() => {
-  if (!docId.value || !activeProcessingId.value) {
-    return false
-  }
-  return paginationStore.hasMore(docId.value, activeProcessingId.value)
-})
-const sentenceLoading = computed(() => {
-  if (!docId.value || !activeProcessingId.value) {
-    return false
-  }
-
-  return paginationStore.isLoading(docId.value, activeProcessingId.value)
-    || sentenceStore.isSentenceLoading(docId.value, activeProcessingId.value)
-})
-const actionLoading = computed(() => sentenceLoading.value || processLoading.value)
-const sentenceListRef = ref<HTMLDivElement | null>(null)
+const actionLoading = computed(() => (
+  processLoading.value
+  || sentenceStore.isSentenceLoading(docId.value, activeProcessingId.value)
+))
 const highlightedSentenceIds = ref<string[]>([])
 const highlightedSentenceIdSet = computed(() => new Set(highlightedSentenceIds.value))
 
@@ -70,16 +55,6 @@ function setHighlightedSentenceIds(sentenceIds: string[]): void {
   highlightedSentenceIds.value = normalized
 }
 
-function restoreSentenceListScrollTop(scrollTop: number): void {
-  void nextTick(() => {
-    const listElement = sentenceListRef.value
-    if (!listElement) {
-      return
-    }
-    listElement.scrollTop = scrollTop
-  })
-}
-
 function getPreviousSentenceId(sentenceId: string): string | null {
   const sentenceIndex = sentenceItems.value.findIndex((item) => item.id === sentenceId)
   if (sentenceIndex < 0) {
@@ -89,63 +64,45 @@ function getPreviousSentenceId(sentenceId: string): string | null {
   return sentenceItems.value[sentenceIndex - 1]?.id ?? null
 }
 
-function getCurrentSentenceLoadLimit(): number {
-  return Math.max(sentenceItems.value.length, sentenceItemPerPage)
-}
-
-function loadMoreSentences(): void {
-  const processingId = activeProcessingId.value
-  if (!docId.value || !processingId) {
-    return
-  }
-  void paginationStore.loadMore(docId.value, processingId).catch(() => undefined)
-}
-
-function runSentenceMutation<T>(
-  operation: () => Promise<T>,
-  onSuccess?: (result: T) => void,
-): void {
+function refreshSentenceItems(): void {
   const currentDocId = docId.value
   const processingId = activeProcessingId.value
   if (!currentDocId || !processingId) {
     return
   }
 
-  const currentScrollTop = sentenceListRef.value?.scrollTop ?? 0
-  const currentLoadLimit = getCurrentSentenceLoadLimit()
-
-  void operation()
-    .then((result) => {
-      onSuccess?.(result)
-      return paginationStore.loadFirstPage(currentDocId, processingId, currentLoadLimit)
-    })
-    .then(() => {
-      restoreSentenceListScrollTop(currentScrollTop)
-    })
-    .catch(() => undefined)
+  void sentenceStore.getSentences(currentDocId, processingId).catch(() => undefined)
 }
 
 function mergePreviousSentence(sentenceId: string): void {
   const previousSentenceId = getPreviousSentenceId(sentenceId)
-  if (!previousSentenceId) {
+  const currentDocId = docId.value
+  const processingId = activeProcessingId.value
+  if (!previousSentenceId || !currentDocId || !processingId) {
     return
   }
 
-  runSentenceMutation(
-    () => sentenceStore.mergeSentences([previousSentenceId, sentenceId]),
-    (mergedItem) => {
+  void sentenceStore.mergeSentences([previousSentenceId, sentenceId])
+    .then((mergedItem) => {
       setHighlightedSentenceIds([mergedItem.id])
-    },
-  )
+      return sentenceStore.refreshLoadedSentences(currentDocId, processingId)
+    })
+    .catch(() => undefined)
 }
 
 function clipSentence(sentenceId: string, splitOffset: number): void {
-  runSentenceMutation(
-    () => sentenceStore.clipSentence(sentenceId, splitOffset),
-    (clippedItems) => {
+  const currentDocId = docId.value
+  const processingId = activeProcessingId.value
+  if (!currentDocId || !processingId) {
+    return
+  }
+
+  void sentenceStore.clipSentence(sentenceId, splitOffset)
+    .then((clippedItems) => {
       setHighlightedSentenceIds(clippedItems.slice(0, 2).map((item) => item.id))
-    },
-  )
+      return sentenceStore.refreshLoadedSentences(currentDocId, processingId)
+    })
+    .catch(() => undefined)
 }
 
 watch(
@@ -156,7 +113,7 @@ watch(
       return
     }
 
-    void paginationStore.loadFirstPage(docId.value, activeProcessingId.value).catch(() => undefined)
+    refreshSentenceItems()
   },
   { immediate: true },
 )
@@ -170,22 +127,13 @@ watch(
     </p>
 
     <div v-else class="min-h-0 flex flex-1 flex-col gap-3 overflow-hidden">
-      <div ref="sentenceListRef"
-        class="scroll-area min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+      <div class="scroll-area min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
         <SentencesOfDocument v-for="(item, index) in sentenceItems"
           :key="item.id" :item="item"
           :loading="actionLoading" :can-merge-prev="index > 0"
           :highlighted="highlightedSentenceIdSet.has(item.id)"
           @request-merge="mergePreviousSentence" @clip="clipSentence" />
       </div>
-
-      <button v-if="sentenceHasMore"
-        type="button"
-        :disabled="actionLoading"
-        class="shrink-0 rounded border px-3 py-1 text-sm disabled:opacity-60"
-        @click="loadMoreSentences">
-        Load More
-      </button>
     </div>
   </div>
 </template>
