@@ -16,7 +16,7 @@ const docId = computed(() => {
 
 const documentItem = computed(() => documentStore.getDocumentById(docId.value))
 const textPath = computed(() => documentItem.value?.textPath ?? '')
-const actionLoading = computed(() => processStore.segmentationRunning)
+const segmentationRunning = computed(() => processStore.getSegmentationStateByDocId(docId.value))
 
 const sourceText = ref('')
 const sourceTextLoading = ref(false)
@@ -24,7 +24,7 @@ const sourceTextLoading = ref(false)
 let textRequestId = 0
 
 function segmentSentences(): void {
-  if (!docId.value || processStore.segmentationRunning) {
+  if (!docId.value) {
     return
   }
 
@@ -70,8 +70,8 @@ watch(textPath, (nextTextPath) => {
 
 <template>
   <button type="button"
-    :disabled="actionLoading"
-    class="w-fit rounded border px-3 py-1 mb-4 text-sm disabled:opacity-60"
+    :disabled="segmentationRunning === 'running'"
+    class="w-fit rounded border px-3 py-1 mb-4 text-sm cursor-pointer disabled:opacity-60"
     @click="segmentSentences">
     Segment Sentences
   </button>
@@ -81,6 +81,12 @@ watch(textPath, (nextTextPath) => {
       class="text-sm text-text-muted">
       Loading full text...
     </p>
+
+    <p v-else-if="segmentationRunning === 'running'"
+      class="text-sm text-text-muted">
+      Running sentence segmentation...
+    </p>
+
 
     <div v-else class="scroll-area min-h-0 flex-1 overflow-y-auto pr-1">
       <p class="text-sm whitespace-pre-wrap break-words text-text">

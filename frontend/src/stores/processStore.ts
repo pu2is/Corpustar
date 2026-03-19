@@ -66,7 +66,6 @@ export const useProcessStore = defineStore('process-store', {
   state: () => ({
     processes: [] as ProcessItem[],
     connected: false,
-    segmentationRunning: false,
   }),
   getters: {
     getProcessesByDocId: (state) => (docId: string): ProcessItem[] => {
@@ -86,6 +85,13 @@ export const useProcessStore = defineStore('process-store', {
         && process.type === 'sentence_segmentation'
         && process.state === 'succeed'
       )) ?? null
+    },
+    getSegmentationStateByDocId: (state) => (docId: string): ProcessingState | null => {
+      if (!docId) { return null }
+
+      return state.processes.find((process) => (
+        process.docId === docId && process.type === 'sentence_segmentation'
+      ))?.state ?? null
     },
   },
   actions: {
@@ -118,23 +124,14 @@ export const useProcessStore = defineStore('process-store', {
 
     // Post: segment sentence
     async segmentDocument(docId: string): Promise<SentenceSegmentationResponse> {
-      this.segmentationRunning = true
-      try {
-        const response = await post<SentenceSegmentationResponse>(
-          `/api/process/sentence_segmentation/${encodeURIComponent(docId)}`,
-          undefined,
-          {params: {preview_length: sentenceItemPerPage},
-          },
-        )
-        this.upsertProcess(response.processing)
-        if (response.processing.type === 'sentence_segmentation' && response.processing.state !== 'running') {
-          this.segmentationRunning = false
-        }
-        return response
-      } catch (error) {
-        this.segmentationRunning = false
-        throw error
-      }
+      const response = await post<SentenceSegmentationResponse>(
+        `/api/process/sentence_segmentation/${encodeURIComponent(docId)}`,
+        undefined,
+        {params: {preview_length: sentenceItemPerPage},
+        },
+      )
+      this.upsertProcess(response.processing)
+      return response
     },
 
     // Socket event handlers
@@ -153,9 +150,9 @@ export const useProcessStore = defineStore('process-store', {
         return
       }
 
-      this.upsertProcess(processing)
-      if (processing.type === 'sentence_segmentation' && processing.state !== 'running') {
-        this.segmentationRunning = false
+      const existingIndex = this.processes.findIndex((existing) => existing.id === processing.id)
+      if (existingIndex >= 0) {
+        this.processes.splice(existingIndex, 1, processing)
       }
     },
 
