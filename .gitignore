@@ -11,6 +11,9 @@ frontend/dist
 .vscode/
 frontend/.vscode/*
 
+.codex
 .codex/*
+/backend/.codex
 /backend/.codex/*
+/frontend/.codex
 /frontend/.codex/*
