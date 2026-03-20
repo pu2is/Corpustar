@@ -50,10 +50,11 @@ export const useSentenceStore = defineStore('sentence-store', {
     },
 
     // Get
-    async fetchSentencesPage(docId: string, processId: string,
-      offset: number | null = null, limit?: number): Promise<SentenceCursorPage> {
+    async getSentences(docId: string, processId: string,
+      offset: number | null = null, limit?: number,
+      saveToStore = true): Promise<SentenceCursorPage> {
       const resolvedLimit = limit ?? Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10')
-      return get<SentenceCursorPage>(
+      const page = await get<SentenceCursorPage>(
         `/api/sentences/${encodeURIComponent(docId)}`,
         {
           params: {
@@ -63,17 +64,16 @@ export const useSentenceStore = defineStore('sentence-store', {
           },
         },
       )
-    },
 
-    async getSentences(docId: string, processId: string, offset: number | null = null, limit?: number): Promise<SentenceCursorPage> {
-      const resolvedLimit = limit ?? Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10')
-      const pageKey = getSentencePageKey(docId, processId)
-      const page = await this.fetchSentencesPage(docId, processId, offset, resolvedLimit)
-      this.pageStateByDocProcessKey[pageKey] = {
-        offset,
-        limit: resolvedLimit,
+      if (saveToStore) {
+        const pageKey = getSentencePageKey(docId, processId)
+        this.pageStateByDocProcessKey[pageKey] = {
+          offset,
+          limit: resolvedLimit,
+        }
+        this.sentences = page.items ?? []
       }
-      this.sentences = page.items ?? []
+
       return page
     },
 
