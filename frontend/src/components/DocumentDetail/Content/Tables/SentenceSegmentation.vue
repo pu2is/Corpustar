@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 // components
 import LastSentenceItem from '@/components/DocumentDetail/Content/LastSentenceItem.vue'
@@ -21,48 +21,130 @@ const docId = computed(() => {
   const value = route.params.doc_id
   return typeof value === 'string' ? value : ''
 })
-
 const activeProcessing = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value))
 const activeProcessingId = computed(() => activeProcessing.value?.id ?? '')
-const activeDocProcessKey = computed(() => {
-  if (!docId.value || !activeProcessingId.value) {
-    return ''
-  }
-  return `${docId.value}::${activeProcessingId.value}`
-})
-const sentenceItems = computed(() => {
-  if (!docId.value || !activeProcessingId.value) {
-    return []
-  }
-  return sentenceStore.getSentenceItems(docId.value, activeProcessingId.value)
-})
-const paginationEntry = computed(() => paginationStore.getPaginationEntry(docId.value))
-const highlightedSentenceIds = ref<string[]>([])
-const mutationLoading = ref(false)
-const highlightedSentenceIdSet = computed(() => new Set(highlightedSentenceIds.value))
-const pageLoading = computed(() => paginationEntry.value.loading)
-const currentPage = computed(() => paginationEntry.value.currentPage)
-const hasPreviousPage = computed(() => currentPage.value > 1)
-const hasNextPage = computed(() => paginationEntry.value.hasMore)
-const sentenceActionLoading = computed(() => pageLoading.value || mutationLoading.value)
+const activeDocProcessKey = computed(() => (
+  docId.value && activeProcessingId.value ? `${docId.value}::${activeProcessingId.value}` : ''
+))
+
+// -------------------- //
+// Fetch Sentence Items //
+// -------------------- //
 const sentenceItemPerPage = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
 const lastSentenceItem = ref<SentenceItem | null>(null)
 const lastSentenceLoading = ref(false)
 let lastSentenceRequestToken = 0
 
-function setHighlightedSentenceIds(sentenceIds: string[]): void {
-  const seen = new Set<string>()
-  const normalized: string[] = []
-
-  for (const sentenceId of sentenceIds) {
-    if (!sentenceId || seen.has(sentenceId)) {
-      continue
-    }
-    seen.add(sentenceId)
-    normalized.push(sentenceId)
+const sentenceItems = computed(() => {
+  if (!docId.value || !activeProcessingId.value) {
+    return []
   }
 
-  highlightedSentenceIds.value = normalized
+  return sentenceStore.getSentenceItems(docId.value, activeProcessingId.value)
+})
+
+async function loadLastSentenceItem(): Promise<void> {
+  const currentDocId = docId.value
+  const processingId = activeProcessingId.value
+  const firstSentence = sentenceItems.value[0]
+  const requestToken = ++lastSentenceRequestToken
+  if (!currentDocId || !processingId || !firstSentence
+    || firstSentence.startOffset === 0 || currentPage.value <= 1) {
+    lastSentenceItem.value = null
+    lastSentenceLoading.value = false
+    return
+  }
+
+  const previousPageOffset = paginationEntry.value.offsets[currentPage.value - 2] ?? null
+  lastSentenceLoading.value = true
+  lastSentenceItem.value = null
+
+  try {
+    const previousPage = await sentenceStore.getSentences(
+      currentDocId,
+      processingId,
+      previousPageOffset,
+      sentenceItemPerPage,
+      false,
+    )
+    if (requestToken !== lastSentenceRequestToken) {
+      return
+    }
+
+    lastSentenceItem.value = previousPage.items[previousPage.items.length - 1] ?? null
+  } catch {
+    if (requestToken !== lastSentenceRequestToken) {
+      return
+    }
+
+    lastSentenceItem.value = null
+  } finally {
+    if (requestToken === lastSentenceRequestToken) {
+      lastSentenceLoading.value = false
+    }
+  }
+}
+
+
+// ---------- //
+// Pagination //
+// ---------- //
+const paginationEntry = computed(() => paginationStore.getPaginationEntry(docId.value))
+const pageLoading = computed(() => paginationEntry.value.loading)
+const currentPage = computed(() => paginationEntry.value.currentPage)
+const hasPreviousPage = computed(() => currentPage.value > 1)
+const hasNextPage = computed(() => paginationEntry.value.hasMore)
+
+async function goToPreviousPage(): Promise<void> {
+  const currentDocId = docId.value
+  const processingId = activeProcessingId.value
+  if (!currentDocId || !processingId || !hasPreviousPage.value || sentenceActionLoading.value) {
+    return
+  }
+
+  setHighlightedSentenceIds([])
+  await paginationStore.goToPreviousPage(currentDocId, processingId)
+}
+
+async function goToNextPage(): Promise<void> {
+  const currentDocId = docId.value
+  const processingId = activeProcessingId.value
+  if (!currentDocId || !processingId || !hasNextPage.value || sentenceActionLoading.value) {
+    return
+  }
+
+  setHighlightedSentenceIds([])
+  await paginationStore.goToNextPage(currentDocId, processingId)
+}
+
+
+// ------------ //
+// Merge & Clip //
+// ------------ //
+const mutationLoading = ref(false)
+const scrollAreaRef = ref<HTMLDivElement | null>(null)
+const pendingScrollTop = ref<number | null>(null)
+
+const sentenceActionLoading = computed(() => pageLoading.value || mutationLoading.value)
+
+function captureScrollPosition(): void {
+  const scrollArea = scrollAreaRef.value
+  pendingScrollTop.value = scrollArea && scrollArea.scrollHeight > scrollArea.clientHeight
+    ? scrollArea.scrollTop
+    : null
+}
+
+async function restoreScrollPosition(): Promise<void> {
+  const scrollTop = pendingScrollTop.value
+  if (scrollTop === null) {
+    return
+  }
+
+  pendingScrollTop.value = null
+  await nextTick()
+  if (scrollAreaRef.value) {
+    scrollAreaRef.value.scrollTop = scrollTop
+  }
 }
 
 function getPreviousSentenceId(sentenceId: string): string | null {
@@ -76,66 +158,7 @@ function getPreviousSentenceId(sentenceId: string): string | null {
   return items[0]?.startOffset === 0 ? null : lastSentenceItem.value?.id ?? null
 }
 
-async function loadLastSentenceItem(): Promise<void> {
-  const currentDocId = docId.value
-  const processingId = activeProcessingId.value
-  const firstSentence = sentenceItems.value[0]
-  const requestToken = ++lastSentenceRequestToken
-
-  if (!currentDocId || !processingId || !firstSentence 
-    || firstSentence.startOffset === 0 || currentPage.value <= 1) {
-    lastSentenceItem.value = null
-    lastSentenceLoading.value = false
-    return
-  }
-
-  const previousPageOffset = paginationEntry.value.offsets[currentPage.value - 2] ?? null
-  lastSentenceLoading.value = true
-  lastSentenceItem.value = null
-
-  try {
-    const previousPage = await sentenceStore.getSentences(
-      currentDocId, processingId,
-      previousPageOffset, sentenceItemPerPage, false,
-    )
-
-    if (requestToken !== lastSentenceRequestToken) { return }
-
-    lastSentenceItem.value = previousPage.items[previousPage.items.length - 1] ?? null
-  } catch {
-    if (requestToken !== lastSentenceRequestToken) { return }
-
-    lastSentenceItem.value = null
-  } finally {
-    if (requestToken === lastSentenceRequestToken) {
-      lastSentenceLoading.value = false
-    }
-  }
-}
-
-function goToPreviousPage(): void {
-  const currentDocId = docId.value
-  const processingId = activeProcessingId.value
-  if (!currentDocId || !processingId || !hasPreviousPage.value || sentenceActionLoading.value) {
-    return
-  }
-
-  setHighlightedSentenceIds([])
-  void paginationStore.goToPreviousPage(currentDocId, processingId)
-}
-
-function goToNextPage(): void {
-  const currentDocId = docId.value
-  const processingId = activeProcessingId.value
-  if (!currentDocId || !processingId || !hasNextPage.value || sentenceActionLoading.value) {
-    return
-  }
-
-  setHighlightedSentenceIds([])
-  void paginationStore.goToNextPage(currentDocId, processingId)
-}
-
-function mergePreviousSentence(sentenceId: string): void {
+async function mergePreviousSentence(sentenceId: string): Promise<void> {
   const previousSentenceId = getPreviousSentenceId(sentenceId)
   const currentDocId = docId.value
   const processingId = activeProcessingId.value
@@ -143,19 +166,21 @@ function mergePreviousSentence(sentenceId: string): void {
     return
   }
 
+  captureScrollPosition()
   mutationLoading.value = true
-  void sentenceStore.mergeSentences([previousSentenceId, sentenceId])
-    .then((mergedItem) => {
-      setHighlightedSentenceIds([mergedItem.id])
-      return paginationStore.refreshCurrentPage(currentDocId, processingId)
-    })
-    .catch(() => undefined)
-    .finally(() => {
-      mutationLoading.value = false
-    })
+  try {
+    const mergedItem = await sentenceStore.mergeSentences([previousSentenceId, sentenceId])
+    setHighlightedSentenceIds([mergedItem.id])
+    await paginationStore.refreshCurrentPage(currentDocId, processingId)
+    await restoreScrollPosition()
+  } catch {
+    pendingScrollTop.value = null
+  } finally {
+    mutationLoading.value = false
+  }
 }
 
-function clipSentence(sentenceId: string, splitOffset: number): void {
+async function clipSentence(sentenceId: string, splitOffset: number): Promise<void> {
   const currentDocId = docId.value
   const processingId = activeProcessingId.value
   if (!currentDocId || !processingId) {
@@ -163,37 +188,56 @@ function clipSentence(sentenceId: string, splitOffset: number): void {
   }
 
   mutationLoading.value = true
-  void sentenceStore.clipSentence(sentenceId, splitOffset)
-    .then((clippedItems) => {
-      setHighlightedSentenceIds(clippedItems.slice(0, 2).map((item) => item.id))
-      return paginationStore.refreshCurrentPage(currentDocId, processingId)
-    })
-    .catch(() => undefined)
-    .finally(() => {
-      mutationLoading.value = false
-    })
+  captureScrollPosition()
+  try {
+    const clippedItems = await sentenceStore.clipSentence(sentenceId, splitOffset)
+    setHighlightedSentenceIds(clippedItems.slice(0, 2).map((item) => item.id))
+    await paginationStore.refreshCurrentPage(currentDocId, processingId)
+    await restoreScrollPosition()
+  } catch {
+    pendingScrollTop.value = null
+  } finally {
+    mutationLoading.value = false
+  }
+}
+
+// --------- //
+// Highlight //
+// --------- //
+const highlightedSentenceIds = ref<string[]>([])
+
+const highlightedSentenceIdSet = computed(() => new Set(highlightedSentenceIds.value))
+
+function setHighlightedSentenceIds(sentenceIds: string[]): void {
+  highlightedSentenceIds.value = Array.from(new Set(sentenceIds.filter(Boolean)))
 }
 
 watch(
   activeDocProcessKey,
-  (nextKey) => {
+  async (nextKey) => {
     highlightedSentenceIds.value = []
     lastSentenceItem.value = null
     lastSentenceLoading.value = false
+    pendingScrollTop.value = null
     if (!nextKey || !docId.value || !activeProcessingId.value) {
       return
     }
 
-    void paginationStore.initializeDocumentPagination(docId.value, activeProcessingId.value)
+    await paginationStore.initializeDocumentPagination(docId.value, activeProcessingId.value)
   },
   { immediate: true },
 )
 
 watch(
-  [activeDocProcessKey, currentPage,
+  [
+    activeDocProcessKey,
+    currentPage,
     () => sentenceItems.value[0]?.id ?? '',
-    () => sentenceItems.value[0]?.startOffset ?? 0,],
-  () => { void loadLastSentenceItem()},
+    () => sentenceItems.value[0]?.startOffset ?? 0,
+  ],
+  () => {
+    void loadLastSentenceItem()
+  },
   { immediate: true },
 )
 </script>
@@ -211,14 +255,13 @@ watch(
     </p>
 
     <div v-else class="min-h-0 flex flex-1 flex-col overflow-hidden bg-background-elevated/15">
-      <div class="scroll-area min-h-0 flex-1 overflow-y-auto">
+      <div ref="scrollAreaRef" class="scroll-area min-h-0 flex-1 overflow-y-auto">
         <LastSentenceItem :item="lastSentenceItem"
           :loading="sentenceActionLoading || lastSentenceLoading" />
 
         <div class="space-y-2">
           <SentencesOfDocument v-for="(item, index) in sentenceItems"
-            :key="item.id" :item="item"
-            :loading="sentenceActionLoading"
+            :key="item.id" :item="item" :loading="sentenceActionLoading"
             :can-merge-prev="index > 0 || (index === 0 && item.startOffset > 0 && lastSentenceItem !== null)"
             :highlighted="highlightedSentenceIdSet.has(item.id)"
             @request-merge="mergePreviousSentence" @clip="clipSentence" />
