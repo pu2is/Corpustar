@@ -5,10 +5,12 @@ import { useRoute } from 'vue-router'
 import SentencePagination from '@/components/DocumentDetail/Content/SentencePagination.vue'
 import SentencesOfDocument from '@/components/DocumentDetail/Content/SentenceSegmentation/SentencesOfDocument.vue'
 // store
+import { usePaginationStore } from '@/stores/local/paginationStore'
 import { useProcessStore } from '@/stores/processStore'
 import { useSentenceStore } from '@/stores/sentenceStore'
 
 const route = useRoute()
+const paginationStore = usePaginationStore()
 const processStore = useProcessStore()
 const sentenceStore = useSentenceStore()
 
@@ -31,17 +33,15 @@ const sentenceItems = computed(() => {
   }
   return sentenceStore.getSentenceItems(docId.value, activeProcessingId.value)
 })
-const sentencePageSize = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
+const paginationEntry = computed(() => paginationStore.getPaginationEntry(docId.value))
 const highlightedSentenceIds = ref<string[]>([])
-const currentPage = ref(1)
-const pageOffsets = ref<Array<number | null>>([null])
-const nextAfterStartOffset = ref<number | null>(null)
-const pageLoading = ref(false)
 const mutationLoading = ref(false)
 const highlightedSentenceIdSet = computed(() => new Set(highlightedSentenceIds.value))
-const sentenceActionLoading = computed(() => pageLoading.value || mutationLoading.value)
+const pageLoading = computed(() => paginationEntry.value.loading)
+const currentPage = computed(() => paginationEntry.value.currentPage)
 const hasPreviousPage = computed(() => currentPage.value > 1)
-const hasNextPage = computed(() => nextAfterStartOffset.value !== null)
+const hasNextPage = computed(() => paginationEntry.value.nextAfterStartOffset !== null)
+const sentenceActionLoading = computed(() => pageLoading.value || mutationLoading.value)
 
 function setHighlightedSentenceIds(sentenceIds: string[]): void {
   const seen = new Set<string>()
@@ -67,62 +67,26 @@ function getPreviousSentenceId(sentenceId: string): string | null {
   return sentenceItems.value[sentenceIndex - 1]?.id ?? null
 }
 
-function resetPagination(): void {
-  currentPage.value = 1
-  pageOffsets.value = [null]
-  nextAfterStartOffset.value = null
-}
-
-async function loadSentencePage(
-  offset: number | null,
-  pageNumber: number,
-  history: Array<number | null> = pageOffsets.value,
-): Promise<void> {
+function goToPreviousPage(): void {
   const currentDocId = docId.value
   const processingId = activeProcessingId.value
-  if (!currentDocId || !processingId) {
-    return
-  }
-
-  pageLoading.value = true
-
-  try {
-    const page = await sentenceStore.getSentences(currentDocId, processingId, offset, sentencePageSize)
-    currentPage.value = pageNumber
-    pageOffsets.value = history
-    nextAfterStartOffset.value = page.nextAfterStartOffset ?? null
-  } catch {
-    // Keep current pagination state when a page request fails.
-  } finally {
-    pageLoading.value = false
-  }
-}
-
-function refreshSentenceItems(): void {
-  const currentPageOffset = pageOffsets.value[currentPage.value - 1] ?? null
-  void loadSentencePage(currentPageOffset, currentPage.value)
-}
-
-function goToPreviousPage(): void {
-  if (!hasPreviousPage.value || sentenceActionLoading.value) {
+  if (!currentDocId || !processingId || !hasPreviousPage.value || sentenceActionLoading.value) {
     return
   }
 
   setHighlightedSentenceIds([])
-  const previousPageNumber = currentPage.value - 1
-  const previousOffset = pageOffsets.value[previousPageNumber - 1] ?? null
-  void loadSentencePage(previousOffset, previousPageNumber)
+  void paginationStore.goToPreviousPage(currentDocId, processingId)
 }
 
 function goToNextPage(): void {
-  if (!hasNextPage.value || sentenceActionLoading.value || nextAfterStartOffset.value === null) {
+  const currentDocId = docId.value
+  const processingId = activeProcessingId.value
+  if (!currentDocId || !processingId || !hasNextPage.value || sentenceActionLoading.value) {
     return
   }
 
   setHighlightedSentenceIds([])
-  const nextPageNumber = currentPage.value + 1
-  const nextHistory = [...pageOffsets.value.slice(0, currentPage.value), nextAfterStartOffset.value]
-  void loadSentencePage(nextAfterStartOffset.value, nextPageNumber, nextHistory)
+  void paginationStore.goToNextPage(currentDocId, processingId)
 }
 
 function mergePreviousSentence(sentenceId: string): void {
@@ -137,8 +101,7 @@ function mergePreviousSentence(sentenceId: string): void {
   void sentenceStore.mergeSentences([previousSentenceId, sentenceId])
     .then((mergedItem) => {
       setHighlightedSentenceIds([mergedItem.id])
-      const currentPageOffset = pageOffsets.value[currentPage.value - 1] ?? null
-      return loadSentencePage(currentPageOffset, currentPage.value)
+      return paginationStore.refreshCurrentPage(currentDocId, processingId)
     })
     .catch(() => undefined)
     .finally(() => {
@@ -157,8 +120,7 @@ function clipSentence(sentenceId: string, splitOffset: number): void {
   void sentenceStore.clipSentence(sentenceId, splitOffset)
     .then((clippedItems) => {
       setHighlightedSentenceIds(clippedItems.slice(0, 2).map((item) => item.id))
-      const currentPageOffset = pageOffsets.value[currentPage.value - 1] ?? null
-      return loadSentencePage(currentPageOffset, currentPage.value)
+      return paginationStore.refreshCurrentPage(currentDocId, processingId)
     })
     .catch(() => undefined)
     .finally(() => {
@@ -170,12 +132,11 @@ watch(
   activeDocProcessKey,
   (nextKey) => {
     highlightedSentenceIds.value = []
-    resetPagination()
     if (!nextKey || !docId.value || !activeProcessingId.value) {
       return
     }
 
-    refreshSentenceItems()
+    void paginationStore.initializeDocumentPagination(docId.value, activeProcessingId.value)
   },
   { immediate: true },
 )
