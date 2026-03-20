@@ -1,6 +1,5 @@
 from collections.abc import Iterable, Mapping
 from sqlite3 import Row
-from typing import Any
 
 from app.infrastructure.db.connection import connection_scope
 
@@ -8,7 +7,6 @@ DOCUMENT_SENTENCES_TABLE_NAME = "document_sentences"
 LEMMA_TABLE_NAME = "lemma"
 
 LemmaRow = dict[str, str | None]
-LemmaDto = dict[str, Any]
 
 
 def _map_lemma_row(row: Row) -> LemmaRow:
@@ -22,21 +20,6 @@ def _map_lemma_row(row: Row) -> LemmaRow:
         "corrected_lemma": row["corrected_lemma"],
         "fvg_result_id": row["fvg_result_id"],
     }
-
-
-def map_lemma_row_to_dto(lemma_row: Mapping[str, str | None]) -> LemmaDto:
-    return {
-        "id": lemma_row["id"],
-        "docId": lemma_row["doc_id"],
-        "segmentationId": lemma_row["segmentation_id"],
-        "sentenceId": lemma_row["sentence_id"],
-        "sourceText": lemma_row["source_text"],
-        "lemmaText": lemma_row["lemma_text"],
-        "correctedLemma": lemma_row["corrected_lemma"],
-        "fvgResultId": lemma_row["fvg_result_id"],
-    }
-
-
 def get_n_lemma_from(segmentation_id: str, start_from_id: str | None, limit: int) -> list[LemmaRow]:
     if limit <= 0:
         return []
