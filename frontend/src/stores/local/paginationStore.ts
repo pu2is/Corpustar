@@ -1,38 +1,59 @@
 import { defineStore } from 'pinia'
+import { useLemmaStore } from '@/stores/lemmaStore'
 import { useSentenceStore } from '@/stores/sentenceStore'
 
-export type SentenceAnchorMap = Record<string, string>
+export type PaginationScope = 'sentence' | 'lemma'
+export type PaginationAnchorMap = Record<string, string>
 
-interface SentencePaginationEntry {
+type PaginationCursor = number | string | null
+
+interface PaginationEntry {
   currentPage: number
-  offsets: Array<number | null>
+  offsets: PaginationCursor[]
   hasMore: boolean
-  nextAfterStartOffset: number | null
+  nextCursor: PaginationCursor
   loading: boolean
   processingId: string
+  pageItemIds: string[]
 }
 
-const SENTENCE_ITEM_PER_PAGE = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
-const SENTENCE_ANCHOR_STORAGE_KEY = 'corpustar.sentence-anchors'
+interface LoadedPage {
+  itemIds: string[]
+  firstItemId: string | null
+  hasMore: boolean
+  nextCursor: PaginationCursor
+}
 
-function createEntry(processingId = ''): SentencePaginationEntry {
+const PAGE_ITEM_PER_PAGE = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
+const PAGINATION_ANCHOR_STORAGE_KEY = 'corpustar.pagination-anchors'
+
+function createEntry(processingId = ''): PaginationEntry {
   return {
     currentPage: 1,
     offsets: [null],
     hasMore: false,
-    nextAfterStartOffset: null,
+    nextCursor: null,
     loading: false,
     processingId,
+    pageItemIds: [],
   }
 }
 
-function readSentenceAnchors(): SentenceAnchorMap {
+function getAnchorKey(docId: string, scope: PaginationScope): string {
+  return `${scope}::${docId}`
+}
+
+function getEntryKey(docId: string, scope: PaginationScope): string {
+  return `${scope}::${docId}`
+}
+
+function readPaginationAnchors(): PaginationAnchorMap {
   if (typeof window === 'undefined') {
     return {}
   }
 
   try {
-    return JSON.parse(window.localStorage.getItem(SENTENCE_ANCHOR_STORAGE_KEY) ?? '{}') as SentenceAnchorMap
+    return JSON.parse(window.localStorage.getItem(PAGINATION_ANCHOR_STORAGE_KEY) ?? '{}') as PaginationAnchorMap
   } catch {
     return {}
   }
@@ -40,13 +61,19 @@ function readSentenceAnchors(): SentenceAnchorMap {
 
 export const usePaginationStore = defineStore('pagination-store', {
   state: () => ({
-    sentenceAnchors: {} as SentenceAnchorMap,
-    paginationByDocId: {} as Record<string, SentencePaginationEntry>,
+    paginationAnchors: {} as PaginationAnchorMap,
+    paginationByScopeKey: {} as Record<string, PaginationEntry>,
     hydrated: false,
   }),
   getters: {
-    getSentenceAnchor: (state) => (docId: string): string | null => state.sentenceAnchors[docId] ?? null,
-    getPaginationEntry: (state) => (docId: string): SentencePaginationEntry => state.paginationByDocId[docId] ?? createEntry(),
+    getPaginationAnchor: (state) => (docId: string, scope: PaginationScope = 'sentence'): string | null => (
+      state.paginationAnchors[getAnchorKey(docId, scope)]
+      ?? (scope === 'sentence' ? state.paginationAnchors[docId] ?? null : null)
+    ),
+    getPaginationEntry: (state) => (
+      docId: string,
+      scope: PaginationScope = 'sentence',
+    ): PaginationEntry => state.paginationByScopeKey[getEntryKey(docId, scope)] ?? createEntry(),
   },
   actions: {
     hydrateFromLocalStorage(): void {
@@ -54,8 +81,7 @@ export const usePaginationStore = defineStore('pagination-store', {
         return
       }
 
-      // Restore { [docId]: firstSentenceIdOfCurrentPage } from localStorage once.
-      this.sentenceAnchors = readSentenceAnchors()
+      this.paginationAnchors = readPaginationAnchors()
       this.hydrated = true
     },
 
@@ -64,112 +90,199 @@ export const usePaginationStore = defineStore('pagination-store', {
         return
       }
 
-      window.localStorage.setItem(SENTENCE_ANCHOR_STORAGE_KEY, JSON.stringify(this.sentenceAnchors))
+      window.localStorage.setItem(PAGINATION_ANCHOR_STORAGE_KEY, JSON.stringify(this.paginationAnchors))
     },
 
-    entry(docId: string, processingId = ''): SentencePaginationEntry {
-      const current = this.paginationByDocId[docId]
+    entry(docId: string, scope: PaginationScope, processingId = ''): PaginationEntry {
+      const entryKey = getEntryKey(docId, scope)
+      const current = this.paginationByScopeKey[entryKey]
       if (!current || (processingId && current.processingId !== processingId)) {
         const next = createEntry(processingId)
-        this.paginationByDocId[docId] = next
+        this.paginationByScopeKey[entryKey] = next
         return next
       }
 
       return current
     },
 
-    saveAnchor(docId: string, sentenceId: string | null): void {
-      // Save the first sentence id of the current page as the resume point for this document.
-      if (!sentenceId) {
-        delete this.sentenceAnchors[docId]
+    saveAnchor(docId: string, scope: PaginationScope, itemId: string | null): void {
+      const anchorKey = getAnchorKey(docId, scope)
+      if (!itemId) {
+        delete this.paginationAnchors[anchorKey]
+        if (scope === 'sentence') {
+          delete this.paginationAnchors[docId]
+        }
       } else {
-        this.sentenceAnchors[docId] = sentenceId
+        this.paginationAnchors[anchorKey] = itemId
       }
 
       this.persist()
     },
 
-    async loadPage(docId: string, processingId: string,
-      offset: number | null, pageNumber: number,
-      offsets: Array<number | null>): Promise<void> {
-      const entry = this.entry(docId, processingId)
-      const sentenceStore = useSentenceStore()
+    async fetchPage(
+      docId: string,
+      processingId: string,
+      scope: PaginationScope,
+      cursor: PaginationCursor,
+      syncSentenceStore = true,
+    ): Promise<LoadedPage> {
+      if (scope === 'sentence') {
+        const sentenceStore = useSentenceStore()
+        const page = await sentenceStore.getSentences(
+          docId,
+          processingId,
+          typeof cursor === 'number' ? cursor : null,
+          PAGE_ITEM_PER_PAGE,
+          syncSentenceStore,
+        )
+
+        return {
+          itemIds: page.items.map((item) => item.id),
+          firstItemId: page.items[0]?.id ?? null,
+          hasMore: page.hasMore,
+          nextCursor: page.nextAfterStartOffset ?? null,
+        }
+      }
+
+      const lemmaStore = useLemmaStore()
+      const fetchedItems = await lemmaStore.getLemmaItems(
+        processingId,
+        typeof cursor === 'string' ? cursor : null,
+        PAGE_ITEM_PER_PAGE + 1,
+      )
+      const pageItems = fetchedItems.slice(0, PAGE_ITEM_PER_PAGE)
+      const visibleItems = (
+        pageItems.length > 0 || cursor !== null
+          ? pageItems
+          : lemmaStore.getLemmasBySegmentationId(processingId).slice(0, PAGE_ITEM_PER_PAGE)
+      )
+
+      return {
+        itemIds: visibleItems.map((item) => item.id),
+        firstItemId: visibleItems[0]?.id ?? null,
+        hasMore: fetchedItems.length > PAGE_ITEM_PER_PAGE,
+        nextCursor: visibleItems[visibleItems.length - 1]?.id ?? null,
+      }
+    },
+
+    async loadPage(
+      docId: string,
+      processingId: string,
+      scope: PaginationScope,
+      cursor: PaginationCursor,
+      pageNumber: number,
+      offsets: PaginationCursor[],
+    ): Promise<void> {
+      const entry = this.entry(docId, scope, processingId)
       entry.loading = true
 
       try {
-        // Ask backend for one page, then update page state and save progress locally.
-        const page = await sentenceStore.getSentences(docId, processingId, offset, SENTENCE_ITEM_PER_PAGE)
+        const page = await this.fetchPage(docId, processingId, scope, cursor)
         entry.currentPage = pageNumber
         entry.offsets = offsets
         entry.hasMore = page.hasMore
-        entry.nextAfterStartOffset = page.nextAfterStartOffset ?? null
+        entry.nextCursor = page.nextCursor
         entry.processingId = processingId
-        this.saveAnchor(docId, page.items[0]?.id ?? null)
+        entry.pageItemIds = page.itemIds
+        this.saveAnchor(docId, scope, page.firstItemId)
       } finally {
         entry.loading = false
       }
     },
 
-    async restoreSavedPage(docId: string, processingId: string, anchorId: string): Promise<boolean> {
-      const sentenceStore = useSentenceStore()
-      let offset: number | null = null
+    async restoreSavedPage(
+      docId: string,
+      processingId: string,
+      scope: PaginationScope,
+      anchorId: string,
+    ): Promise<boolean> {
+      let cursor: PaginationCursor = null
       let pageNumber = 1
-      let offsets: Array<number | null> = [null]
+      let offsets: PaginationCursor[] = [null]
 
       while (true) {
-        // Walk pages from the start until we find the saved first-sentence id.
-        const page = await sentenceStore.getSentences(docId, processingId, offset, SENTENCE_ITEM_PER_PAGE, false)
-        if (page.items[0]?.id === anchorId) {
-          await this.loadPage(docId, processingId, offset, pageNumber, offsets)
+        const page = await this.fetchPage(docId, processingId, scope, cursor, false)
+        if (page.firstItemId === anchorId) {
+          await this.loadPage(docId, processingId, scope, cursor, pageNumber, offsets)
           return true
         }
 
-        if (!page.hasMore || page.nextAfterStartOffset === null) {
+        if (!page.hasMore || page.nextCursor === null) {
           return false
         }
 
-        offset = page.nextAfterStartOffset
+        cursor = page.nextCursor
         pageNumber += 1
-        offsets = [...offsets, offset]
+        offsets = [...offsets, cursor]
       }
     },
 
-    async initializeDocumentPagination(docId: string, processingId: string): Promise<void> {
+    async initializeDocumentPagination(
+      docId: string,
+      processingId: string,
+      scope: PaginationScope = 'sentence',
+    ): Promise<void> {
       this.hydrateFromLocalStorage()
-      this.entry(docId, processingId)
+      this.entry(docId, scope, processingId)
 
-      const savedAnchor = this.getSentenceAnchor(docId)
-      if (savedAnchor && await this.restoreSavedPage(docId, processingId, savedAnchor)) {
+      const savedAnchor = this.getPaginationAnchor(docId, scope)
+      if (savedAnchor && await this.restoreSavedPage(docId, processingId, scope, savedAnchor)) {
         return
       }
 
-      await this.loadPage(docId, processingId, null, 1, [null])
+      await this.loadPage(docId, processingId, scope, null, 1, [null])
     },
 
-    async goToPreviousPage(docId: string, processingId: string): Promise<void> {
-      const entry = this.entry(docId, processingId)
+    async goToPreviousPage(
+      docId: string,
+      processingId: string,
+      scope: PaginationScope = 'sentence',
+    ): Promise<void> {
+      const entry = this.entry(docId, scope, processingId)
       if (entry.loading || entry.currentPage <= 1) {
         return
       }
 
       const previousPage = entry.currentPage - 1
-      await this.loadPage(docId, processingId, entry.offsets[previousPage - 1] ?? null, previousPage, entry.offsets)
+      await this.loadPage(
+        docId,
+        processingId,
+        scope,
+        entry.offsets[previousPage - 1] ?? null,
+        previousPage,
+        entry.offsets,
+      )
     },
 
-    async goToNextPage(docId: string, processingId: string): Promise<void> {
-      const entry = this.entry(docId, processingId)
-      if (entry.loading || !entry.hasMore || entry.nextAfterStartOffset === null) {
+    async goToNextPage(
+      docId: string,
+      processingId: string,
+      scope: PaginationScope = 'sentence',
+    ): Promise<void> {
+      const entry = this.entry(docId, scope, processingId)
+      if (entry.loading || !entry.hasMore || entry.nextCursor === null) {
         return
       }
 
       const nextPage = entry.currentPage + 1
-      const nextOffsets = [...entry.offsets.slice(0, entry.currentPage), entry.nextAfterStartOffset]
-      await this.loadPage(docId, processingId, entry.nextAfterStartOffset, nextPage, nextOffsets)
+      const nextOffsets = [...entry.offsets.slice(0, entry.currentPage), entry.nextCursor]
+      await this.loadPage(docId, processingId, scope, entry.nextCursor, nextPage, nextOffsets)
     },
 
-    async refreshCurrentPage(docId: string, processingId: string): Promise<void> {
-      const entry = this.entry(docId, processingId)
-      await this.loadPage(docId, processingId, entry.offsets[entry.currentPage - 1] ?? null, entry.currentPage, entry.offsets)
+    async refreshCurrentPage(
+      docId: string,
+      processingId: string,
+      scope: PaginationScope = 'sentence',
+    ): Promise<void> {
+      const entry = this.entry(docId, scope, processingId)
+      await this.loadPage(
+        docId,
+        processingId,
+        scope,
+        entry.offsets[entry.currentPage - 1] ?? null,
+        entry.currentPage,
+        entry.offsets,
+      )
     },
   },
 })

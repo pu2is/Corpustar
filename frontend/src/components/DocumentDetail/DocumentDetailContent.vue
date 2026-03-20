@@ -1,71 +1,49 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
-
 import DocumentSourceTextPanel from '@/components/DocumentDetail/Content/DocumentSourceTextPanel.vue'
+import Lemmatization from '@/components/DocumentDetail/Content/Tables/Lemmatization.vue'
 import SentenceSegmentation from '@/components/DocumentDetail/Content/Tables/SentenceSegmentation.vue'
-import { useDocumentStore } from '@/stores/documentStore'
-import { useProcessStore } from '@/stores/processStore'
+import type { DocumentDetailViewMode } from '@/types/documentDetail'
+import type { ProcessingState } from '@/types/processings'
 
-const route = useRoute()
-const documentStore = useDocumentStore()
-const processStore = useProcessStore()
-const workspaceLoading = ref(false)
+const props = defineProps<{
+  docId: string
+  workspaceLoading: boolean
+  viewMode: DocumentDetailViewMode
+  sourceText: string
+  sourceTextLoading: boolean
+  segmentationRunning: ProcessingState | null
+}>()
 
-const docId = computed(() => {
-  const value = route.params.doc_id
-  return typeof value === 'string' ? value : ''
-})
-
-const documentItem = computed(() => documentStore.getDocumentById(docId.value))
-const activeProcessing = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value))
-const hasSourceText = computed(() => Boolean(documentItem.value?.textPath?.trim()))
-const showSentenceTable = computed(() => Boolean(documentItem.value && activeProcessing.value))
-const showSourceText = computed(() => !showSentenceTable.value && hasSourceText.value)
-
-async function initializeAnalyzeWorkspace(targetDocId: string): Promise<void> {
-  workspaceLoading.value = true
-
-  try {
-    const hasDocumentInStore = documentStore.getDocumentById(targetDocId) !== null
-    if (!hasDocumentInStore) {
-      await documentStore.getAllDocuments()
-    }
-
-    await processStore.getAllProcesses()
-  } catch {
-    // Store actions already preserve error state for rendering.
-  } finally {
-    workspaceLoading.value = false
-  }
-}
-
-watch(
-  docId,
-  (nextDocId) => {
-    if (!nextDocId) {
-      return
-    }
-    void initializeAnalyzeWorkspace(nextDocId)
-  },
-  { immediate: true },
-)
+const emit = defineEmits<{
+  segment: []
+}>()
 </script>
 
 <template>
-  <p v-if="workspaceLoading"
+  <p
+    v-if="props.workspaceLoading"
     class="text-sm text-text-muted">
     Loading...
   </p>
 
-  <SentenceSegmentation v-else-if="showSentenceTable" />
+  <Lemmatization
+    v-else-if="props.viewMode === 'lemma'"
+    :doc-id="props.docId" />
 
-  <DocumentSourceTextPanel v-else-if="showSourceText" />
+  <SentenceSegmentation
+    v-else-if="props.viewMode === 'sentence'"
+    :doc-id="props.docId" />
 
-  <div v-else
-    class="space-y-2">
-    <p class="text-sm text-text-muted">
-      Document not found. Please remote it and upload again.
-    </p>
-  </div>
+  <DocumentSourceTextPanel
+    v-else-if="props.viewMode === 'source'"
+    :source-text="props.sourceText"
+    :source-text-loading="props.sourceTextLoading"
+    :segmentation-running="props.segmentationRunning"
+    @segment="emit('segment')" />
+
+  <p
+    v-else
+    class="text-sm text-text-muted">
+    Document not found. Please remote it and upload again.
+  </p>
 </template>
