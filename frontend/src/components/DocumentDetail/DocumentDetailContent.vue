@@ -3,7 +3,7 @@ import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import DocumentSourceTextPanel from '@/components/DocumentDetail/Content/DocumentSourceTextPanel.vue'
-import SentenceTable from '@/components/DocumentDetail/Content/SentenceTable.vue'
+import SentenceSegmentation from '@/components/DocumentDetail/Content/Tables/SentenceSegmentation.vue';
 import { useDocumentStore } from '@/stores/documentStore'
 import { useProcessStore } from '@/stores/processStore'
 
@@ -55,7 +55,7 @@ watch(
 
   <DocumentSourceTextPanel v-else-if="docHasNoProcessing" />
 
-  <SentenceTable v-else-if="documentItem" />
+  <SentenceSegmentation v-else-if="documentItem" />
 
   <div v-else
     class="space-y-2">

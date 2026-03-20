@@ -7,7 +7,7 @@ import type { SentenceSegmentationResponse } from '@/types/sentences'
 type ProcessItem = ProcessingItem
 
 const PROCESSING_STATE_SET = new Set<ProcessingState>(['running', 'succeed', 'failed'])
-const sentenceItemPerPage = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '20', 10)
+const sentenceItemPerPage = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10')
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null

@@ -14,7 +14,6 @@ import TopNav from '@/components/Nav/TopNav.vue'
     <div class="min-h-0 flex flex-1 flex-col overflow-hidden px-16 ml-16 p-6">
       <BackToDocumentsNav />
       <DocumentDetailHeader />
-
       <DocumentDetailContent />
     </div>
   </section>
