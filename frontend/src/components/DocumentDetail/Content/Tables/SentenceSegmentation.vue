@@ -6,13 +6,15 @@ import LastSentenceItem from '@/components/DocumentDetail/Content/LastSentenceIt
 import SentencePagination from '@/components/DocumentDetail/Content/SentencePagination.vue'
 import SentencesOfDocument from '@/components/DocumentDetail/Content/SentenceSegmentation/SentencesOfDocument.vue'
 // store
+import { useLemmaStore } from '@/stores/lemmaStore'
 import { usePaginationStore } from '@/stores/local/paginationStore'
 import { useProcessStore } from '@/stores/processStore'
 import { useSentenceStore } from '@/stores/sentenceStore'
-// types
+import type { LemmaItem } from '@/types/lemmas'
 import type { SentenceItem } from '@/types/sentences'
 
 const route = useRoute()
+const lemmaStore = useLemmaStore()
 const paginationStore = usePaginationStore()
 const processStore = useProcessStore()
 const sentenceStore = useSentenceStore()
@@ -23,8 +25,17 @@ const docId = computed(() => {
 })
 const activeProcessing = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value))
 const activeProcessingId = computed(() => activeProcessing.value?.id ?? '')
+const activeLemmatizeProcess = computed(() => processStore.getLemmatizeProcessBySegmentationId(
+  docId.value,
+  activeProcessingId.value,
+))
 const activeDocProcessKey = computed(() => (
   docId.value && activeProcessingId.value ? `${docId.value}::${activeProcessingId.value}` : ''
+))
+const displayType = computed(() => sentenceStore.displayType ?? 'source')
+const showLemma = computed(() => displayType.value === 'lemma')
+const sentenceEditingLocked = computed(() => (
+  activeLemmatizeProcess.value?.state === 'running' || activeLemmatizeProcess.value?.state === 'succeed'
 ))
 
 // -------------------- //
@@ -42,6 +53,37 @@ const sentenceItems = computed(() => {
 
   return sentenceStore.getSentenceItems(docId.value, activeProcessingId.value)
 })
+const storedLemmaBySentenceId = computed(() => new Map<string, LemmaItem>(
+  lemmaStore
+    .getLemmasBySegmentationId(activeProcessingId.value)
+    .map((lemma) => [lemma.sentenceId, lemma]),
+))
+const displayItems = computed(() => {
+  if (!showLemma.value) {
+    return sentenceItems.value
+  }
+
+  return sentenceItems.value
+    .map((sentence) => {
+      const lemma = storedLemmaBySentenceId.value.get(sentence.id)
+      if (!lemma) {
+        return null
+      }
+
+      return {
+        ...sentence,
+        text: lemma.correctedLemma,
+      }
+    })
+    .filter((item): item is SentenceItem => item !== null)
+})
+const lemmaLoading = ref(false)
+let lemmaRequestToken = 0
+
+const lemmaPageReady = computed(() => (
+  sentenceItems.value.length > 0
+  && sentenceItems.value.every((sentence) => storedLemmaBySentenceId.value.has(sentence.id))
+))
 
 async function loadLastSentenceItem(): Promise<void> {
   const currentDocId = docId.value
@@ -94,11 +136,12 @@ const pageLoading = computed(() => paginationEntry.value.loading)
 const currentPage = computed(() => paginationEntry.value.currentPage)
 const hasPreviousPage = computed(() => currentPage.value > 1)
 const hasNextPage = computed(() => paginationEntry.value.hasMore)
+const tableLoading = computed(() => pageLoading.value || mutationLoading.value || (showLemma.value && lemmaLoading.value))
 
 async function goToPreviousPage(): Promise<void> {
   const currentDocId = docId.value
   const processingId = activeProcessingId.value
-  if (!currentDocId || !processingId || !hasPreviousPage.value || sentenceActionLoading.value) {
+  if (!currentDocId || !processingId || !hasPreviousPage.value || tableLoading.value) {
     return
   }
 
@@ -109,7 +152,7 @@ async function goToPreviousPage(): Promise<void> {
 async function goToNextPage(): Promise<void> {
   const currentDocId = docId.value
   const processingId = activeProcessingId.value
-  if (!currentDocId || !processingId || !hasNextPage.value || sentenceActionLoading.value) {
+  if (!currentDocId || !processingId || !hasNextPage.value || tableLoading.value) {
     return
   }
 
@@ -162,7 +205,7 @@ async function mergePreviousSentence(sentenceId: string): Promise<void> {
   const previousSentenceId = getPreviousSentenceId(sentenceId)
   const currentDocId = docId.value
   const processingId = activeProcessingId.value
-  if (!previousSentenceId || !currentDocId || !processingId) {
+  if (!previousSentenceId || !currentDocId || !processingId || sentenceEditingLocked.value) {
     return
   }
 
@@ -183,7 +226,7 @@ async function mergePreviousSentence(sentenceId: string): Promise<void> {
 async function clipSentence(sentenceId: string, splitOffset: number): Promise<void> {
   const currentDocId = docId.value
   const processingId = activeProcessingId.value
-  if (!currentDocId || !processingId) {
+  if (!currentDocId || !processingId || sentenceEditingLocked.value) {
     return
   }
 
@@ -212,12 +255,42 @@ function setHighlightedSentenceIds(sentenceIds: string[]): void {
   highlightedSentenceIds.value = Array.from(new Set(sentenceIds.filter(Boolean)))
 }
 
+async function loadLemmaPage(): Promise<void> {
+  const processingId = activeProcessingId.value
+  const requestToken = ++lemmaRequestToken
+  if (!showLemma.value || !processingId || activeLemmatizeProcess.value?.state !== 'succeed' || sentenceItems.value.length === 0) {
+    lemmaLoading.value = false
+    return
+  }
+
+  const firstSentence = sentenceItems.value[0]
+  if (!firstSentence) {
+    lemmaLoading.value = false
+    return
+  }
+
+  if (firstSentence.startOffset > 0 && (lastSentenceLoading.value || !lastSentenceItem.value?.lemmaText)) {
+    return
+  }
+
+  lemmaLoading.value = true
+  try {
+    const startFromId = firstSentence.startOffset === 0 ? null : (lastSentenceItem.value?.lemmaText ?? null)
+    await lemmaStore.getLemmaItems(processingId, startFromId, sentenceItems.value.length)
+  } finally {
+    if (requestToken === lemmaRequestToken) {
+      lemmaLoading.value = false
+    }
+  }
+}
+
 watch(
   activeDocProcessKey,
   async (nextKey) => {
     highlightedSentenceIds.value = []
     lastSentenceItem.value = null
     lastSentenceLoading.value = false
+    lemmaLoading.value = false
     pendingScrollTop.value = null
     if (!nextKey || !docId.value || !activeProcessingId.value) {
       return
@@ -240,6 +313,32 @@ watch(
   },
   { immediate: true },
 )
+
+watch(
+  [
+    showLemma,
+    activeDocProcessKey,
+    () => activeLemmatizeProcess.value?.state ?? '',
+    () => sentenceItems.value.map((item) => item.id).join('|'),
+    () => lastSentenceItem.value?.lemmaText ?? '',
+    () => lastSentenceLoading.value,
+  ],
+  () => {
+    void loadLemmaPage()
+  },
+  { immediate: true },
+)
+
+watch(
+  () => activeLemmatizeProcess.value?.state ?? '',
+  (state) => {
+    if (state !== 'succeed' || !docId.value || !activeProcessingId.value) {
+      return
+    }
+
+    void paginationStore.refreshCurrentPage(docId.value, activeProcessingId.value)
+  },
+)
 </script>
 
 <template>
@@ -254,22 +353,33 @@ watch(
       No sentences in this segmentation result.
     </p>
 
+    <p v-else-if="showLemma && !lemmaPageReady && lemmaLoading"
+      class="text-sm text-text-muted">
+      Loading lemmas...
+    </p>
+
+    <p v-else-if="showLemma && displayItems.length === 0"
+      class="text-sm text-text-muted">
+      No lemmas available for this page.
+    </p>
+
     <div v-else class="min-h-0 flex flex-1 flex-col overflow-hidden bg-background-elevated/15">
       <div ref="scrollAreaRef" class="scroll-area min-h-0 flex-1 overflow-y-auto">
-        <LastSentenceItem :item="lastSentenceItem"
+        <LastSentenceItem v-if="!showLemma" :item="lastSentenceItem"
           :loading="sentenceActionLoading || lastSentenceLoading" />
 
         <div class="space-y-2">
-          <SentencesOfDocument v-for="(item, index) in sentenceItems"
-            :key="item.id" :item="item" :loading="sentenceActionLoading"
-            :can-merge-prev="index > 0 || (index === 0 && item.startOffset > 0 && lastSentenceItem !== null)"
+          <SentencesOfDocument v-for="(item, index) in displayItems"
+            :key="item.id" :item="item" :loading="tableLoading"
+            :can-merge-prev="!showLemma && (index > 0 || (index === 0 && item.startOffset > 0 && lastSentenceItem !== null))"
             :highlighted="highlightedSentenceIdSet.has(item.id)"
+            :allow-sentence-actions="!showLemma && !sentenceEditingLocked"
             @request-merge="mergePreviousSentence" @clip="clipSentence" />
         </div>
       </div>
 
-      <SentencePagination :current-page="currentPage" :item-count="sentenceItems.length"
-        :has-previous="hasPreviousPage" :has-next="hasNextPage" :loading="sentenceActionLoading"
+      <SentencePagination :current-page="currentPage" :item-count="displayItems.length"
+        :has-previous="hasPreviousPage" :has-next="hasNextPage" :loading="tableLoading"
         @previous="goToPreviousPage" @next="goToNextPage" />
     </div>
   </div>

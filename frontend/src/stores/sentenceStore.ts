@@ -120,8 +120,8 @@ export const useSentenceStore = defineStore('sentence-store', {
       this.displayType = null
     },
 
-    ensureDisplayType(processItemCount: number): void {
-      if (processItemCount  < 2) {
+    ensureDisplayType(canDisplayLemma: boolean): void {
+      if (!canDisplayLemma) {
         this.displayType = null
         return
       }

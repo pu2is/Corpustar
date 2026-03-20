@@ -13,27 +13,30 @@ const docId = computed(() => {
   return Array.isArray(param) ? (param[0] ?? '') : (param ?? '')
 })
 
-const processItems = computed(() => processStore.getProcessesByDocId(docId.value))
-const processItemCount = computed(() => processItems.value.length)
+const segmentationProcess = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value))
+const lemmatizeProcess = computed(() => processStore.getLemmatizeProcessBySegmentationId(
+  docId.value,
+  segmentationProcess.value?.id ?? '',
+))
+const canDisplayLemma = computed(() => lemmatizeProcess.value?.state === 'succeed')
+const lemmatizeRunning = computed(() => lemmatizeProcess.value?.state === 'running')
+const lemmatizeFailed = computed(() => lemmatizeProcess.value?.state === 'failed')
 const displayTypeLabel = computed(() => sentenceStore.displayType === 'lemma' ? 'Lemma' : 'Source')
 
 watch(docId, () => {
   sentenceStore.resetDisplayType()
 }, { immediate: true })
 
-watch([docId, processItemCount], ([, nextCount]) => {
-  sentenceStore.ensureDisplayType(nextCount)
+watch([docId, canDisplayLemma], ([, nextCanDisplayLemma]) => {
+  sentenceStore.ensureDisplayType(nextCanDisplayLemma)
 }, { immediate: true })
 
 function startLemmatize(): void {
-  if (!docId.value) {
+  if (!docId.value || !segmentationProcess.value || lemmatizeRunning.value) {
     return
   }
 
-  console.log('[WorkflowControl] TODO: implement lemmatize workflow after backend API and frontend flow are ready.', {
-    docId: docId.value,
-    nextStep: 'Call lemmatize process API and refresh process/sentence display state.',
-  })
+  void processStore.lemmatizeSegmentation(docId.value, segmentationProcess.value.id)
 }
 
 function toggleDisplayType(): void {
@@ -42,20 +45,23 @@ function toggleDisplayType(): void {
 </script>
 
 <template>
-  <div v-if="processItemCount === 1">
+  <div v-if="segmentationProcess && !canDisplayLemma">
     <button type="button"
-      class="cursor-pointer rounded-[2px] bg-amber-400 px-4 py-1 text-lg font-medium text-violet-500 transition hover:bg-amber-400/85"
+      :disabled="lemmatizeRunning"
+      class="cursor-pointer rounded-[2px] bg-amber-400 px-4 py-1 text-lg font-medium text-violet-500 transition hover:bg-amber-400/85 disabled:cursor-not-allowed disabled:opacity-60"
       @click="startLemmatize">
       <span class="relative inline-block">
-        <span aria-hidden="true" class="absolute w-full bottom-[1px] left-[1px] text-cyan-300">
-          Start Lemmatize
+        <span aria-hidden="true" class="absolute w-full bottom-[1px] left-[1px] text-cyan-300 whitespace-nowrap">
+          {{ lemmatizeRunning ? 'Lemmatizing...' : (lemmatizeFailed ? 'Retry Lemmatize' : 'Start Lemmatize') }}
         </span>
-        <span class="relative">Start Lemmatize</span>
+        <span class="relative whitespace-nowrap">
+          {{ lemmatizeRunning ? 'Lemmatizing...' : (lemmatizeFailed ? 'Retry Lemmatize' : 'Start Lemmatize') }}
+        </span>
       </span>
     </button>
   </div>
 
-  <div v-else-if="processItemCount >=2">
+  <div v-else-if="canDisplayLemma">
     <button type="button"
       class="cursor-pointer rounded border border-border/70 px-3 py-1 text-xs font-medium text-violet-950 transition hover:bg-background-elevated/50"
       @click="toggleDisplayType">

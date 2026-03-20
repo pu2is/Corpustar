@@ -9,6 +9,7 @@ import { useProcessStore } from './stores/processStore'
 import { useRuleStore } from './stores/ruleStore'
 import { useRuleFvgStore } from './stores/ruleFvgStore'
 import { useSentenceStore } from './stores/sentenceStore'
+import { useLemmaStore } from './stores/lemmaStore'
 import { usePaginationStore } from './stores/local/paginationStore'
 
 const pinia = createPinia()
@@ -17,12 +18,14 @@ const processStore = useProcessStore(pinia)
 const ruleStore = useRuleStore(pinia)
 const ruleFvgStore = useRuleFvgStore(pinia)
 const sentenceStore = useSentenceStore(pinia)
+const lemmaStore = useLemmaStore(pinia)
 const paginationStore = usePaginationStore(pinia)
 documentStore.bindSocketEvents()
 processStore.bindSocketEvents()
 ruleStore.bindSocketEvents()
 ruleFvgStore.bindSocketEvents()
 sentenceStore.bindSocketEvents()
+lemmaStore.bindSocketEvents()
 paginationStore.hydrateFromLocalStorage()
 connect()
 

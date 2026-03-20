@@ -1,9 +1,9 @@
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
 from sqlite3 import Row
 from typing import TypedDict
 from uuid import uuid4
 
-from app.infrastructure.db.connection import connection_scope
+from app.infrastructure.db.connection import connection_scope, open_connection
 
 DOCUMENT_SENTENCES_TABLE_NAME = "document_sentences"
 
@@ -165,7 +165,40 @@ def get_sentences_by_ids(sentence_ids: list[str]) -> list[SentenceRow]:
             tuple(sentence_ids),
         ).fetchall()
         return [_map_sentence_row(row) for row in rows]
-    
+
+
+def get_all_sentences_by_segmentation_id(segmentation_id: str, fetch_batch_size: int = 512) -> Iterator[SentenceRow]:
+    if not segmentation_id:
+        return
+
+    connection = open_connection()
+    try:
+        cursor = connection.execute(
+            f"""
+            SELECT
+                id,
+                doc_id,
+                processing_id,
+                start_offset,
+                end_offset,
+                source_text,
+                lemma_text
+            FROM {DOCUMENT_SENTENCES_TABLE_NAME}
+            WHERE processing_id = ?
+            ORDER BY start_offset ASC
+            """,
+            (segmentation_id,),
+        )
+        while True:
+            rows = cursor.fetchmany(fetch_batch_size)
+            if not rows:
+                break
+
+            for row in rows:
+                yield _map_sentence_row(row)
+    finally:
+        connection.close()
+
 
 def merge_sentences_to_one(sentence_ids: list[str], merged_sentence: SentenceRow) -> None:
     if not sentence_ids:

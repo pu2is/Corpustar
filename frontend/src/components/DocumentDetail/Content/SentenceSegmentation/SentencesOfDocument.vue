@@ -12,6 +12,7 @@ const props = defineProps<{
   loading: boolean
   canMergePrev: boolean
   highlighted: boolean
+  allowSentenceActions: boolean
 }>()
 
 const emit = defineEmits<{
@@ -133,14 +134,14 @@ watch(() => [props.item.id, props.item.text],
     <!-- Button area -->
     <div class="flex gap-2">
       <!-- Merge -->
-      <button type="button" :disabled="loading || !canMergePrev"
+      <button v-if="allowSentenceActions" type="button" :disabled="loading || !canMergePrev"
         class="rounded-sm px-3 py-0.5 text-xs bg-violet-200 text-violet-700 
           disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
         @click="requestMergePrev">
         Merge Prev
       </button>
       <!-- Clip -->
-      <button type="button" :disabled="loading || !canClip"
+      <button v-if="allowSentenceActions" type="button" :disabled="loading || !canClip"
         class="rounded-sm px-3 py-0.5 text-xs bg-fuchsia-100 text-fuchsia-700 
           disabled:bg-gray-200 disabled:text-gray-600  disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
         @click="requestClip(selectedSymbolSplitOffset)">

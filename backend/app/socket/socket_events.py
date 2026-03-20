@@ -5,8 +5,12 @@ from typing import Any, Literal, NotRequired, TypeAlias, TypedDict
 SOCKET_CONNECTED = "socket:connected"
 DOCUMENT_CREATED = "document:created"
 DOCUMENT_REMOVED = "document:removed"
-PROCESSING_CREATED = "processing:created"
-PROCESSING_UPDATED = "processing:updated"
+PROCESS_CREATED = "process:created"
+PROCESS_UPDATED = "process:updated"
+PROCESSING_CREATED = PROCESS_CREATED
+PROCESSING_UPDATED = PROCESS_UPDATED
+LEMMA_CREATED = "lemma:created"
+LEMMA_UPDATED = "lemma:updated"
 SENTENCE_MERGED = "sentence:merged"
 SENTENCE_CLIPPED = "sentence:clipped"
 RULE_CREATED = "rule:created"

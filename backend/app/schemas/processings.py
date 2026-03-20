@@ -1,14 +1,8 @@
 from typing import Any, Literal
-
 from pydantic import BaseModel
 
-ProcessingType = Literal[
-    "sentence_segmentation",
-    "lemmatize",
-    "fvg_detection",
-    "manual_sentence_edit",
-]
 
+ProcessingType = Literal["sentence_segmentation", "lemmatize", "fvg_detection"]
 ProcessingState = Literal["running", "succeed", "failed"]
 
 
