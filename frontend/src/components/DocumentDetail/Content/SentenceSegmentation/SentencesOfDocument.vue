@@ -108,7 +108,7 @@ watch(() => [props.item.id, props.item.text],
 <template>
   <div ref="sentenceContainerRef"
     tabindex="0"
-    class="rounded border p-2 space-y-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+    class="border p-2 space-y-2 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
     :class="highlighted ? 'border-emerald-500 bg-emerald-50/60' : 'border-border'"
     @keydown.enter.self.prevent="requestClipByKeyboard">
     <div class="min-w-0 flex-1 space-y-1">
@@ -133,16 +133,16 @@ watch(() => [props.item.id, props.item.text],
     <!-- Button area -->
     <div class="flex gap-2">
       <!-- Merge -->
-      <button type="button"
-        :disabled="loading || !canMergePrev"
-        class="rounded border px-2 py-1 text-xs disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+      <button type="button" :disabled="loading || !canMergePrev"
+        class="rounded-sm px-3 py-0.5 text-xs bg-violet-200 text-violet-700 
+          disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
         @click="requestMergePrev">
         Merge Prev
       </button>
       <!-- Clip -->
-      <button type="button"
-        :disabled="loading || !canClip"
-        class="rounded border px-2 py-1 text-xs disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+      <button type="button" :disabled="loading || !canClip"
+        class="rounded-sm px-3 py-0.5 text-xs bg-fuchsia-100 text-fuchsia-700 
+          disabled:bg-gray-200 disabled:text-gray-600  disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
         @click="requestClip(selectedSymbolSplitOffset)">
         Clip
       </button>

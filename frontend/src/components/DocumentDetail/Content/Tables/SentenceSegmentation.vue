@@ -2,12 +2,15 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 // components
+import LastSentenceItem from '@/components/DocumentDetail/Content/LastSentenceItem.vue'
 import SentencePagination from '@/components/DocumentDetail/Content/SentencePagination.vue'
 import SentencesOfDocument from '@/components/DocumentDetail/Content/SentenceSegmentation/SentencesOfDocument.vue'
 // store
 import { usePaginationStore } from '@/stores/local/paginationStore'
 import { useProcessStore } from '@/stores/processStore'
 import { useSentenceStore } from '@/stores/sentenceStore'
+// types
+import type { SentenceItem } from '@/types/sentences'
 
 const route = useRoute()
 const paginationStore = usePaginationStore()
@@ -42,6 +45,10 @@ const currentPage = computed(() => paginationEntry.value.currentPage)
 const hasPreviousPage = computed(() => currentPage.value > 1)
 const hasNextPage = computed(() => paginationEntry.value.hasMore)
 const sentenceActionLoading = computed(() => pageLoading.value || mutationLoading.value)
+const sentenceItemPerPage = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
+const lastSentenceItem = ref<SentenceItem | null>(null)
+const lastSentenceLoading = ref(false)
+let lastSentenceRequestToken = 0
 
 function setHighlightedSentenceIds(sentenceIds: string[]): void {
   const seen = new Set<string>()
@@ -59,12 +66,51 @@ function setHighlightedSentenceIds(sentenceIds: string[]): void {
 }
 
 function getPreviousSentenceId(sentenceId: string): string | null {
-  const sentenceIndex = sentenceItems.value.findIndex((item) => item.id === sentenceId)
-  if (sentenceIndex < 0) {
-    return null
+  const items = sentenceItems.value
+  const sentenceIndex = items.findIndex((item) => item.id === sentenceId)
+
+  if (sentenceIndex < 0) { return null }
+
+  if (sentenceIndex > 0) { return items[sentenceIndex - 1]?.id ?? null }
+
+  return items[0]?.startOffset === 0 ? null : lastSentenceItem.value?.id ?? null
+}
+
+async function loadLastSentenceItem(): Promise<void> {
+  const currentDocId = docId.value
+  const processingId = activeProcessingId.value
+  const firstSentence = sentenceItems.value[0]
+  const requestToken = ++lastSentenceRequestToken
+
+  if (!currentDocId || !processingId || !firstSentence 
+    || firstSentence.startOffset === 0 || currentPage.value <= 1) {
+    lastSentenceItem.value = null
+    lastSentenceLoading.value = false
+    return
   }
 
-  return sentenceItems.value[sentenceIndex - 1]?.id ?? null
+  const previousPageOffset = paginationEntry.value.offsets[currentPage.value - 2] ?? null
+  lastSentenceLoading.value = true
+  lastSentenceItem.value = null
+
+  try {
+    const previousPage = await sentenceStore.getSentences(
+      currentDocId, processingId,
+      previousPageOffset, sentenceItemPerPage, false,
+    )
+
+    if (requestToken !== lastSentenceRequestToken) { return }
+
+    lastSentenceItem.value = previousPage.items[previousPage.items.length - 1] ?? null
+  } catch {
+    if (requestToken !== lastSentenceRequestToken) { return }
+
+    lastSentenceItem.value = null
+  } finally {
+    if (requestToken === lastSentenceRequestToken) {
+      lastSentenceLoading.value = false
+    }
+  }
 }
 
 function goToPreviousPage(): void {
@@ -132,12 +178,22 @@ watch(
   activeDocProcessKey,
   (nextKey) => {
     highlightedSentenceIds.value = []
+    lastSentenceItem.value = null
+    lastSentenceLoading.value = false
     if (!nextKey || !docId.value || !activeProcessingId.value) {
       return
     }
 
     void paginationStore.initializeDocumentPagination(docId.value, activeProcessingId.value)
   },
+  { immediate: true },
+)
+
+watch(
+  [activeDocProcessKey, currentPage,
+    () => sentenceItems.value[0]?.id ?? '',
+    () => sentenceItems.value[0]?.startOffset ?? 0,],
+  () => { void loadLastSentenceItem()},
   { immediate: true },
 )
 </script>
@@ -155,12 +211,18 @@ watch(
     </p>
 
     <div v-else class="min-h-0 flex flex-1 flex-col overflow-hidden bg-background-elevated/15">
-      <div class="scroll-area min-h-0 flex-1 space-y-2 overflow-y-auto">
-        <SentencesOfDocument v-for="(item, index) in sentenceItems"
-          :key="item.id" :item="item"
-          :loading="sentenceActionLoading" :can-merge-prev="index > 0"
-          :highlighted="highlightedSentenceIdSet.has(item.id)"
-          @request-merge="mergePreviousSentence" @clip="clipSentence" />
+      <div class="scroll-area min-h-0 flex-1 overflow-y-auto">
+        <LastSentenceItem :item="lastSentenceItem"
+          :loading="sentenceActionLoading || lastSentenceLoading" />
+
+        <div class="space-y-2">
+          <SentencesOfDocument v-for="(item, index) in sentenceItems"
+            :key="item.id" :item="item"
+            :loading="sentenceActionLoading"
+            :can-merge-prev="index > 0 || (index === 0 && item.startOffset > 0 && lastSentenceItem !== null)"
+            :highlighted="highlightedSentenceIdSet.has(item.id)"
+            @request-merge="mergePreviousSentence" @clip="clipSentence" />
+        </div>
       </div>
 
       <SentencePagination :current-page="currentPage" :item-count="sentenceItems.length"
