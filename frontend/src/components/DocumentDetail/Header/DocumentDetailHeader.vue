@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 // icons
 import { BookOpenText } from 'lucide-vue-next'
+// components
+import WorkflowControl from '@/components/DocumentDetail/Header/WorkflowControl.vue'
 // store
 import { useDocumentStore } from '@/stores/documentStore'
 
@@ -21,15 +23,17 @@ const formattedCharCount = computed(() => (documentItem.value?.textCharCount ?? 
 </script>
 
 <template>
-  <header class="rounded p-3 space-y-1">
-    <div class="flex flex-wrap items-center gap-3">
-      <h2 class="text-xl font-semibold text-text">
+  <header class="rounded py-3 space-y-1">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-xl font-semibold text-violet-950">
         {{ displayName }}
       </h2>
+
+      <WorkflowControl />
     </div>
 
     <div class="flex items gap-4">
-      <span class="inline-flex items-center gap-2 py-1 text-xs text-text-muted">
+      <span class="inline-flex items-center gap-2 py-1 text-sm bg-cyan-300 px-2 text-cyan-800">
         <BookOpenText class="h-3.5 w-3.5" />
         {{ formattedCharCount }} characters
       </span>

@@ -3,6 +3,8 @@ import { get, post } from '@/stores/fetchWrapper'
 import { on } from '@/socket/socket'
 import type { ClipSentenceResponse, SentenceCursorPage, SentenceItem} from '@/types/sentences'
 
+export type SentenceDisplayType = 'source' | 'lemma'
+
 function getSentencePageKey(docId: string, processId: string): string {
   return `${docId}::${processId}`
 }
@@ -11,6 +13,7 @@ export const useSentenceStore = defineStore('sentence-store', {
   state: () => ({
     sentences: [] as SentenceItem[],
     connected: false as boolean,
+    displayType: null as SentenceDisplayType | null,
     pageStateByDocProcessKey: {} as Record<string, { offset: number | null, limit: number }>,
   }),
   getters: {
@@ -110,6 +113,30 @@ export const useSentenceStore = defineStore('sentence-store', {
       const offset = trackedPageState?.offset ?? null
       this.sentences = []
       return this.getSentences(docId, processId, offset, limit)
+    },
+
+    // Sentence Table Display
+    resetDisplayType(): void {
+      this.displayType = null
+    },
+
+    ensureDisplayType(processItemCount: number): void {
+      if (processItemCount  < 2) {
+        this.displayType = null
+        return
+      }
+
+      if (this.displayType === null) {
+        this.displayType = 'source'
+      }
+    },
+
+    toggleDisplayType(): void {
+      if (this.displayType === null) {
+        return
+      }
+
+      this.displayType = this.displayType === 'source' ? 'lemma' : 'source'
     },
   },
 })

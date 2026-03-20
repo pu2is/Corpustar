@@ -46,7 +46,7 @@ function openDocumentDetail(event: MouseEvent): void {
         </button>
         <button
           type="button"
-          class="inline-flex cursor-pointer items-center justify-center rounded p-1 text-text-muted/70 transition-colors hover:text-text"
+          class="inline-flex cursor-pointer items-center justify-center rounded p-1 text-text-muted/70 transition-colors hover:text-violet-950"
           :aria-label="`Open ${displayName}`"
           @click="openDocumentDetail"
         >

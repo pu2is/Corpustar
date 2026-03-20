@@ -89,7 +89,7 @@ watch(textPath, (nextTextPath) => {
 
 
     <div v-else class="scroll-area min-h-0 flex-1 overflow-y-auto pr-1">
-      <p class="text-sm whitespace-pre-wrap break-words text-text">
+      <p class="text-sm whitespace-pre-wrap break-words text-violet-950">
         {{ sourceText || 'This document has no text content.' }}
       </p>
     </div>

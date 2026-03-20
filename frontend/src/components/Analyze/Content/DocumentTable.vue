@@ -32,7 +32,7 @@ function removeDocument(id: string): void {
     <header class="shrink-0 flex items-end justify-between gap-3">
       <div class="flex items-start gap-2.5">
         <div class="flex-col cursor-default select-none">
-          <h2 class="m-0 text-[0.95rem] font-semibold tracking-[0.01em] text-text">
+          <h2 class="m-0 text-[0.95rem] font-semibold tracking-[0.01em] text-violet-950">
             Documents
           </h2>
           <p class="mt-0.5 text-xs text-text-muted">
