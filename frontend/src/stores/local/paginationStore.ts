@@ -6,6 +6,7 @@ export type SentenceAnchorMap = Record<string, string>
 interface SentencePaginationEntry {
   currentPage: number
   offsets: Array<number | null>
+  hasMore: boolean
   nextAfterStartOffset: number | null
   loading: boolean
   processingId: string
@@ -18,6 +19,7 @@ function createEntry(processingId = ''): SentencePaginationEntry {
   return {
     currentPage: 1,
     offsets: [null],
+    hasMore: false,
     nextAfterStartOffset: null,
     loading: false,
     processingId,
@@ -99,6 +101,7 @@ export const usePaginationStore = defineStore('pagination-store', {
         const page = await sentenceStore.getSentences(docId, processingId, offset, SENTENCE_ITEM_PER_PAGE)
         entry.currentPage = pageNumber
         entry.offsets = offsets
+        entry.hasMore = page.hasMore
         entry.nextAfterStartOffset = page.nextAfterStartOffset ?? null
         entry.processingId = processingId
         this.saveAnchor(docId, page.items[0]?.id ?? null)
@@ -155,7 +158,7 @@ export const usePaginationStore = defineStore('pagination-store', {
 
     async goToNextPage(docId: string, processingId: string): Promise<void> {
       const entry = this.entry(docId, processingId)
-      if (entry.loading || entry.nextAfterStartOffset === null) {
+      if (entry.loading || !entry.hasMore || entry.nextAfterStartOffset === null) {
         return
       }
 

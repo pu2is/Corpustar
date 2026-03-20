@@ -66,11 +66,11 @@ FvgRuleUpdatedPayload: TypeAlias = FvgRuleItemPayload
 
 class SocketEnvelope(TypedDict):
     event: str
-    payload: dict[str, Any]
+    payload: Any
 
 
-def make_envelope(event: str, payload: dict[str, Any] | None = None) -> SocketEnvelope:
+def make_envelope(event: str, payload: Any = None) -> SocketEnvelope:
     return {
         "event": event,
-        "payload": payload or {},
+        "payload": payload if payload is not None else {},
     }

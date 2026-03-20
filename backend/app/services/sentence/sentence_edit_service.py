@@ -83,16 +83,7 @@ def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
         },
     )
 
-    publish_best_effort(
-        SENTENCE_MERGED,
-        {
-            "docId": doc_id,
-            "processingId": processing_id,
-            "mergedSentenceId": merged_id,
-        },
-    )
-
-    return build_sentence_item(
+    merged_item = build_sentence_item(
         sentence_id=merged_id,
         doc_id=doc_id,
         processing_id=processing_id,
@@ -101,6 +92,10 @@ def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
         lemma_text=None,
         full_text=full_text,
     )
+
+    publish_best_effort(SENTENCE_MERGED, merged_item)
+
+    return merged_item
 
 
 def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
@@ -181,13 +176,6 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
     if f"{left_item['text']}{right_item['text']}" != original_text:
         raise RuntimeError("Sentence clip failed: split text does not match original sentence text.")
 
-    publish_best_effort(
-        SENTENCE_CLIPPED,
-        {
-            "docId": doc_id,
-            "processingId": processing_id,
-            "sentenceId": sentence_id,
-        },
-    )
+    publish_best_effort(SENTENCE_CLIPPED, [left_item, right_item])
 
     return {"items": [left_item, right_item]}

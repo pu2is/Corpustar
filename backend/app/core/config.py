@@ -44,7 +44,6 @@ class Settings:
             os.getenv("SQLITE_DATABASE_PATH",
                 str(self.backend_dir / "data" / "corpustar.sqlite3"))
         ).resolve()
-        self.default_sentence_per_page = self._get_int_or_default("DEFAULT_SENTENCE_PER_PAGE", 20)
 
     @staticmethod
     def _get_required(name: str) -> str:
@@ -53,16 +52,6 @@ class Settings:
             raise ValueError(f"{name} is required (set it in backend/.env)")
 
         return value.strip()
-
-    @staticmethod
-    def _get_int_or_default(name: str, default: int) -> int:
-        value = os.getenv(name)
-        if value is None or not value.strip():
-            return default
-        try:
-            return int(value)
-        except ValueError as exc:
-            raise ValueError(f"{name} must be an integer") from exc
 
     @classmethod
     def _get_int(cls, name: str) -> int:

@@ -40,7 +40,7 @@ const highlightedSentenceIdSet = computed(() => new Set(highlightedSentenceIds.v
 const pageLoading = computed(() => paginationEntry.value.loading)
 const currentPage = computed(() => paginationEntry.value.currentPage)
 const hasPreviousPage = computed(() => currentPage.value > 1)
-const hasNextPage = computed(() => paginationEntry.value.nextAfterStartOffset !== null)
+const hasNextPage = computed(() => paginationEntry.value.hasMore)
 const sentenceActionLoading = computed(() => pageLoading.value || mutationLoading.value)
 
 function setHighlightedSentenceIds(sentenceIds: string[]): void {
