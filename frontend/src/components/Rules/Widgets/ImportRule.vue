@@ -1,31 +1,36 @@
 <script setup lang="ts">
 import { Plus } from 'lucide-vue-next'
-import { storeToRefs } from 'pinia'
+import { ref } from 'vue'
 
-import { useDocumentStore } from '@/stores/documentStore'
+import { useRuleStore } from '@/stores/ruleStore'
 
-const documentStore = useDocumentStore()
-const { loading } = storeToRefs(documentStore)
+const ruleStore = useRuleStore()
+const importing = ref(false)
 
 async function openFilePicker(): Promise<void> {
-  if (loading.value) {
+  if (importing.value) {
     return
   }
 
-  if (!window.electronAPI?.selectDocumentFile) {
-    documentStore.error = 'Electron file picker unavailable. Start with npm run electron:dev.'
+  if (!window.electronAPI?.selectRuleFile) {
     return
   }
 
+  importing.value = true
   try {
-    const filePath = await window.electronAPI.selectDocumentFile()
+    const filePath = await window.electronAPI.selectRuleFile()
     if (!filePath) {
       return
     }
 
-    await documentStore.addDocumentByPath(filePath)
+    await ruleStore.importRule({
+      path: filePath,
+      type: 'fvg',
+    })
   } catch {
     // store handles error state
+  } finally {
+    importing.value = false
   }
 }
 </script>
@@ -35,9 +40,9 @@ async function openFilePicker(): Promise<void> {
     <div class="absolute right-6 top-1/2 z-20 -translate-y-1/2 pointer-events-auto">
       <button type="button"
         class="inline-flex cursor-pointer h-10 w-10 items-center justify-center rounded-full border-0 bg-contrast p-0 text-primary shadow-md transition hover:bg-secondary-soft hover:text-primary"
-        :disabled="loading"
-        aria-label="Add text file"
-        title="Add text file"
+        :disabled="importing"
+        aria-label="Import rule file"
+        title="Import rule file"
         @click="openFilePicker">
         <Plus class="h-5 w-5 shrink-0" />
       </button>

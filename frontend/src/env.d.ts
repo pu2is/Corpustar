@@ -16,6 +16,7 @@ interface ImportMeta {
 interface Window {
   electronAPI?: {
     selectDocumentFile(): Promise<string | null>
+    selectRuleFile(): Promise<string | null>
     readDocumentText(filePath: string): Promise<string>
   }
 }

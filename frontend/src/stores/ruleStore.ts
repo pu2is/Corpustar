@@ -79,7 +79,7 @@ export const useRuleStore = defineStore('rule-store', {
     },
 
     // Post: import & create
-    async importRules(payload: ImportRuleRequest): Promise<RuleItem> {
+    async importRule(payload: ImportRuleRequest): Promise<RuleItem> {
       const rule = await post<RuleItem>('/api/rules', payload)
       return rule
     },

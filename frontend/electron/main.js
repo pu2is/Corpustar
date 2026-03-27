@@ -49,6 +49,25 @@ ipcMain.handle('select-document-file', async (event) => {
   return path.resolve(result.filePaths[0])
 })
 
+ipcMain.handle('select-rule-file', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const result = await dialog.showOpenDialog(win, {
+    properties: ['openFile'],
+    filters: [
+      {
+        name: 'CSV Files',
+        extensions: ['csv'],
+      },
+    ],
+  })
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null
+  }
+
+  return path.resolve(result.filePaths[0])
+})
+
 async function handleReadDocumentText(_event, filePath) {
   if (typeof filePath !== 'string' || !filePath.trim()) {
     throw new Error('A valid text file path is required.')
