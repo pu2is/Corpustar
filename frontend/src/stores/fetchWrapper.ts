@@ -32,11 +32,11 @@ function resolveApiBaseUrl(): string {
     return trimTrailingSlash(explicit)
   }
 
-  const backendHost = import.meta.env.BACKEND_HOST?.trim()
-  const backendPort = import.meta.env.BACKEND_PORT?.trim()
+  const backendHost = import.meta.env.VITE_BACKEND_HOST?.trim()
+  const backendPort = import.meta.env.VITE_BACKEND_PORT?.trim()
   if (!backendHost || !backendPort) {
     throw new Error(
-      'Missing VITE_API_BASE_URL or BACKEND_HOST/BACKEND_PORT in frontend/.env',
+      'Missing VITE_API_BASE_URL or VITE_BACKEND_HOST/VITE_BACKEND_PORT in frontend/.env',
     )
   }
 

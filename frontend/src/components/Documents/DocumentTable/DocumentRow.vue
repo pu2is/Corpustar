@@ -5,6 +5,7 @@ import { ChevronRight, Trash2 } from 'lucide-vue-next'
 
 import type { DocItem } from '@/types/documents'
 import { formatFileSize } from '@/utils/utils'
+import { APP_ROUTES } from '@/config/routes'
 
 const props = defineProps<{
   docItem: DocItem
@@ -24,7 +25,7 @@ function removeDocument(event: MouseEvent): void {
 
 function openDocumentDetail(event: MouseEvent): void {
   event.stopPropagation()
-  void router.push(`/analyze/${encodeURIComponent(props.docItem.id)}`)
+  void router.push(APP_ROUTES.documentDetail(props.docItem.id))
 }
 </script>
 

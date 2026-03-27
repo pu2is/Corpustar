@@ -3,10 +3,12 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string
   readonly VITE_SENTENCE_ITEM_PER_PAGE?: string
-  readonly BACKEND_HOST: string
-  readonly BACKEND_PORT: string
-  readonly FRONTEND_DEV_HOST: string
-  readonly FRONTEND_DEV_PORT: string
+  readonly VITE_BACKEND_HOST?: string
+  readonly VITE_BACKEND_PORT?: string
+  readonly VITE_FRONTEND_DEV_HOST?: string
+  readonly VITE_FRONTEND_DEV_PORT?: string
+  readonly VITE_ENDPOINT_DOCUMENTS?: string
+  readonly VITE_ENDPOINT_RULES?: string
 }
 
 interface ImportMeta {

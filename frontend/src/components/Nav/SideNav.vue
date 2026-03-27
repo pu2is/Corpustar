@@ -2,17 +2,18 @@
 import { PencilRuler, TextSearch } from 'lucide-vue-next'
 import { NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuRoot } from 'reka-ui'
 import { useRoute } from 'vue-router'
+import { APP_ROUTES, isInRouteSection } from '@/config/routes'
 
 const route = useRoute()
 
 const links = [
-  { label: 'Analyze', to: '/analyze', icon: TextSearch },
-  { label: 'Rules', to: '/rules', icon: PencilRuler },
+  { label: 'Analyze', to: APP_ROUTES.documents, icon: TextSearch },
+  { label: 'Rules', to: APP_ROUTES.rules, icon: PencilRuler },
 ]
 
 function isActive(path: string): boolean {
-  if (path === '/analyze') {
-    return route.path === '/analyze' || route.path.startsWith('/analyze/')
+  if (path === APP_ROUTES.documents || path === APP_ROUTES.rules) {
+    return isInRouteSection(route.path, path)
   }
 
   return route.path === path

@@ -74,10 +74,11 @@ function readRequiredPort(env, key) {
 
 const env = loadEnv()
 
-export const FRONTEND_DEV_HOST = readRequired(env, 'FRONTEND_DEV_HOST')
-export const FRONTEND_DEV_PORT = readRequiredPort(env, 'FRONTEND_DEV_PORT')
-export const BACKEND_HOST = readRequired(env, 'BACKEND_HOST')
-export const BACKEND_PORT = readRequiredPort(env, 'BACKEND_PORT')
+export const FRONTEND_DEV_HOST = readRequired(env, 'VITE_FRONTEND_DEV_HOST')
+export const FRONTEND_DEV_PORT = readRequiredPort(env, 'VITE_FRONTEND_DEV_PORT')
+export const BACKEND_HOST = readRequired(env, 'VITE_BACKEND_HOST')
+export const BACKEND_PORT = readRequiredPort(env, 'VITE_BACKEND_PORT')
 
 export const FRONTEND_DEV_URL = `http://${FRONTEND_DEV_HOST}:${FRONTEND_DEV_PORT}`
 export const BACKEND_BASE_URL = `http://${BACKEND_HOST}:${BACKEND_PORT}`
+

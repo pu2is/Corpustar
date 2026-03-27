@@ -1,19 +1,20 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
-import AnalyzeView from '@/views/Analyze.vue'
+import AnalyzeView from '@/views/Documents.vue'
 import DocumentDetailView from '@/views/DocumentDetail.vue'
 import RulesView from '@/views/Rules.vue'
 import RuleDetailView from '@/views/RuleDetail.vue'
+import { APP_ROUTES } from '@/config/routes'
 
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
     {
-      path: '/',
-      redirect: '/analyze',
+      path: APP_ROUTES.root,
+      redirect: APP_ROUTES.documents,
     },
     {
-      path: '/rules',
+      path: APP_ROUTES.rules,
       component: RulesView,
       meta: {
         title: 'Rules',
@@ -21,7 +22,7 @@ const router = createRouter({
       },
     },
     {
-      path: '/rules/:id',
+      path: `${APP_ROUTES.rules}/:id`,
       component: RuleDetailView,
       meta: {
         title: 'Rule Table',
@@ -29,7 +30,7 @@ const router = createRouter({
       },
     },
     {
-      path: '/analyze',
+      path: APP_ROUTES.documents,
       component: AnalyzeView,
       meta: {
         title: 'Analyze',
@@ -37,7 +38,7 @@ const router = createRouter({
       },
     },
     {
-      path: '/analyze/:id',
+      path: `${APP_ROUTES.documents}/:id`,
       component: DocumentDetailView,
       meta: {
         title: 'Document Detail',

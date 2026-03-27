@@ -11,7 +11,6 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
-  envPrefix: ['VITE_', 'BACKEND_', 'FRONTEND_'],
   server: {
     host: FRONTEND_DEV_HOST,
     port: FRONTEND_DEV_PORT,
@@ -23,3 +22,4 @@ export default defineConfig({
     strictPort: true,
   },
 })
+

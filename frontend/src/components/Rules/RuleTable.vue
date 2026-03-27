@@ -6,6 +6,7 @@ import { ChevronRight, Trash2 } from 'lucide-vue-next'
 import { useRuleStore } from '@/stores/ruleStore'
 // types
 import type { RuleItem } from '@/types/rules'
+import { APP_ROUTES } from '@/config/routes'
 
 const props = defineProps<{
   ruleItems: RuleItem[]
@@ -16,7 +17,7 @@ const router = useRouter()
 
 function openRuleDetail(event: MouseEvent, ruleId: string): void {
   event.stopPropagation()
-  void router.push(`/rules/${encodeURIComponent(ruleId)}`)
+  void router.push(APP_ROUTES.ruleDetail(ruleId))
 }
 </script>
 

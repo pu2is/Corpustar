@@ -6,6 +6,7 @@ import DocumentDetailHeader from '@/components/DocumentDetail/Header/DocumentDet
 import TopNav from '@/components/Nav/TopNav.vue'
 import { useDocumentDetailPage } from '@/composables/documentDetail/useDocumentDetailPage'
 import { getIdFromUrl } from '@/composables/useRouteId'
+import { APP_ROUTES } from '@/config/routes'
 
 const router = useRouter()
 const docId = getIdFromUrl()
@@ -27,7 +28,7 @@ const {
 } = useDocumentDetailPage(docId)
 
 function backToDocuments(): void {
-  void router.push('/analyze')
+  void router.push(APP_ROUTES.documents)
 }
 </script>
 

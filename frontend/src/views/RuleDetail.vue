@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import TopNav from '@/components/Nav/TopNav.vue';
 import RuleDetailHeader from '@/components/RuleDetail/Widgets/RuleDetailHeader.vue'
 import { useRuleFvgStore } from '@/stores/ruleFvgStore'
+import { APP_ROUTES } from '@/config/routes'
 // icons
 import { ChevronLeft } from 'lucide-vue-next'
 
@@ -24,7 +25,7 @@ async function fetchFvgRulesByRouteId(): Promise<void> {
 }
 
 function backToRules(): void {
-  void router.push('/rules')
+  void router.push(APP_ROUTES.rules)
 }
 
 onMounted(() => {

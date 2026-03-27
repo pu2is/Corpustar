@@ -3,7 +3,7 @@ import { computed, onMounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { RefreshCcw } from 'lucide-vue-next'
 
-import DocumentRow from '../DocumentTable/DocumentRow.vue'
+import DocumentRow from '@/components/Documents/DocumentTable/DocumentRow.vue'
 import { useDocumentStore } from '@/stores/documentStore'
 
 const documentStore = useDocumentStore()

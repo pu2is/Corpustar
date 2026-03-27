@@ -21,8 +21,14 @@ function getGlobalScope(): typeof globalThis & { [GLOBAL_SOCKET_KEY]?: WebSocket
 
 function buildSocketUrl(): string {
   const explicit = import.meta.env.VITE_API_BASE_URL?.trim()
-  const base =
-    explicit || `http://${import.meta.env.BACKEND_HOST.trim()}:${import.meta.env.BACKEND_PORT.trim()}`
+  const backendHost = import.meta.env.VITE_BACKEND_HOST?.trim()
+  const backendPort = import.meta.env.VITE_BACKEND_PORT?.trim()
+
+  if (!explicit && (!backendHost || !backendPort)) {
+    throw new Error('Missing VITE_API_BASE_URL or VITE_BACKEND_HOST/VITE_BACKEND_PORT in frontend/.env')
+  }
+
+  const base = explicit || `http://${backendHost}:${backendPort}`
   const url = new URL(base)
 
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'

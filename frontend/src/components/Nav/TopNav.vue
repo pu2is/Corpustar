@@ -9,22 +9,19 @@ import {
   DropdownMenuTrigger,
 } from 'reka-ui'
 import { useRoute, useRouter } from 'vue-router'
+import { APP_ROUTES, isInRouteSection } from '@/config/routes'
 
 const route = useRoute()
 const router = useRouter()
 
-const normalizedPath = computed(() => route.path.replace(/\/+$/, ''))
-
-const isAnalyzeRoute = computed(() => {
-  return normalizedPath.value === '/analyze' || /^\/analyze\/[^/]+$/.test(normalizedPath.value)
-})
-const isRulesRoute = computed(() => normalizedPath.value === '/rules')
+const isAnalyzeRoute = computed(() => isInRouteSection(route.path, APP_ROUTES.documents))
+const isRulesRoute = computed(() => isInRouteSection(route.path, APP_ROUTES.rules))
 
 const triggerLabel = computed(() => (isRulesRoute.value ? 'Rules' : 'Analyze'))
 const triggerIcon = computed(() => (isRulesRoute.value ? PencilRuler : TextSearch))
 
 const menuLabel = computed(() => (isAnalyzeRoute.value ? 'Rules' : 'Analyze'))
-const menuTarget = computed(() => (isAnalyzeRoute.value ? '/rules' : '/analyze'))
+const menuTarget = computed(() => (isAnalyzeRoute.value ? APP_ROUTES.rules : APP_ROUTES.documents))
 const menuIcon = computed(() => (isAnalyzeRoute.value ? PencilRuler : TextSearch))
 
 function navigateToTarget(): void {
