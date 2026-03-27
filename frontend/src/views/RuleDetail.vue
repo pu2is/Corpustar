@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+// configs
+import { APP_ROUTES } from '@/config/routes'
 // components
 import TopNav from '@/components/Nav/TopNav.vue';
 import RuleDetailHeader from '@/components/RuleDetail/Widgets/RuleDetailHeader.vue'
+import FvgTable from '@/components/RuleDetail/FvgTable.vue';
+// stores
 import { useRuleFvgStore } from '@/stores/ruleFvgStore'
-import { APP_ROUTES } from '@/config/routes'
 // icons
 import { ChevronLeft } from 'lucide-vue-next'
 
@@ -56,8 +59,8 @@ watch(
       </button>
       <!-- Rule Detail Header -->
       <RuleDetailHeader />
-      
-      
+      <!-- Fvg Table -->
+      <FvgTable />
     </section>
   </main>
 </template>
