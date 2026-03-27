@@ -17,3 +17,5 @@ frontend/.vscode/*
 /backend/.codex/*
 /frontend/.codex
 /frontend/.codex/*
+
+*.drawio
