@@ -1,8 +1,9 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
-import AnalyzeView from '../views/Analyze.vue'
-import DocumentDetailView from '../views/DocumentDetail.vue'
-import RulesView from '../views/Rules.vue'
+import AnalyzeView from '@/views/Analyze.vue'
+import DocumentDetailView from '@/views/DocumentDetail.vue'
+import RulesView from '@/views/Rules.vue'
+import RuleDetailView from '@/views/RuleDetail.vue'
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -20,6 +21,14 @@ const router = createRouter({
       },
     },
     {
+      path: '/rules/:id',
+      component: RuleDetailView,
+      meta: {
+        title: 'Rule Table',
+        caption: 'Rule table in detail.',
+      },
+    },
+    {
       path: '/analyze',
       component: AnalyzeView,
       meta: {
@@ -28,7 +37,7 @@ const router = createRouter({
       },
     },
     {
-      path: '/analyze/:doc_id',
+      path: '/analyze/:id',
       component: DocumentDetailView,
       meta: {
         title: 'Document Detail',

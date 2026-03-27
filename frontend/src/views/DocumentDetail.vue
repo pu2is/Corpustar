@@ -1,19 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import DocumentDetailContent from '@/components/DocumentDetail/DocumentDetailContent.vue'
 import BackToDocumentsNav from '@/components/DocumentDetail/Header/BackToDocumentsNav.vue'
 import DocumentDetailHeader from '@/components/DocumentDetail/Header/DocumentDetailHeader.vue'
 import TopNav from '@/components/Nav/TopNav.vue'
 import { useDocumentDetailPage } from '@/composables/documentDetail/useDocumentDetailPage'
+import { getIdFromUrl } from '@/composables/useRouteId'
 
-const route = useRoute()
 const router = useRouter()
-
-const docId = computed(() => {
-  const param = route.params.doc_id
-  return Array.isArray(param) ? (param[0] ?? '') : (param ?? '')
-})
+const docId = getIdFromUrl()
 
 const {
   displayName,

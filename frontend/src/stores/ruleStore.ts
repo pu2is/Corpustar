@@ -18,6 +18,27 @@ export const useRuleStore = defineStore('rule-store', {
 
       return state.rules.find((rule) => rule.id === ruleId) ?? null
     },
+    getRuleNameById(): (ruleId: string) => string {
+      const ruleNameById = new Map<string, string>(
+        this.rules.map((rule) => {
+          const fileNameWithExtension = rule.path.split(/[\\/]/).pop() ?? ''
+          const extensionIndex = fileNameWithExtension.lastIndexOf('.')
+          const fileName = extensionIndex > 0
+            ? fileNameWithExtension.slice(0, extensionIndex)
+            : fileNameWithExtension
+
+          return [rule.id, fileName]
+        }),
+      )
+
+      return (ruleId: string): string => {
+        if (!ruleId) {
+          return ''
+        }
+
+        return ruleNameById.get(ruleId) ?? ''
+      }
+    },
   },
   actions: {
     bindSocketEvents(): void {
