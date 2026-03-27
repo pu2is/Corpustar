@@ -57,6 +57,7 @@ watch(
       <!-- Rule Detail Header -->
       <RuleDetailHeader />
       
+      
     </section>
   </main>
 </template>

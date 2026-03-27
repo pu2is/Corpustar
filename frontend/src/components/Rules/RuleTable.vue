@@ -15,6 +15,11 @@ const props = defineProps<{
 const ruleStore = useRuleStore()
 const router = useRouter()
 
+async function removeRuleItem(event: MouseEvent, ruleId: string): Promise<void> {
+  event.stopPropagation()
+  await ruleStore.removeRuleById(ruleId)
+}
+
 function openRuleDetail(event: MouseEvent, ruleId: string): void {
   event.stopPropagation()
   void router.push(APP_ROUTES.ruleDetail(ruleId))
@@ -37,7 +42,8 @@ function openRuleDetail(event: MouseEvent, ruleId: string): void {
       <div class="flex items-center gap-2">
         <button type="button"
           class="inline-flex items-center cursor-pointer justify-center rounded p-1 text-text-muted/70 transition-colors hover:text-error"
-          aria-label="Delete rule">
+          aria-label="Delete rule"
+          @click="(event) => void removeRuleItem(event, rule.id)">
           <Trash2 class="h-4 w-4 shrink-0" />
         </button>
         <button type="button"
