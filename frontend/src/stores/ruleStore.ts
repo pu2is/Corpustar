@@ -1,82 +1,14 @@
 import { defineStore } from 'pinia'
 
 import { del, get, post } from '@/stores/fetchWrapper'
-import { on, SOCKET_CONNECTED_EVENT, SOCKET_DISCONNECTED_EVENT } from '@/socket/socket'
-
-type RuleType = 'fvg'
-
-export interface RuleItem {
-  id: string
-  type: RuleType
-  path: string
-}
-
-export type ImportRuleRequest = {
-  path: string
-  type?: RuleType
-}
-
-export interface RemoveRuleResponse {
-  id: string
-  removedFvgCount?: number | null
-}
-
-interface RuleState {
-  rules: RuleItem[]
-  connected: boolean
-}
-
-// Keep socket lifecycle in socket.ts; store only consumes events.
-let hasBoundSocketEvents = false
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function toNonEmptyString(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null
-  }
-
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
-function toRuleType(value: unknown): RuleType | null {
-  return value === 'fvg' ? value : null
-}
-
-function toRuleItem(value: unknown): RuleItem | null {
-  if (!isRecord(value)) {
-    return null
-  }
-
-  const id = toNonEmptyString(value.id)
-  const path = toNonEmptyString(value.path)
-  const type = toRuleType(value.type)
-  if (!id || !path || !type) {
-    return null
-  }
-
-  return {
-    id,
-    type,
-    path,
-  }
-}
-
-function toRemovedRuleId(value: unknown): string | null {
-  if (!isRecord(value)) {
-    return null
-  }
-
-  return toNonEmptyString(value.id)
-}
+import { on } from '@/socket/socket'
+import type { ImportRuleRequest, RemoveRuleResponse, RuleItem, RuleType } from '@/types/rules'
 
 export const useRuleStore = defineStore('rule-store', {
-  state: (): RuleState => ({
-    rules: [],
+  state: () => ({
+    rules: [] as RuleItem[],
     connected: false,
+    hasBoundSocketEvents: false,
   }),
   getters: {
     getRuleByStoreId: (state) => (ruleId: string): RuleItem | null => {
@@ -89,69 +21,73 @@ export const useRuleStore = defineStore('rule-store', {
   },
   actions: {
     bindSocketEvents(): void {
-      if (hasBoundSocketEvents) {
+      if (this.hasBoundSocketEvents) {
         return
       }
 
-      on(SOCKET_CONNECTED_EVENT, () => {
+      on('socket:connected', () => {
         this.connected = true
         void this.getAllRules().catch(() => undefined)
       })
-      on(SOCKET_DISCONNECTED_EVENT, () => {
+      on('socket:disconnected', () => {
         this.connected = false
       })
       on('rule:created', (payload) => {
-        this.handleRuleCreated(payload)
+        if (typeof payload !== 'object' || payload === null) {
+          return
+        }
+
+        const rawRule = payload as Record<string, unknown>
+        const id = typeof rawRule.id === 'string' ? rawRule.id.trim() : ''
+        const path = typeof rawRule.path === 'string' ? rawRule.path.trim() : ''
+        const type = rawRule.type === 'fvg' ? (rawRule.type as RuleType) : null
+
+        if (!id || !path || !type) {
+          return
+        }
+
+        this.upsertRule({ id, type, path})
       })
       on('rule:removed', (payload) => {
-        this.handleRuleRemoved(payload)
+        if (typeof payload !== 'object' || payload === null) {
+          return
+        }
+
+        const rawRule = payload as Record<string, unknown>
+        const ruleId = typeof rawRule.id === 'string' ? rawRule.id.trim() : ''
+        if (!ruleId) {
+          return
+        }
+
+        this.removeRuleFromStore(ruleId)
       })
 
-      hasBoundSocketEvents = true
+      this.hasBoundSocketEvents = true
     },
 
+    // Get
     async getAllRules(): Promise<RuleItem[]> {
       const rules = await get<RuleItem[]>('/api/rules')
       this.rules = rules
       return rules
     },
 
+    // Get by Id
     async getRuleById(ruleId: string): Promise<RuleItem | null> {
       const rule = await get<RuleItem | null>(`/api/rules/${encodeURIComponent(ruleId)}`)
-      if (rule) {
-        this.upsertRule(rule)
-      }
       return rule
     },
 
+    // Post: import & create
     async importRules(payload: ImportRuleRequest): Promise<RuleItem> {
       const rule = await post<RuleItem>('/api/rules', payload)
-      this.upsertRule(rule)
       return rule
     },
 
+    // Delete
     async removeRuleById(ruleId: string): Promise<RemoveRuleResponse> {
       const response = await del<RemoveRuleResponse>(`/api/rules/${encodeURIComponent(ruleId)}`)
-      this.removeRuleFromStore(response.id)
       return response
-    },
-
-    handleRuleCreated(payload: unknown): void {
-      const rule = toRuleItem(payload)
-      if (!rule) {
-        return
-      }
-
-      this.upsertRule(rule)
-    },
-
-    handleRuleRemoved(payload: unknown): void {
-      const ruleId = toRemovedRuleId(payload)
-      if (!ruleId) {
-        return
-      }
-
-      this.removeRuleFromStore(ruleId)
     },
 
     upsertRule(rule: RuleItem): void {
@@ -161,7 +97,7 @@ export const useRuleStore = defineStore('rule-store', {
         return
       }
 
-      this.rules.push(rule)
+      this.rules.unshift(rule)
     },
 
     removeRuleFromStore(ruleId: string): void {

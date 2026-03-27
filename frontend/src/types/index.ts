@@ -1,4 +1,5 @@
 export * from '@/types/documents'
 export * from '@/types/lemmas'
 export * from '@/types/processings'
+export * from '@/types/rules'
 export * from '@/types/sentences'
