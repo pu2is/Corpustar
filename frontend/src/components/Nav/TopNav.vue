@@ -14,15 +14,15 @@ import { APP_ROUTES, isInRouteSection } from '@/config/routes'
 const route = useRoute()
 const router = useRouter()
 
-const isAnalyzeRoute = computed(() => isInRouteSection(route.path, APP_ROUTES.documents))
+const isDocumentsRoute = computed(() => isInRouteSection(route.path, APP_ROUTES.documents))
 const isRulesRoute = computed(() => isInRouteSection(route.path, APP_ROUTES.rules))
 
-const triggerLabel = computed(() => (isRulesRoute.value ? 'Rules' : 'Analyze'))
+const triggerLabel = computed(() => (isRulesRoute.value ? 'Rules' : 'Documents'))
 const triggerIcon = computed(() => (isRulesRoute.value ? PencilRuler : TextSearch))
 
-const menuLabel = computed(() => (isAnalyzeRoute.value ? 'Rules' : 'Analyze'))
-const menuTarget = computed(() => (isAnalyzeRoute.value ? APP_ROUTES.rules : APP_ROUTES.documents))
-const menuIcon = computed(() => (isAnalyzeRoute.value ? PencilRuler : TextSearch))
+const menuLabel = computed(() => (isDocumentsRoute.value ? 'Rules' : 'Documents'))
+const menuTarget = computed(() => (isDocumentsRoute.value ? APP_ROUTES.rules : APP_ROUTES.documents))
+const menuIcon = computed(() => (isDocumentsRoute.value ? PencilRuler : TextSearch))
 
 function navigateToTarget(): void {
   void router.push(menuTarget.value)

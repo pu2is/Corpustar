@@ -7,7 +7,7 @@ import { APP_ROUTES, isInRouteSection } from '@/config/routes'
 const route = useRoute()
 
 const links = [
-  { label: 'Analyze', to: APP_ROUTES.documents, icon: TextSearch },
+  { label: 'Documents', to: APP_ROUTES.documents, icon: TextSearch },
   { label: 'Rules', to: APP_ROUTES.rules, icon: PencilRuler },
 ]
 
