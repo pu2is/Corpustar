@@ -30,8 +30,9 @@ function createWindow() {
   }
 }
 
-ipcMain.handle('select-document-file', async () => {
-  const result = await dialog.showOpenDialog({
+ipcMain.handle('select-document-file', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const result = await dialog.showOpenDialog(win, {
     properties: ['openFile'],
     filters: [
       {
