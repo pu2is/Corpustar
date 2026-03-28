@@ -17,5 +17,9 @@ frontend/.vscode/*
 /backend/.codex/*
 /frontend/.codex
 /frontend/.codex/*
+.postman
+.postman/*
+postman/
+postman/*
 
 *.drawio
