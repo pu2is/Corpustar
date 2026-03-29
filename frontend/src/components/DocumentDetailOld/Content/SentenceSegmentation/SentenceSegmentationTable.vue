@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import LastSentenceItem from '@/components/DocumentDetail/Content/LastSentenceItem.vue'
-import SentencePagination from '@/components/DocumentDetail/Content/SentencePagination.vue'
-import SentencesOfDocument from '@/components/DocumentDetail/Content/SentenceSegmentation/SentencesOfDocument.vue'
+import LastSentenceItem from '@/components/DocumentDetailOld/Content/LastSentenceItem.vue'
+import SentencePagination from '@/components/DocumentDetailOld/Content/SentencePagination.vue'
+import SentencesOfDocument from '@/components/DocumentDetailOld/Content/SentenceSegmentation/SentencesOfDocument.vue'
 import type { SentenceItem } from '@/types/sentences'
 
 const props = defineProps<{

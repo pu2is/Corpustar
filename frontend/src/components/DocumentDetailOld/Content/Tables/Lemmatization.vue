@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import LemmatizationTable from '@/components/DocumentDetail/Content/Lemmatization/LemmatizationTable.vue'
+import LemmatizationTable from '@/components/DocumentDetailOld/Content/Lemmatization/LemmatizationTable.vue'
 import { useLemmatizationTable } from '@/composables/documentDetail/useLemmatizationTable'
 
 const props = defineProps<{

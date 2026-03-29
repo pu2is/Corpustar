@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { BookOpenText } from 'lucide-vue-next'
-import WorkflowControl from '@/components/DocumentDetail/Header/WorkflowControl.vue'
+import WorkflowControl from '@/components/DocumentDetailOld/Header/WorkflowControl.vue'
 
 const props = defineProps<{
   displayName: string

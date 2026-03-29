@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import DocumentSourceTextPanel from '@/components/DocumentDetail/Content/DocumentSourceTextPanel.vue'
-import Lemmatization from '@/components/DocumentDetail/Content/Tables/Lemmatization.vue'
-import SentenceSegmentation from '@/components/DocumentDetail/Content/Tables/SentenceSegmentation.vue'
+import DocumentSourceTextPanel from '@/components/DocumentDetailOld/Content/DocumentSourceTextPanel.vue'
+import Lemmatization from '@/components/DocumentDetailOld/Content/Tables/Lemmatization.vue'
+import SentenceSegmentation from '@/components/DocumentDetailOld/Content/Tables/SentenceSegmentation.vue'
 import type { DocumentDetailViewMode } from '@/types/documentDetail'
 import type { ProcessingState } from '@/types/processings'
 

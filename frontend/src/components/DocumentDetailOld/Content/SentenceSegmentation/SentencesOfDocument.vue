@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
 // components
-import SymbolOfSentence from '@/components/DocumentDetail/Content/SentenceSegmentation/SymbolOfSentence.vue'
-import WordOfSentence from '@/components/DocumentDetail/Content/SentenceSegmentation/WordOfSentence.vue'
+import SymbolOfSentence from '@/components/DocumentDetailOld/Content/SentenceSegmentation/SymbolOfSentence.vue'
+import WordOfSentence from '@/components/DocumentDetailOld/Content/SentenceSegmentation/WordOfSentence.vue'
 
 // type
 import type { SentenceItem } from '@/types/sentences'

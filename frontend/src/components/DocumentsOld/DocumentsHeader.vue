@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AddText from '@/components/Documents/Header/AddText.vue'
+import AddText from '@/components/DocumentsOld/Header/AddText.vue'
 import TopNav from '@/components/Nav/TopNav.vue'
 </script>
 

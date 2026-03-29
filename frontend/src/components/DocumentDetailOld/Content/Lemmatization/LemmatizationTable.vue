@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import SentencePagination from '@/components/DocumentDetail/Content/SentencePagination.vue'
-import LemmaPairItem from '@/components/DocumentDetail/Content/Lemmatization/LemmaPairItem.vue'
+import SentencePagination from '@/components/DocumentDetailOld/Content/SentencePagination.vue'
+import LemmaPairItem from '@/components/DocumentDetailOld/Content/Lemmatization/LemmaPairItem.vue'
 import type { LemmaViewItem } from '@/types/lemmatize'
 
 const props = defineProps<{

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import SentenceSegmentationTable from '@/components/DocumentDetail/Content/SentenceSegmentation/SentenceSegmentationTable.vue'
+import SentenceSegmentationTable from '@/components/DocumentDetailOld/Content/SentenceSegmentation/SentenceSegmentationTable.vue'
 import { useSentenceSegmentationTable } from '@/composables/documentDetail/useSentenceSegmentationTable'
 
 const props = defineProps<{
