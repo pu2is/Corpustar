@@ -34,7 +34,9 @@ export const useSentenceStore = defineStore('sentence-store', {
       }
 
       on('sentence:merged', (socketMsg) => {
-        const sentence = socketMsg as SentenceItem
+        const sentence =
+          (socketMsg as { result?: SentenceItem })?.result
+          ?? (socketMsg as SentenceItem)
         if (!sentence?.docId || !sentence?.processingId) {
           return
         }
@@ -42,7 +44,9 @@ export const useSentenceStore = defineStore('sentence-store', {
         void this.refreshLoadedSentences(sentence.docId, sentence.processingId).catch(() => undefined)
       })
       on('sentence:clipped', (socketMsg) => {
-        const firstSentence = (socketMsg as SentenceItem[])?.[0]
+        const firstSentence =
+          (socketMsg as { result?: SentenceItem[] })?.result?.[0]
+          ?? (socketMsg as SentenceItem[])?.[0]
         if (!firstSentence?.docId || !firstSentence?.processingId) {
           return
         }

@@ -1,12 +1,14 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
 from app.schemas.processings import (
+    ImportRuleActionResponse,
     ImportRuleProcessRequest,
     LemmatizeProcessRequest,
+    ProcessActionResponse,
     ProcessingItem,
     SentenceSegmentationProcessRequest,
 )
-from app.schemas.sentences import SentenceSegmentationResponse
 from app.services.process.process_query_service import list_processing_items
 from app.services.process.rule.main import import_rule as import_rule_process
 from app.services.process.sentence_lemmatization import lemmatize_sentences
@@ -23,44 +25,74 @@ def get_processes_route() -> list[ProcessingItem]:
         raise HTTPException(status_code=500, detail="Internal server error") from error
 
 
-@router.post("/process/sentence_segmentation", response_model=SentenceSegmentationResponse)
+@router.post("/process/sentence_segmentation", response_model=ProcessActionResponse)
 def segment_document_sentences_route(
     payload: SentenceSegmentationProcessRequest,
-) -> SentenceSegmentationResponse:
+) -> ProcessActionResponse | JSONResponse:
     try:
-        return segment_document_sentences(payload.doc_id, payload.preview_length)
+        process_item = segment_document_sentences(payload.doc_id, payload.preview_length)
+        return {"id": process_item["id"], "ok": True, "error_msg": ""}
     except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        return JSONResponse(
+            status_code=404,
+            content={"id": "", "ok": False, "error_msg": str(error)},
+        )
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+        return JSONResponse(
+            status_code=400,
+            content={"id": "", "ok": False, "error_msg": str(error)},
+        )
     except Exception as error:
-        raise HTTPException(status_code=500, detail="Internal server error") from error
+        return JSONResponse(
+            status_code=500,
+            content={"id": "", "ok": False, "error_msg": "Internal server error"},
+        )
 
 
-@router.post("/process/lemmatize", response_model=ProcessingItem)
-def lemmatize_sentences_route(payload: LemmatizeProcessRequest) -> ProcessingItem:
+@router.post("/process/lemmatize", response_model=ProcessActionResponse)
+def lemmatize_sentences_route(payload: LemmatizeProcessRequest) -> ProcessActionResponse | JSONResponse:
     try:
-        return lemmatize_sentences(segmentation_id=payload.segmentation_id)
+        process_item = lemmatize_sentences(segmentation_id=payload.segmentation_id)
+        return {"id": process_item["id"], "ok": True, "error_msg": ""}
     except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        return JSONResponse(
+            status_code=404,
+            content={"id": "", "ok": False, "error_msg": str(error)},
+        )
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+        return JSONResponse(
+            status_code=400,
+            content={"id": "", "ok": False, "error_msg": str(error)},
+        )
     except Exception as error:
-        raise HTTPException(status_code=500, detail="Internal server error") from error
+        return JSONResponse(
+            status_code=500,
+            content={"id": "", "ok": False, "error_msg": "Internal server error"},
+        )
 
 
-@router.post("/process/import_rule")
-def import_rule_route(payload: ImportRuleProcessRequest) -> dict[str, object]:
+@router.post("/process/import_rule", response_model=ImportRuleActionResponse)
+def import_rule_route(payload: ImportRuleProcessRequest) -> ImportRuleActionResponse | JSONResponse:
     try:
-        return import_rule_process(
+        import_rule_process(
             {
                 "path": payload.path,
                 "type": payload.type,
             }
         )
+        return {"ok": True, "error_msg": ""}
     except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        return JSONResponse(
+            status_code=404,
+            content={"ok": False, "error_msg": str(error)},
+        )
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "error_msg": str(error)},
+        )
     except Exception as error:
-        raise HTTPException(status_code=500, detail="Internal server error") from error
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "error_msg": "Internal server error"},
+        )

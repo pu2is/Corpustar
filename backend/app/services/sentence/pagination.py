@@ -5,19 +5,19 @@ from app.infrastructure.repositories.sentences import read_sentences_by_version_
 from app.services.sentence.types import SentenceCursorPage
 
 
-def _normalize_after_start_offset(after_start_offset: int | None) -> int | None:
-    if after_start_offset is None:
+def _normalize_split_offset(split_offset: int | None) -> int | None:
+    if split_offset is None:
         return None
-    if after_start_offset < 0:
-        raise ValueError("after_start_offset must be greater than or equal to 0")
-    return after_start_offset
+    if split_offset < 0:
+        raise ValueError("split_offset must be greater than or equal to 0")
+    return split_offset
 
 
 def get_sentence_cursor_page(
     *,
     doc_id: str,
     segmentation_id: str,
-    after_start_offset: int | None,
+    split_offset: int | None,
     limit: int,
 ) -> SentenceCursorPage:
     document = read_document_by_id(doc_id)
@@ -33,12 +33,12 @@ def get_sentence_cursor_page(
     if limit < 1:
         raise ValueError("limit must be greater than or equal to 1")
 
-    normalized_after_start_offset = _normalize_after_start_offset(after_start_offset)
+    normalized_split_offset = _normalize_split_offset(split_offset)
 
     rows = read_sentences_by_version_cursor(
         doc_id=doc_id,
         version_id=segmentation_id,
-        after_start_offset=normalized_after_start_offset,
+        split_offset=normalized_split_offset,
         limit=limit + 1,
     )
 

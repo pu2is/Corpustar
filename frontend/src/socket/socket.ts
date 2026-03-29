@@ -1,8 +1,10 @@
+import { SOCKET_EVENT } from './events'
+
 const GLOBAL_SOCKET_KEY = '__corpustar_global_socket__'
 const RECONNECT_DELAY_MS = 2000
 const HEARTBEAT_INTERVAL_MS = 30000
-export const SOCKET_CONNECTED_EVENT = 'socket:connected'
-export const SOCKET_DISCONNECTED_EVENT = 'socket:disconnected'
+export const SOCKET_CONNECTED_EVENT = SOCKET_EVENT.SOCKET_CONNECTED
+export const SOCKET_DISCONNECTED_EVENT = SOCKET_EVENT.SOCKET_DISCONNECTED
 
 type SocketEventHandler = (payload: unknown) => void
 type SocketEnvelope = {
@@ -14,6 +16,19 @@ let heartbeatTimer: number | null = null
 let reconnectTimer: number | null = null
 let shouldReconnect = true
 const eventHandlers = new Map<string, Set<SocketEventHandler>>()
+const LEGACY_EVENT_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  [SOCKET_EVENT.SEGMENTATION_STARTED]: ['process:created'],
+  [SOCKET_EVENT.SEGMENTATION_SUCCEED]: ['process:updated'],
+  [SOCKET_EVENT.SEGMENTATION_FAILED]: ['process:updated'],
+  [SOCKET_EVENT.IMPORT_RULE_SUCCEED]: ['rule:created'],
+  [SOCKET_EVENT.RULE_ITEM_REMOVED]: ['rule:removed'],
+  [SOCKET_EVENT.IMPORT_FVG_ENTRIES_SUCCEED]: ['fvgRules:created'],
+  [SOCKET_EVENT.FVG_APPENDED]: ['fvgRule:appended'],
+  [SOCKET_EVENT.FVG_REMOVED]: ['fvgRule:removed'],
+  [SOCKET_EVENT.FVG_UPDATED]: ['fvgRule:updated'],
+  [SOCKET_EVENT.LEMMATIZE_SUCCEED]: ['lemma:created'],
+  [SOCKET_EVENT.SENTENCE_CORRECTED]: ['lemma:updated'],
+}
 
 function getGlobalScope(): typeof globalThis & { [GLOBAL_SOCKET_KEY]?: WebSocket } {
   return globalThis as typeof globalThis & { [GLOBAL_SOCKET_KEY]?: WebSocket }
@@ -74,6 +89,22 @@ function emitEvent(eventName: string, payload: unknown): void {
     } catch {
       // Ignore consumer exceptions to keep socket loop healthy.
     }
+  }
+}
+
+function emitSocketEnvelope(eventName: string, payload: unknown): void {
+  emitEvent(eventName, payload)
+
+  const legacyAliases = LEGACY_EVENT_ALIASES[eventName]
+  if (!legacyAliases || legacyAliases.length === 0) {
+    return
+  }
+
+  for (const legacyEventName of legacyAliases) {
+    if (legacyEventName === eventName) {
+      continue
+    }
+    emitEvent(legacyEventName, payload)
   }
 }
 
@@ -148,7 +179,7 @@ export function connect(): WebSocket {
       return
     }
 
-    emitEvent(parsed.event, parsed.payload)
+    emitSocketEnvelope(parsed.event, parsed.payload)
   })
 
   return socket

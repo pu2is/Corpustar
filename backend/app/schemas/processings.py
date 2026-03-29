@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -17,6 +17,7 @@ class ProcessingItem(BaseModel):
     updated_at: str
     error_message: str | None = None
     meta_json: str | None = None
+    meta: dict[str, Any] | None = None
 
 
 class SentenceSegmentationProcessRequest(BaseModel):
@@ -33,6 +34,12 @@ class ImportRuleProcessRequest(BaseModel):
     type: str = "fvg"
 
 
-class ActionResponse(BaseModel):
-    succeed: bool
-    error_msg: str | None = None
+class ProcessActionResponse(BaseModel):
+    id: str
+    ok: bool
+    error_msg: str = ""
+
+
+class ImportRuleActionResponse(BaseModel):
+    ok: bool
+    error_msg: str = ""

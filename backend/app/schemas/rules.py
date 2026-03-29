@@ -45,10 +45,13 @@ class CorrectFvgEntryRequest(BaseModel):
     semantic_type: str | None = None
 
 
-class RemoveRuleResponse(BaseModel):
+class RuleActionResponse(BaseModel):
     id: str
+    ok: bool
+    err_msg: str = ""
 
 
-class RemoveFvgEntryResponse(BaseModel):
+class FvgActionResponse(BaseModel):
     id: str
-    rule_id: str
+    ok: bool
+    error_msg: str = ""

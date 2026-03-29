@@ -18,3 +18,9 @@ class DocItem(BaseModel):
     file_size: int
     created_at: str
     updated_at: str
+
+
+class DocumentActionResponse(BaseModel):
+    id: str
+    ok: bool
+    err_msg: str = ""

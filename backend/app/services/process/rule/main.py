@@ -1,5 +1,3 @@
-import json
-
 from app.infrastructure.repositories.processings import (
     change_process_item_state,
     map_process_row_to_item,
@@ -27,7 +25,7 @@ def import_rule(request: dict[str, str]) -> dict[str, object]:
         doc_id=None,
         type="import_rule",
         state="running",
-        meta_json=json.dumps({"process": "import_rule_fvg", "path": path}),
+        meta={"process": "import_rule_fvg", "path": path},
     )
     process_id = str(process["id"])
     publish_best_effort(IMPORT_RULE_STARTED, map_process_row_to_item(process))
@@ -48,12 +46,11 @@ def import_rule(request: dict[str, str]) -> dict[str, object]:
                 "rule": saved["rule"],
             },
         )
-        publish_best_effort(IMPORT_FVG_ENTRIES_SUCCEED, saved["fvg_entries"])
+        publish_best_effort(IMPORT_FVG_ENTRIES_SUCCEED, {"ok": True})
 
         return {
             "processing": process_item,
             "rule": saved["rule"],
-            "fvg_entries": saved["fvg_entries"],
         }
 
     except Exception as error:

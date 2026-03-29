@@ -14,12 +14,4 @@ class ProcessingItemDict(TypedDict):
     meta: dict[str, Any] | None
 
 
-class SentenceSpan(TypedDict):
-    start_offset: int
-    end_offset: int
-
-
-class SentenceSegmentationResult(TypedDict):
-    processing: ProcessingItemDict
-    sentence_count: int
-    preview: list[dict[str, Any]]
+SentenceSegmentationResult = ProcessingItemDict

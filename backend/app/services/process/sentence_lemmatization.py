@@ -1,5 +1,3 @@
-import json
-
 from app.core.process.lemmatize import lemmatize_sentence_to_tokens
 from app.core.process.worker.accelerate_io import accelerate_io
 from app.infrastructure.repositories.lemma_tokens import (
@@ -30,7 +28,7 @@ def lemmatize_sentences(segmentation_id: str) -> dict[str, object]:
         parent_id=segmentation_id,
         type="lemma",
         state="running",
-        meta_json=json.dumps({"segmentation_id": segmentation_id}),
+        meta={"segmentation_id": segmentation_id},
     )
     lemma_process_id = str(process["id"])
     publish_best_effort(LEMMATIZE_STARTED, map_process_row_to_item(process))

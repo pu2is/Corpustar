@@ -1,10 +1,11 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
 from app.core.log import get_logger, log_event
 from app.schemas.sentences import (
     MergeSentenceRequest,
+    SentenceActionResponse,
     SentenceClipRequest,
-    SentenceClipResponse,
     SentenceCorrectRequest,
     SentenceCursorPageRequest,
     SentenceItem,
@@ -31,7 +32,7 @@ def get_document_sentences(payload: SentenceCursorPageRequest) -> list[SentenceI
         function_name=function_name,
         doc_id=payload.doc_id,
         segmentation_id=payload.segmentation_id,
-        after_start_offset=payload.after_start_offset,
+        split_offset=payload.split_offset,
         limit=payload.limit,
     )
 
@@ -39,7 +40,7 @@ def get_document_sentences(payload: SentenceCursorPageRequest) -> list[SentenceI
         page = get_sentence_cursor_page(
             doc_id=payload.doc_id,
             segmentation_id=payload.segmentation_id,
-            after_start_offset=payload.after_start_offset,
+            split_offset=payload.split_offset,
             limit=payload.limit,
         )
         return page["items"]
@@ -61,43 +62,77 @@ def get_document_sentences(payload: SentenceCursorPageRequest) -> list[SentenceI
         raise HTTPException(status_code=500, detail="Internal server error") from error
 
 
-@router.post("/sentence/merge", response_model=SentenceItem)
-def merge_sentences_route(payload: MergeSentenceRequest) -> SentenceItem:
+@router.post("/sentence/merge", response_model=SentenceActionResponse)
+def merge_sentences_route(payload: MergeSentenceRequest) -> SentenceActionResponse | JSONResponse:
     try:
-        return merge_sentences(payload.sentence_ids)
+        merged_item = merge_sentences(
+            payload.sentence_ids,
+            socket_meta=payload.model_dump(),
+        )
+        return {"id": merged_item["id"], "ok": True, "error_msg": ""}
     except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        return JSONResponse(
+            status_code=404,
+            content={"id": "", "ok": False, "error_msg": str(error)},
+        )
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+        return JSONResponse(
+            status_code=400,
+            content={"id": "", "ok": False, "error_msg": str(error)},
+        )
     except Exception as error:
-        raise HTTPException(status_code=500, detail="Internal server error") from error
+        return JSONResponse(
+            status_code=500,
+            content={"id": "", "ok": False, "error_msg": "Internal server error"},
+        )
 
 
-@router.post("/sentence/clip", response_model=SentenceClipResponse)
-def clip_sentence_route(payload: SentenceClipRequest) -> SentenceClipResponse:
+@router.post("/sentence/clip", response_model=SentenceActionResponse)
+def clip_sentence_route(payload: SentenceClipRequest) -> SentenceActionResponse | JSONResponse:
     try:
-        return clip_sentence(
+        clip_sentence(
             sentence_id=payload.sentence_id,
             split_offset=payload.split_offset,
+            socket_meta=payload.model_dump(),
         )
+        return {"id": payload.sentence_id, "ok": True, "error_msg": ""}
     except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        return JSONResponse(
+            status_code=404,
+            content={"id": payload.sentence_id, "ok": False, "error_msg": str(error)},
+        )
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+        return JSONResponse(
+            status_code=400,
+            content={"id": payload.sentence_id, "ok": False, "error_msg": str(error)},
+        )
     except Exception as error:
-        raise HTTPException(status_code=500, detail="Internal server error") from error
+        return JSONResponse(
+            status_code=500,
+            content={"id": payload.sentence_id, "ok": False, "error_msg": "Internal server error"},
+        )
 
 
-@router.post("/sentence/correct", response_model=SentenceItem)
-def correct_sentence_route(payload: SentenceCorrectRequest) -> SentenceItem:
+@router.post("/sentence/correct", response_model=SentenceActionResponse)
+def correct_sentence_route(payload: SentenceCorrectRequest) -> SentenceActionResponse | JSONResponse:
     try:
-        return correct_sentence(
+        sentence = correct_sentence(
             sentence_id=payload.sentence_id,
             corrected_text=payload.corrected_text,
         )
+        return {"id": sentence["id"], "ok": True, "error_msg": ""}
     except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        return JSONResponse(
+            status_code=404,
+            content={"id": payload.sentence_id, "ok": False, "error_msg": str(error)},
+        )
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+        return JSONResponse(
+            status_code=400,
+            content={"id": payload.sentence_id, "ok": False, "error_msg": str(error)},
+        )
     except Exception as error:
-        raise HTTPException(status_code=500, detail="Internal server error") from error
+        return JSONResponse(
+            status_code=500,
+            content={"id": payload.sentence_id, "ok": False, "error_msg": "Internal server error"},
+        )

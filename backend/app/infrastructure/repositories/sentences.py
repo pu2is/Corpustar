@@ -74,7 +74,7 @@ def read_sentences_by_version_cursor(
     *,
     doc_id: str,
     version_id: str,
-    after_start_offset: int | None,
+    split_offset: int | None,
     limit: int | None,
 ) -> list[SentenceRow]:
     if limit is not None and limit <= 0:
@@ -97,8 +97,8 @@ def read_sentences_by_version_cursor(
         )
         .order_by(sentences_table.c.start_offset.asc())
     )
-    if after_start_offset is not None:
-        statement = statement.where(sentences_table.c.start_offset > after_start_offset)
+    if split_offset is not None:
+        statement = statement.where(sentences_table.c.start_offset > split_offset)
     if limit is not None:
         statement = statement.limit(limit)
 

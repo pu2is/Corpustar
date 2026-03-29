@@ -21,6 +21,12 @@ The desktop app is designed around a human-in-the-loop workflow: human experts c
 
 Another design goal is modest resource usage. The software is intended to run on ordinary computers without demanding heavy infrastructure.
 
+## Socket Contract
+
+Socket event naming and payload contract is documented in:
+
+- `docs/socket-events.md`
+
 ## Get Started
 
 ### What runs in this project

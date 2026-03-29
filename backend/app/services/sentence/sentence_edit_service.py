@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import uuid4
 
 from app.core.document.document_utils import load_txt_by_path
@@ -53,7 +54,11 @@ def _validate_sentence_rows_for_merge(
     return sorted_rows
 
 
-def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
+def merge_sentences(
+    sentence_ids: list[str],
+    *,
+    socket_meta: dict[str, Any] | None = None,
+) -> SentenceItem:
     unique_sentence_ids = list(dict.fromkeys(sentence_ids))
     if len(unique_sentence_ids) != 2:
         raise ValueError("Exactly two sentence IDs are required for merge")
@@ -112,11 +117,22 @@ def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
         full_text=full_text,
     )
 
-    publish_best_effort(SENTENCE_MERGED, merged_item)
+    publish_best_effort(
+        SENTENCE_MERGED,
+        {
+            "result": merged_item,
+            "meta": socket_meta if socket_meta is not None else {"sentence_ids": unique_sentence_ids},
+        },
+    )
     return merged_item
 
 
-def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
+def clip_sentence(
+    sentence_id: str,
+    split_offset: int,
+    *,
+    socket_meta: dict[str, Any] | None = None,
+) -> ClipSentenceResult:
     sentence_row = get_sentence_by_id(sentence_id)
     if sentence_row is None:
         raise FileNotFoundError(f"Sentence not found: {sentence_id}")
@@ -195,7 +211,17 @@ def clip_sentence(sentence_id: str, split_offset: int) -> ClipSentenceResult:
     if f"{left_item['source_text']}{right_item['source_text']}" != original_text:
         raise RuntimeError("Sentence clip failed: split text does not match original sentence text")
 
-    publish_best_effort(SENTENCE_CLIPPED, [left_item, right_item])
+    publish_best_effort(
+        SENTENCE_CLIPPED,
+        {
+            "result": [left_item, right_item],
+            "meta": (
+                socket_meta
+                if socket_meta is not None
+                else {"sentence_id": sentence_id, "split_offset": split_offset}
+            ),
+        },
+    )
     return {"items": [left_item, right_item]}
 
 

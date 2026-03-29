@@ -35,7 +35,10 @@ def parse_meta_json(meta_json: str | None) -> dict[str, Any] | None:
     if not meta_json:
         return None
 
-    parsed = json.loads(meta_json)
+    try:
+        parsed = json.loads(meta_json)
+    except json.JSONDecodeError:
+        return {"value": meta_json}
     if isinstance(parsed, dict):
         return parsed
 
@@ -65,9 +68,14 @@ def write_process_item(
     parent_id: str | None = None,
     error_message: str | None = None,
     meta_json: str | None = None,
+    meta: object | None = None,
     process_id: str | None = None,
     connection: Connection | None = None,
 ) -> ProcessRow:
+    resolved_meta_json = meta_json
+    if resolved_meta_json is None and meta is not None:
+        resolved_meta_json = json.dumps(meta)
+
     now_iso = _now_iso()
     resolved_process_id = process_id or str(uuid4())
     resolved_parent_id = parent_id or resolved_process_id
@@ -81,7 +89,7 @@ def write_process_item(
         "created_at": now_iso,
         "updated_at": now_iso,
         "error_message": error_message,
-        "meta_json": meta_json,
+        "meta_json": resolved_meta_json,
     }
 
     statement = insert(processings_table).values(**process)

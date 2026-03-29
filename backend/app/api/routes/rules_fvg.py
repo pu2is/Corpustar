@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 
 from app.core.process.fvg_entries.api import (
     append_fvg_entry,
@@ -9,8 +10,8 @@ from app.core.process.fvg_entries.api import (
 from app.schemas.rules import (
     AppendFvgEntryRequest,
     CorrectFvgEntryRequest,
+    FvgActionResponse,
     FvgEntryItem,
-    RemoveFvgEntryResponse,
 )
 
 router = APIRouter()
@@ -28,10 +29,10 @@ def list_fvg_rules_route(rule_id: str) -> list[FvgEntryItem]:
         raise HTTPException(status_code=500, detail="Internal server error") from error
 
 
-@router.post("/fvg/append", response_model=FvgEntryItem)
-async def add_fvg_rule_route(payload: AppendFvgEntryRequest) -> FvgEntryItem:
+@router.post("/fvg/append", response_model=FvgActionResponse)
+async def add_fvg_rule_route(payload: AppendFvgEntryRequest) -> FvgActionResponse | JSONResponse:
     try:
-        return await append_fvg_entry(
+        item = await append_fvg_entry(
             rule_id=payload.rule_id,
             verb=payload.verb,
             phrase=payload.phrase,
@@ -40,28 +41,45 @@ async def add_fvg_rule_route(payload: AppendFvgEntryRequest) -> FvgEntryItem:
             structure_type=payload.structure_type,
             semantic_type=payload.semantic_type,
         )
+        return {"id": item["id"], "ok": True, "error_msg": ""}
     except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        return JSONResponse(
+            status_code=404,
+            content={"id": "", "ok": False, "error_msg": str(error)},
+        )
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+        return JSONResponse(
+            status_code=400,
+            content={"id": "", "ok": False, "error_msg": str(error)},
+        )
     except Exception as error:
-        raise HTTPException(status_code=500, detail="Internal server error") from error
+        return JSONResponse(
+            status_code=500,
+            content={"id": "", "ok": False, "error_msg": "Internal server error"},
+        )
 
 
-@router.delete("/fvg/{fvg_id}", response_model=RemoveFvgEntryResponse)
-async def remove_fvg_rule_route(fvg_id: str) -> RemoveFvgEntryResponse:
+@router.delete("/fvg/{fvg_id}", response_model=FvgActionResponse)
+async def remove_fvg_rule_route(fvg_id: str) -> FvgActionResponse | JSONResponse:
     try:
-        return await delete_fvg_entry(fvg_id=fvg_id)
+        response = await delete_fvg_entry(fvg_id=fvg_id)
+        return {"id": str(response["id"]), "ok": True, "error_msg": ""}
     except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        return JSONResponse(
+            status_code=404,
+            content={"id": fvg_id, "ok": False, "error_msg": str(error)},
+        )
     except Exception as error:
-        raise HTTPException(status_code=500, detail="Internal server error") from error
+        return JSONResponse(
+            status_code=500,
+            content={"id": fvg_id, "ok": False, "error_msg": "Internal server error"},
+        )
 
 
-@router.post("/fvg/correct", response_model=FvgEntryItem)
-async def modify_fvg_rule_route(payload: CorrectFvgEntryRequest) -> FvgEntryItem:
+@router.post("/fvg/correct", response_model=FvgActionResponse)
+async def modify_fvg_rule_route(payload: CorrectFvgEntryRequest) -> FvgActionResponse | JSONResponse:
     try:
-        return await update_fvg_entry(
+        item = await update_fvg_entry(
             fvg_id=payload.id,
             verb=payload.verb,
             phrase=payload.phrase,
@@ -70,9 +88,19 @@ async def modify_fvg_rule_route(payload: CorrectFvgEntryRequest) -> FvgEntryItem
             structure_type=payload.structure_type,
             semantic_type=payload.semantic_type,
         )
+        return {"id": item["id"], "ok": True, "error_msg": ""}
     except FileNotFoundError as error:
-        raise HTTPException(status_code=404, detail=str(error)) from error
+        return JSONResponse(
+            status_code=404,
+            content={"id": payload.id, "ok": False, "error_msg": str(error)},
+        )
     except ValueError as error:
-        raise HTTPException(status_code=400, detail=str(error)) from error
+        return JSONResponse(
+            status_code=400,
+            content={"id": payload.id, "ok": False, "error_msg": str(error)},
+        )
     except Exception as error:
-        raise HTTPException(status_code=500, detail="Internal server error") from error
+        return JSONResponse(
+            status_code=500,
+            content={"id": payload.id, "ok": False, "error_msg": "Internal server error"},
+        )

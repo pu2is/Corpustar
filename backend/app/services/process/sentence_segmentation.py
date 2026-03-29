@@ -24,6 +24,10 @@ def segment_document_sentences(doc_id: str, preview_length: int) -> SentenceSegm
         doc_id=doc_id,
         type="sentence_segmentation",
         state="running",
+        meta={
+            "doc_id": doc_id,
+            "preview_length": preview_length,
+        },
     )
     process_item = map_process_row_to_item(processing)
     process_id = str(processing["id"])
@@ -54,17 +58,13 @@ def segment_document_sentences(doc_id: str, preview_length: int) -> SentenceSegm
 
     process_item = map_process_row_to_item(processing)
     sentence_items = [build_sentence_item_from_row(sentence_row=row, full_text=full_text) for row in sentence_rows]
+    preview_items = sentence_items[:preview_length]
     publish_best_effort(
         SEGMENTATION_SUCCEED,
         {
             "processing": process_item,
-            "sentences": sentence_items,
+            "preview": preview_items,
         },
     )
 
-    preview_items = sentence_items[:preview_length]
-    return {
-        "processing": process_item,
-        "sentence_count": len(sentence_items),
-        "preview": preview_items,
-    }
+    return process_item
