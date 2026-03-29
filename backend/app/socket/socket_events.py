@@ -1,71 +1,51 @@
-from typing import Any, Literal, NotRequired, TypeAlias, TypedDict
+from typing import Any, TypeAlias, TypedDict
 
-# Event names follow `domain:action`, for example:
-# `document:updated`, `index:finished`, `chat:stream`.
+
 SOCKET_CONNECTED = "socket:connected"
+
 DOCUMENT_CREATED = "document:created"
 DOCUMENT_REMOVED = "document:removed"
-PROCESS_CREATED = "process:created"
-PROCESS_UPDATED = "process:updated"
-PROCESSING_CREATED = PROCESS_CREATED
-PROCESSING_UPDATED = PROCESS_UPDATED
-LEMMA_CREATED = "lemma:created"
-LEMMA_UPDATED = "lemma:updated"
+
+SEGMENTATION_STARTED = "segmentation:started"
+SEGMENTATION_FAILED = "segmentation:failed"
+SEGMENTATION_SUCCEED = "segmentation:succeed"
+
+LEMMATIZE_STARTED = "lemmatize:started"
+LEMMATIZE_FAILED = "lemmatize:failed"
+LEMMATIZE_SUCCEED = "lemmatize:succeed"
+
+IMPORT_RULE_STARTED = "importRule:started"
+IMPORT_RULE_FAILED = "importRule:failed"
+IMPORT_RULE_SUCCEED = "importRule:succeed"
+IMPORT_FVG_ENTRIES_SUCCEED = "importFvgEntries:succeed"
+
 SENTENCE_MERGED = "sentence:merged"
 SENTENCE_CLIPPED = "sentence:clipped"
-RULE_CREATED = "rule:created"
-RULE_REMOVED = "rule:removed"
-FVG_RULES_CREATED = "fvgRules:created"
-FVG_RULES_REMOVED = "fvgRules:removed"
-FVG_RULE_APPENDED = "fvgRule:appended"
-FVG_RULE_REMOVED = "fvgRule:removed"
-FVG_RULE_UPDATED = "fvgRule:updated"
+SENTENCE_CORRECTED = "sentence:corrected"
 
-# `document:created` payload should be the full serialized document object.
-DocumentCreatedPayload: TypeAlias = dict[str, Any]
+RULE_ITEM_REMOVED = "ruleItem:removed"
 
+FVG_APPENDED = "fvg:appended"
+FVG_REMOVED = "fvg:removed"
+FVG_UPDATED = "fvg:updated"
 
-class DocumentRemovedPayload(TypedDict):
-    id: str
-
-
-class RuleCreatedPayload(TypedDict):
-    id: str
-    type: Literal["fvg"]
-    path: str
-
-
-class RuleRemovedPayload(TypedDict):
-    id: str
+# Legacy aliases kept for compatibility.
+PROCESS_CREATED = SEGMENTATION_STARTED
+PROCESS_UPDATED = SEGMENTATION_SUCCEED
+PROCESSING_CREATED = PROCESS_CREATED
+PROCESSING_UPDATED = PROCESS_UPDATED
+RULE_CREATED = IMPORT_RULE_SUCCEED
+RULE_REMOVED = RULE_ITEM_REMOVED
+FVG_RULES_CREATED = IMPORT_FVG_ENTRIES_SUCCEED
+FVG_RULES_REMOVED = RULE_ITEM_REMOVED
+FVG_RULE_APPENDED = FVG_APPENDED
+FVG_RULE_REMOVED = FVG_REMOVED
+FVG_RULE_UPDATED = FVG_UPDATED
+LEMMA_CREATED = LEMMATIZE_SUCCEED
+LEMMA_UPDATED = SENTENCE_CORRECTED
 
 
-class FvgRuleItemPayload(TypedDict):
-    id: str
-    ruleId: str
-    verb: str
-    phrase: str
-
-
-class FvgRulesCreatedPayload(TypedDict):
-    ruleId: str
-    count: int
-    items: NotRequired[list[FvgRuleItemPayload]]
-
-
-class FvgRulesRemovedPayload(TypedDict):
-    ruleId: str
-    count: int
-
-
-FvgRuleAppendedPayload: TypeAlias = FvgRuleItemPayload
-
-
-class FvgRuleRemovedPayload(TypedDict):
-    id: str
-    ruleId: str
-
-
-FvgRuleUpdatedPayload: TypeAlias = FvgRuleItemPayload
+SocketPayload: TypeAlias = dict[str, Any]
 
 
 class SocketEnvelope(TypedDict):

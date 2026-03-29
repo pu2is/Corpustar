@@ -1,4 +1,5 @@
 import argparse
+
 from app.services.process.sentence_segmentation import segment_document_sentences
 from app.services.sentence.pagination import get_sentence_cursor_page
 
@@ -15,20 +16,20 @@ def register(subparsers) -> None:
         help="Run sentence segmentation for a document",
     )
     segment_parser.add_argument("doc_id", help="Document id")
-    segment_parser.set_defaults(handler=_handle_segment_sentences)
-
-    latest_parser = process_subparsers.add_parser(
-        "latest-segmentation",
-        help="Get latest sentence segmentation result",
+    segment_parser.add_argument(
+        "--preview-length",
+        type=int,
+        default=0,
+        help="Preview sentence count",
     )
-    latest_parser.add_argument("doc_id", help="Document id")
+    segment_parser.set_defaults(handler=_handle_segment_sentences)
 
     page_parser = process_subparsers.add_parser(
         "sentence-page",
-        help="Get sentence page by processing cursor",
+        help="Get sentence page by segmentation cursor",
     )
     page_parser.add_argument("doc_id", help="Document id")
-    page_parser.add_argument("processing_id", help="Processing id")
+    page_parser.add_argument("segmentation_id", help="Segmentation id")
     page_parser.add_argument(
         "--after-start-offset",
         type=int,
@@ -45,13 +46,13 @@ def register(subparsers) -> None:
 
 
 def _handle_segment_sentences(args: argparse.Namespace) -> dict:
-    return segment_document_sentences(args.doc_id)
+    return segment_document_sentences(args.doc_id, args.preview_length)
 
 
 def _handle_sentence_page(args: argparse.Namespace) -> dict:
     return get_sentence_cursor_page(
         doc_id=args.doc_id,
-        processing_id=args.processing_id,
+        segmentation_id=args.segmentation_id,
         after_start_offset=args.after_start_offset,
         limit=args.limit,
     )

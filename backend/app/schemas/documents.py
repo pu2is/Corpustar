@@ -2,18 +2,19 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+
 DocFileType = Literal["doc", "docx", "odt", "txt"]
 
 
 class DocItem(BaseModel):
     id: str
     filename: str
-    displayName: str
+    display_name: str
     note: str
-    sourcePath: str
-    textPath: str
-    textCharCount: int
-    fileType: DocFileType
-    fileSize: int
-    createdAt: str
-    updatedAt: str
+    source_path: str
+    text_path: str
+    char_count: int
+    file_type: DocFileType
+    file_size: int
+    created_at: str
+    updated_at: str

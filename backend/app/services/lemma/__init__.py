@@ -1,4 +1,3 @@
-from app.services.lemma.edit import correct_lemma
-from app.services.lemma.load import get_lemma_items
+from app.services.lemma.load import get_lemma_tokens_by_sentence_ids
 
-__all__ = ["correct_lemma", "get_lemma_items"]
+__all__ = ["get_lemma_tokens_by_sentence_ids"]

@@ -1,23 +1,23 @@
 from typing import TypedDict
 
 
-SentenceRow = dict[str, int | str | None]
+SentenceRow = dict[str, int | str]
 
 
 class SentenceItem(TypedDict):
     id: str
-    docId: str
-    processingId: str
-    startOffset: int
-    endOffset: int
-    text: str
-    lemmaText: str | None
+    version_id: str
+    doc_id: str
+    start_offset: int
+    end_offset: int
+    source_text: str
+    corrected_text: str
 
 
 class SentenceCursorPage(TypedDict):
     items: list[SentenceItem]
-    nextAfterStartOffset: int | None
-    hasMore: bool
+    next_after_start_offset: int | None
+    has_more: bool
 
 
 class ClipSentenceResult(TypedDict):

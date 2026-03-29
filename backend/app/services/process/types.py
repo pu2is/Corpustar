@@ -1,17 +1,16 @@
 from typing import Any, TypedDict
 
-from app.schemas.processings import ProcessingState, ProcessingType
-from app.services.sentence.types import SentenceItem
-
 
 class ProcessingItemDict(TypedDict):
     id: str
-    docId: str
-    type: ProcessingType
-    state: ProcessingState
-    createdAt: str
-    updatedAt: str
-    errorMessage: str | None
+    parent_id: str
+    doc_id: str | None
+    type: str
+    state: str
+    created_at: str
+    updated_at: str
+    error_message: str | None
+    meta_json: str | None
     meta: dict[str, Any] | None
 
 
@@ -21,6 +20,6 @@ class SentenceSpan(TypedDict):
 
 
 class SentenceSegmentationResult(TypedDict):
-    processing: ProcessingItemDict | None
-    sentenceCount: int
-    preview: list[SentenceItem]
+    processing: ProcessingItemDict
+    sentence_count: int
+    preview: list[dict[str, Any]]

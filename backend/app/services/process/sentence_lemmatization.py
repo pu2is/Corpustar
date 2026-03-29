@@ -1,71 +1,67 @@
 import json
-# core
-from app.core.process.multiprocessing import accelerate_lemma_io
-from app.core.process.simplemma import (build_lemma_rows, iter_sentence_batches, lemmatize_german_text)
-from app.core.sentence.build_lemma_items import build_lemma_item_from_row
-# db
-from app.infrastructure.repositories.lemma_repository import write_lemma_items_in_batch
-from app.infrastructure.repositories.processing_repository import (create_processing, get_processing_by_id,
-    map_processing_row_to_dto, update_processing_state)
-from app.infrastructure.repositories.sentence_repository import get_all_sentences_by_segmentation_id
-# socket
-from app.socket.socket_events import LEMMA_CREATED, PROCESS_CREATED, PROCESS_UPDATED
+
+from app.core.process.lemmatize import lemmatize_sentence_to_tokens
+from app.core.process.worker.accelerate_io import accelerate_io
+from app.infrastructure.repositories.lemma_tokens import (
+    rm_lemma_tokens_by_version_id,
+    save_lemma_token_in_batch,
+)
+from app.infrastructure.repositories.processings import (
+    change_process_item_state,
+    map_process_row_to_item,
+    read_process_item_by_id,
+    write_process_item,
+)
+from app.infrastructure.repositories.sentences import get_all_sentences_by_version_id
+from app.socket.socket_events import LEMMATIZE_FAILED, LEMMATIZE_STARTED, LEMMATIZE_SUCCEED
 from app.socket.socket_publisher import publish_best_effort
 
 
-LEMMATIZE_PROCESSING_TYPE = "lemmatize"
-SENTENCE_SEGMENTATION_PROCESSING_TYPE = "sentence_segmentation"
-
-
-def lemma_batch_io(segmentation_id: str, preview_length: int = 0) -> None:
-    segmentation_processing = get_processing_by_id(segmentation_id)
-    if segmentation_processing is None:
+def lemmatize_sentences(segmentation_id: str) -> dict[str, object]:
+    segmentation_process = read_process_item_by_id(segmentation_id)
+    if segmentation_process is None:
         raise FileNotFoundError(f"Segmentation process not found: {segmentation_id}")
-    if segmentation_processing["type"] != SENTENCE_SEGMENTATION_PROCESSING_TYPE:
-        raise ValueError(f"Processing is not a sentence segmentation: {segmentation_id}")
+    if segmentation_process["type"] != "sentence_segmentation":
+        raise ValueError(f"Process item is not sentence_segmentation: {segmentation_id}")
 
-    doc_id = str(segmentation_processing["doc_id"])
-    processing = create_processing(
+    doc_id = segmentation_process["doc_id"]
+    process = write_process_item(
         doc_id=doc_id,
-        type=LEMMATIZE_PROCESSING_TYPE,
+        parent_id=segmentation_id,
+        type="lemma",
         state="running",
-        meta_json=json.dumps({"segmentationId": segmentation_id}),
+        meta_json=json.dumps({"segmentation_id": segmentation_id}),
     )
-    processing_id = str(processing["id"])
-    publish_best_effort(PROCESS_CREATED, map_processing_row_to_dto(processing))
+    lemma_process_id = str(process["id"])
+    publish_best_effort(LEMMATIZE_STARTED, map_process_row_to_item(process))
 
     try:
-        lemma_rows: list[dict[str, str | None]] = []
-        preview_items: list[dict[str, object]] = []
-        for sentence_batch in iter_sentence_batches(
-            get_all_sentences_by_segmentation_id(segmentation_id),
-        ):
-            source_texts = [str(sentence_row["source_text"] or "") for sentence_row in sentence_batch]
-            lemma_texts = accelerate_lemma_io(lemmatize_german_text, source_texts)
-            built_rows = build_lemma_rows(sentence_batch, lemma_texts)
-            lemma_rows.extend(built_rows)
+        sentence_rows = list(get_all_sentences_by_version_id(segmentation_id))
+        if not sentence_rows:
+            raise ValueError(f"No sentences found for segmentation_id={segmentation_id}")
 
-            remaining_preview = preview_length - len(preview_items)
-            if remaining_preview > 0:
-                preview_items.extend(build_lemma_item_from_row(row) for row in built_rows[:remaining_preview])
+        def _worker(sentence_row: object) -> object:
+            return lemmatize_sentence_to_tokens(sentence_row, version_id=lemma_process_id)
 
-        if not lemma_rows:
-            raise ValueError(f"No sentence items found for segmentation_id={segmentation_id}")
+        token_groups = accelerate_io(_worker, sentence_rows)
+        token_rows: list[dict[str, object]] = []
+        for group in token_groups:
+            token_rows.extend(group)  # type: ignore[arg-type]
 
-        write_lemma_items_in_batch(lemma_rows, clear_existing=True)
-        if preview_items:
-            publish_best_effort(LEMMA_CREATED, preview_items)
+        save_lemma_token_in_batch(token_rows, clear_existing=True)
 
-        succeeded_processing = update_processing_state(
-            processing_id=processing_id,
-            new_state="succeed",
-        )
-        publish_best_effort(PROCESS_UPDATED, map_processing_row_to_dto(succeeded_processing))
+        succeeded = change_process_item_state(lemma_process_id, "succeed")
+        process_item = map_process_row_to_item(succeeded)
+        publish_best_effort(LEMMATIZE_SUCCEED, process_item)
+        return process_item
+
     except Exception as error:
-        failed_processing = update_processing_state(
-            processing_id=processing_id,
-            new_state="failed",
+        rm_lemma_tokens_by_version_id(lemma_process_id)
+        failed = change_process_item_state(
+            lemma_process_id,
+            "failed",
             error_message=str(error),
         )
-        publish_best_effort(PROCESS_UPDATED, map_processing_row_to_dto(failed_processing))
+        process_item = map_process_row_to_item(failed)
+        publish_best_effort(LEMMATIZE_FAILED, process_item)
         raise

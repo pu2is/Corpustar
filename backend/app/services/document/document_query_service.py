@@ -1,5 +1,5 @@
-from app.infrastructure.repositories.document_repository import get_all_documents
+from app.infrastructure.repositories.documents import read_all_documents
 
 
-def list_documents() -> list[dict]:
-    return get_all_documents()
+def list_documents() -> list[dict[str, int | str]]:
+    return read_all_documents()

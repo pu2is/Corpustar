@@ -3,15 +3,15 @@ from pathlib import Path
 
 from app.core.document.doc_to_text import convert_document_to_text
 from app.core.document.document_utils import calculate_sha256, get_file_size, get_file_type
-from app.core.log import get_logger, log_event
 from app.core.document.text_storage import save_text_content
-from app.infrastructure.repositories.document_repository import insert_document
+from app.core.log import get_logger, log_event
+from app.infrastructure.repositories.documents import write_document
 
 LOGGER = get_logger(__name__)
 MODULE_FILE = __file__
 
 
-def add_document(file_path: str) -> dict:
+def add_document(file_path: str) -> dict[str, int | str]:
     function_name = "add_document"
     source_path = Path(file_path)
     if not source_path.exists():
@@ -25,9 +25,9 @@ def add_document(file_path: str) -> dict:
     note = ""
     file_size = get_file_size(resolved_source_path)
     text = convert_document_to_text(resolved_source_path)
-    text_char_count = len(text)
-    # All file types (including txt) persist extracted text to storage/texts/{sha256}.txt.
+    char_count = len(text)
     text_path = save_text_content(doc_id, text)
+
     if file_type != "txt":
         legacy_txt_path = source_path.with_suffix(".txt")
         if legacy_txt_path.exists():
@@ -46,21 +46,22 @@ def add_document(file_path: str) -> dict:
                     error=f"Legacy sibling txt cleanup failed: {error}",
                     exc_info=True,
                 )
+
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    doc = {
+    document = {
         "id": doc_id,
         "filename": filename,
-        "displayName": display_name,
+        "display_name": display_name,
         "note": note,
-        "sourcePath": resolved_source_path,
-        "textPath": text_path,
-        "textCharCount": text_char_count,
-        "fileType": file_type,
-        "fileSize": file_size,
-        "createdAt": now_iso,
-        "updatedAt": now_iso,
+        "source_path": resolved_source_path,
+        "text_path": text_path,
+        "char_count": char_count,
+        "file_type": file_type,
+        "file_size": file_size,
+        "created_at": now_iso,
+        "updated_at": now_iso,
     }
-    insert_document(doc)
+    write_document(document)
 
-    return doc
+    return document

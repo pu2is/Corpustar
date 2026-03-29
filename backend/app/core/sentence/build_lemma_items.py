@@ -1,40 +1,50 @@
 from collections.abc import Mapping
 
 
-LemmaRow = Mapping[str, str | None]
-LemmaItem = dict[str, str | None]
+LemmaTokenRow = Mapping[str, int | str]
+LemmaTokenItem = dict[str, int | str]
 
 
-def build_lemma_item(
-    lemma_id: str,
-    doc_id: str,
-    segmentation_id: str,
+def build_lemma_token_item(
+    *,
+    token_id: str,
+    version_id: str,
     sentence_id: str,
-    source_text: str,
-    lemma_text: str,
-    corrected_lemma: str,
-    fvg_result_id: str | None = None,
-) -> LemmaItem:
+    source_word: str,
+    lemma_word: str,
+    word_index: int,
+    head_index: int,
+    pos_tag: str,
+    fine_pos_tag: str,
+    morph: str,
+    dependency_relationship: str,
+) -> LemmaTokenItem:
     return {
-        "id": lemma_id,
-        "docId": doc_id,
-        "segmentationId": segmentation_id,
-        "sentenceId": sentence_id,
-        "sourceText": source_text,
-        "lemmaText": lemma_text,
-        "correctedLemma": corrected_lemma,
-        "fvgResultId": fvg_result_id,
+        "id": token_id,
+        "version_id": version_id,
+        "sentence_id": sentence_id,
+        "source_word": source_word,
+        "lemma_word": lemma_word,
+        "word_index": word_index,
+        "head_index": head_index,
+        "pos_tag": pos_tag,
+        "fine_pos_tag": fine_pos_tag,
+        "morph": morph,
+        "dependency_relationship": dependency_relationship,
     }
 
 
-def build_lemma_item_from_row(lemma_row: LemmaRow) -> LemmaItem:
-    return build_lemma_item(
-        lemma_id=str(lemma_row["id"]),
-        doc_id=str(lemma_row["doc_id"]),
-        segmentation_id=str(lemma_row["segmentation_id"]),
-        sentence_id=str(lemma_row["sentence_id"]),
-        source_text=str(lemma_row["source_text"] or ""),
-        lemma_text=str(lemma_row["lemma_text"] or ""),
-        corrected_lemma=str(lemma_row["corrected_lemma"] or ""),
-        fvg_result_id=str(lemma_row["fvg_result_id"]) if lemma_row["fvg_result_id"] is not None else None,
+def build_lemma_token_item_from_row(row: LemmaTokenRow) -> LemmaTokenItem:
+    return build_lemma_token_item(
+        token_id=str(row["id"]),
+        version_id=str(row["version_id"]),
+        sentence_id=str(row["sentence_id"]),
+        source_word=str(row["source_word"]),
+        lemma_word=str(row["lemma_word"]),
+        word_index=int(row["word_index"]),
+        head_index=int(row["head_index"]),
+        pos_tag=str(row["pos_tag"]),
+        fine_pos_tag=str(row["fine_pos_tag"]),
+        morph=str(row["morph"]),
+        dependency_relationship=str(row["dependency_relationship"]),
     )

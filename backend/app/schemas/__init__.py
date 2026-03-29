@@ -1,29 +1,41 @@
 from app.schemas.documents import DocFileType, DocItem
-from app.schemas.lemmas import ActionResponse, LemmaCorrectRequest, LemmaItem, LemmaProcessRequest
-from app.schemas.processings import ProcessingItem, ProcessingState, ProcessingType
+from app.schemas.lemmas import LemmaTokenItem, LemmaTokensBySentenceRequest
+from app.schemas.processings import (
+    ActionResponse,
+    ImportRuleProcessRequest,
+    LemmatizeProcessRequest,
+    ProcessingItem,
+    ProcessingState,
+    ProcessingType,
+    SentenceSegmentationProcessRequest,
+)
 from app.schemas.sentences import (
-    ClipSentenceRequest,
     MergeSentenceRequest,
+    SentenceClipRequest,
+    SentenceClipResponse,
+    SentenceCorrectRequest,
     SentenceCursorPage,
     SentenceItem,
-    SentenceSegmentationLatestResponse,
     SentenceSegmentationResponse,
 )
 
 __all__ = [
-    "ClipSentenceRequest",
+    "ActionResponse",
     "DocFileType",
     "DocItem",
-    "ActionResponse",
-    "LemmaCorrectRequest",
-    "LemmaItem",
-    "LemmaProcessRequest",
+    "ImportRuleProcessRequest",
+    "LemmaTokenItem",
+    "LemmaTokensBySentenceRequest",
+    "LemmatizeProcessRequest",
     "MergeSentenceRequest",
     "ProcessingItem",
     "ProcessingState",
     "ProcessingType",
+    "SentenceClipRequest",
+    "SentenceClipResponse",
+    "SentenceCorrectRequest",
     "SentenceCursorPage",
     "SentenceItem",
-    "SentenceSegmentationLatestResponse",
+    "SentenceSegmentationProcessRequest",
     "SentenceSegmentationResponse",
 ]

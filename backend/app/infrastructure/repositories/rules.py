@@ -1,19 +1,21 @@
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
-from sqlite3 import Connection, Row
+from sqlite3 import Connection
+
+from sqlalchemy import case, delete, insert, or_, select
 
 from app.infrastructure.db.connection import connection_scope
-
-RULES_TABLE_NAME = "rules"
+from app.infrastructure.repositories._sqlalchemy import execute, rules_table
 
 RuleRow = dict[str, str]
 
 
-def _map_rule_row(row: Row) -> RuleRow:
+def _map_rule_row(row: Mapping[str, object]) -> RuleRow:
     return {
-        "id": row["id"],
-        "type": row["type"],
-        "path": row["path"],
+        "id": str(row["id"]),
+        "version_id": str(row["version_id"]),
+        "type": str(row["type"]),
+        "path": str(row["path"]),
     }
 
 
@@ -27,36 +29,24 @@ def _use_connection(connection: Connection | None) -> Generator[Connection, None
         yield scoped_connection
 
 
-def insert_rule(
+def write_rule_item(
     rule: Mapping[str, str],
     connection: Connection | None = None,
 ) -> RuleRow:
-    inserted_rule = {
-        "id": rule["id"],
-        "type": rule["type"],
-        "path": rule["path"],
+    written = {
+        "id": str(rule["id"]),
+        "version_id": str(rule["version_id"]),
+        "type": str(rule["type"]),
+        "path": str(rule["path"]),
     }
-    owns_connection = connection is None
 
+    owns_connection = connection is None
     with _use_connection(connection) as active_connection:
         try:
-            active_connection.execute(
-                f"""
-                INSERT INTO {RULES_TABLE_NAME} (
-                    id,
-                    type,
-                    path
-                ) VALUES (?, ?, ?)
-                """,
-                (
-                    inserted_rule["id"],
-                    inserted_rule["type"],
-                    inserted_rule["path"],
-                ),
-            )
+            execute(active_connection, insert(rules_table).values(**written))
             if owns_connection:
                 active_connection.commit()
-            return inserted_rule
+            return written
         except Exception:
             if owns_connection:
                 active_connection.rollback()
@@ -67,53 +57,51 @@ def get_rule_by_id(
     rule_id: str,
     connection: Connection | None = None,
 ) -> RuleRow | None:
+    statement = (
+        select(
+            rules_table.c.id,
+            rules_table.c.version_id,
+            rules_table.c.type,
+            rules_table.c.path,
+        )
+        .select_from(rules_table)
+        .where(rules_table.c.id == rule_id)
+    )
     with _use_connection(connection) as active_connection:
-        row = active_connection.execute(
-            f"""
-            SELECT
-                id,
-                type,
-                path
-            FROM {RULES_TABLE_NAME}
-            WHERE id = ?
-            """,
-            (rule_id,),
-        ).fetchone()
-        if row is None:
-            return None
+        row = execute(active_connection, statement).fetchone()
 
-        return _map_rule_row(row)
+    if row is None:
+        return None
+    return _map_rule_row(row)
 
 
-def get_all_rules(connection: Connection | None = None) -> list[RuleRow]:
+def read_all_rules(connection: Connection | None = None) -> list[RuleRow]:
+    statement = (
+        select(
+            rules_table.c.id,
+            rules_table.c.version_id,
+            rules_table.c.type,
+            rules_table.c.path,
+        )
+        .select_from(rules_table)
+        .order_by(rules_table.c.id.desc())
+    )
     with _use_connection(connection) as active_connection:
-        rows = active_connection.execute(
-            f"""
-            SELECT
-                id,
-                type,
-                path
-            FROM {RULES_TABLE_NAME}
-            ORDER BY rowid DESC
-            """
-        ).fetchall()
-        return [_map_rule_row(row) for row in rows]
+        rows = execute(active_connection, statement).fetchall()
+
+    return [_map_rule_row(row) for row in rows]
 
 
-def remove_rule(
+def rm_rule_item(
     rule_id: str,
     connection: Connection | None = None,
 ) -> bool:
     owns_connection = connection is None
-
     with _use_connection(connection) as active_connection:
         try:
-            cursor = active_connection.execute(
-                f"""
-                DELETE FROM {RULES_TABLE_NAME}
-                WHERE id = ?
-                """,
-                (rule_id,),
+            cursor = execute(
+                active_connection,
+                delete(rules_table).where(rules_table.c.id == rule_id),
             )
             if owns_connection:
                 active_connection.commit()
@@ -125,44 +113,32 @@ def remove_rule(
 
 
 def get_existing_rule_for_import(
+    *,
     rule_id: str,
     rule_type: str,
     path: str,
     connection: Connection | None = None,
 ) -> RuleRow | None:
-    with _use_connection(connection) as active_connection:
-        row = active_connection.execute(
-            f"""
-            SELECT
-                id,
-                type,
-                path
-            FROM {RULES_TABLE_NAME}
-            WHERE id = ?
-               OR (type = ? AND path = ?)
-            ORDER BY CASE WHEN id = ? THEN 0 ELSE 1 END
-            LIMIT 1
-            """,
-            (rule_id, rule_type, path, rule_id),
-        ).fetchone()
-        if row is None:
-            return None
-
-        return _map_rule_row(row)
-
-
-def insert_rule_if_missing(
-    rule: Mapping[str, str],
-    connection: Connection | None = None,
-) -> tuple[RuleRow, bool]:
-    existing = get_existing_rule_for_import(
-        rule_id=rule["id"],
-        rule_type=rule["type"],
-        path=rule["path"],
-        connection=connection,
+    statement = (
+        select(
+            rules_table.c.id,
+            rules_table.c.version_id,
+            rules_table.c.type,
+            rules_table.c.path,
+        )
+        .select_from(rules_table)
+        .where(
+            or_(
+                rules_table.c.id == rule_id,
+                (rules_table.c.type == rule_type) & (rules_table.c.path == path),
+            )
+        )
+        .order_by(case((rules_table.c.id == rule_id, 0), else_=1))
+        .limit(1)
     )
-    if existing is not None:
-        return existing, False
+    with _use_connection(connection) as active_connection:
+        row = execute(active_connection, statement).fetchone()
 
-    inserted = insert_rule(rule=rule, connection=connection)
-    return inserted, True
+    if row is None:
+        return None
+    return _map_rule_row(row)

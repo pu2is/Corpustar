@@ -5,35 +5,39 @@ from app.schemas.processings import ProcessingItem
 
 class SentenceItem(BaseModel):
     id: str
-    docId: str
-    processingId: str
-    startOffset: int
-    endOffset: int
-    lemmaText: str | None
-    text: str
+    version_id: str
+    doc_id: str
+    start_offset: int
+    end_offset: int
+    source_text: str
+    corrected_text: str
 
 
 class SentenceSegmentationResponse(BaseModel):
     processing: ProcessingItem
-    sentenceCount: int
-    preview: list[SentenceItem]
-
-
-class SentenceSegmentationLatestResponse(BaseModel):
-    processing: ProcessingItem | None = None
-    sentenceCount: int
+    sentence_count: int
     preview: list[SentenceItem]
 
 
 class SentenceCursorPage(BaseModel):
     items: list[SentenceItem]
-    nextAfterStartOffset: int | None = None
-    hasMore: bool
+    next_after_start_offset: int | None = None
+    has_more: bool
 
 
 class MergeSentenceRequest(BaseModel):
-    sentenceIds: list[str]
+    sentence_ids: list[str]
 
 
-class ClipSentenceRequest(BaseModel):
-    splitOffset: int
+class SentenceClipRequest(BaseModel):
+    sentence_id: str
+    split_offset: int
+
+
+class SentenceClipResponse(BaseModel):
+    items: list[SentenceItem]
+
+
+class SentenceCorrectRequest(BaseModel):
+    sentence_id: str
+    corrected_text: str

@@ -5,133 +5,133 @@ from app.core.log import get_logger, log_event
 from app.infrastructure.db.connection import connection_scope
 
 DOCUMENTS_TABLE_NAME = "documents"
-DOCUMENTS_TEXT_CHAR_COUNT_COLUMN = "text_char_count"
 PROCESSINGS_TABLE_NAME = "processings"
-DOCUMENT_SENTENCES_TABLE_NAME = "document_sentences"
-DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN = "source_text"
-DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN = "lemma_text"
-LEMMA_TABLE_NAME = "lemma"
+SENTENCES_TABLE_NAME = "sentences"
+LEMMA_TOKENS_TABLE_NAME = "lemma_tokens"
 RULES_TABLE_NAME = "rules"
-RULE_FVG_TABLE_NAME = "rule_fvg"
+FVG_ENTRIES_TABLE_NAME = "fvg_entries"
 
 PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME = "idx_processings_doc_type_created_at"
-DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME = (
-    "idx_document_sentences_processing_doc_start_offset"
-)
-LEMMA_SEGMENTATION_SENTENCE_INDEX_NAME = "idx_lemma_segmentation_sentence"
-RULE_FVG_RULE_ID_INDEX_NAME = "idx_rule_fvg_rule_id"
-DOCUMENT_SENTENCES_SOURCE_TEXT_LOCK_TRIGGER_NAME = (
-    "trg_document_sentences_source_text_locked"
-)
+SENTENCES_VERSION_DOC_START_OFFSET_INDEX_NAME = "idx_sentences_version_doc_start_offset"
+LEMMA_TOKENS_VERSION_SENTENCE_WORD_INDEX_NAME = "idx_lemma_tokens_version_sentence_word"
+FVG_ENTRIES_RULE_ID_INDEX_NAME = "idx_fvg_entries_rule_id"
+SENTENCES_SOURCE_TEXT_LOCK_TRIGGER_NAME = "trg_sentences_source_text_locked"
 
 REQUIRED_TABLES = {
     DOCUMENTS_TABLE_NAME,
     PROCESSINGS_TABLE_NAME,
-    DOCUMENT_SENTENCES_TABLE_NAME,
-    LEMMA_TABLE_NAME,
+    SENTENCES_TABLE_NAME,
+    LEMMA_TOKENS_TABLE_NAME,
     RULES_TABLE_NAME,
-    RULE_FVG_TABLE_NAME,
+    FVG_ENTRIES_TABLE_NAME,
 }
 REQUIRED_INDEXES = {
     PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME,
-    DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME,
-    LEMMA_SEGMENTATION_SENTENCE_INDEX_NAME,
-    RULE_FVG_RULE_ID_INDEX_NAME,
+    SENTENCES_VERSION_DOC_START_OFFSET_INDEX_NAME,
+    LEMMA_TOKENS_VERSION_SENTENCE_WORD_INDEX_NAME,
+    FVG_ENTRIES_RULE_ID_INDEX_NAME,
 }
 REQUIRED_TRIGGERS = {
-    DOCUMENT_SENTENCES_SOURCE_TEXT_LOCK_TRIGGER_NAME,
+    SENTENCES_SOURCE_TEXT_LOCK_TRIGGER_NAME,
 }
 
 SCHEMA_SQL = f"""
-CREATE TABLE {DOCUMENTS_TABLE_NAME} (
+CREATE TABLE IF NOT EXISTS {DOCUMENTS_TABLE_NAME} (
     id TEXT PRIMARY KEY,
     filename TEXT NOT NULL,
     display_name TEXT NOT NULL,
     note TEXT NOT NULL,
     source_path TEXT NOT NULL,
     text_path TEXT NOT NULL,
-    {DOCUMENTS_TEXT_CHAR_COUNT_COLUMN} INTEGER NOT NULL,
+    char_count INTEGER NOT NULL,
     file_type TEXT NOT NULL,
     file_size INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
 
-CREATE TABLE {PROCESSINGS_TABLE_NAME} (
+CREATE TABLE IF NOT EXISTS {PROCESSINGS_TABLE_NAME} (
     id TEXT PRIMARY KEY,
-    doc_id TEXT NOT NULL,
-    type TEXT NOT NULL,
-    state TEXT NOT NULL,
+    parent_id TEXT NOT NULL,
+    doc_id TEXT NULL,
+    type TEXT NOT NULL CHECK(type IN ('sentence_segmentation', 'lemma', 'fvg', 'import_rule')),
+    state TEXT NOT NULL CHECK(state IN ('running', 'succeed', 'failed')),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     error_message TEXT NULL,
     meta_json TEXT NULL,
-    FOREIGN KEY (doc_id) REFERENCES {DOCUMENTS_TABLE_NAME}(id) ON DELETE CASCADE,
-    CHECK(state IN ('running', 'succeed', 'failed'))
+    FOREIGN KEY (doc_id) REFERENCES {DOCUMENTS_TABLE_NAME}(id) ON DELETE CASCADE
 );
 
-CREATE TABLE {DOCUMENT_SENTENCES_TABLE_NAME} (
+CREATE TABLE IF NOT EXISTS {SENTENCES_TABLE_NAME} (
     id TEXT PRIMARY KEY,
+    version_id TEXT NOT NULL,
     doc_id TEXT NOT NULL,
-    processing_id TEXT NOT NULL,
     start_offset INTEGER NOT NULL,
     end_offset INTEGER NOT NULL,
-    {DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN} TEXT NOT NULL,
-    {DOCUMENT_SENTENCES_LEMMA_TEXT_COLUMN} TEXT NULL,
+    source_text TEXT NOT NULL,
+    corrected_text TEXT NOT NULL,
+    FOREIGN KEY (version_id) REFERENCES {PROCESSINGS_TABLE_NAME}(id) ON DELETE CASCADE,
     FOREIGN KEY (doc_id) REFERENCES {DOCUMENTS_TABLE_NAME}(id) ON DELETE CASCADE,
-    FOREIGN KEY (processing_id) REFERENCES {PROCESSINGS_TABLE_NAME}(id) ON DELETE CASCADE,
     CHECK(start_offset >= 0),
     CHECK(end_offset > start_offset)
 );
 
-CREATE TABLE {LEMMA_TABLE_NAME} (
+CREATE TABLE IF NOT EXISTS {LEMMA_TOKENS_TABLE_NAME} (
     id TEXT PRIMARY KEY,
-    doc_id TEXT NOT NULL,
-    segmentation_id TEXT NOT NULL,
+    version_id TEXT NOT NULL,
     sentence_id TEXT NOT NULL,
-    source_text TEXT NOT NULL,
-    lemma_text TEXT NOT NULL,
-    corrected_lemma TEXT NOT NULL,
-    fvg_result_id TEXT NULL,
-    FOREIGN KEY (doc_id) REFERENCES {DOCUMENTS_TABLE_NAME}(id) ON DELETE CASCADE,
-    FOREIGN KEY (segmentation_id) REFERENCES {PROCESSINGS_TABLE_NAME}(id) ON DELETE CASCADE,
-    FOREIGN KEY (sentence_id) REFERENCES {DOCUMENT_SENTENCES_TABLE_NAME}(id) ON DELETE CASCADE
+    source_word TEXT NOT NULL,
+    lemma_word TEXT NOT NULL,
+    word_index INTEGER NOT NULL,
+    head_index INTEGER NOT NULL,
+    pos_tag TEXT NOT NULL,
+    fine_pos_tag TEXT NOT NULL,
+    morph TEXT NOT NULL,
+    dependency_relationship TEXT NOT NULL,
+    FOREIGN KEY (version_id) REFERENCES {PROCESSINGS_TABLE_NAME}(id) ON DELETE CASCADE,
+    FOREIGN KEY (sentence_id) REFERENCES {SENTENCES_TABLE_NAME}(id) ON DELETE CASCADE
 );
 
-CREATE TABLE {RULES_TABLE_NAME} (
+CREATE TABLE IF NOT EXISTS {RULES_TABLE_NAME} (
     id TEXT PRIMARY KEY,
-    type TEXT NOT NULL CHECK(type IN ('fvg')),
-    path TEXT NOT NULL
+    version_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    path TEXT NOT NULL,
+    FOREIGN KEY (version_id) REFERENCES {PROCESSINGS_TABLE_NAME}(id) ON DELETE CASCADE
 );
 
-CREATE TABLE {RULE_FVG_TABLE_NAME} (
+CREATE TABLE IF NOT EXISTS {FVG_ENTRIES_TABLE_NAME} (
     id TEXT PRIMARY KEY,
     rule_id TEXT NOT NULL,
     verb TEXT NOT NULL,
     phrase TEXT NOT NULL,
+    noun TEXT NOT NULL,
+    prep TEXT NOT NULL,
+    structure_type TEXT NOT NULL CHECK(structure_type IN ('prep', 'akku')),
+    semantic_type TEXT NOT NULL,
     FOREIGN KEY (rule_id) REFERENCES {RULES_TABLE_NAME}(id) ON DELETE CASCADE
 );
 
-CREATE INDEX {PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME}
+CREATE INDEX IF NOT EXISTS {PROCESSINGS_DOC_TYPE_CREATED_AT_INDEX_NAME}
 ON {PROCESSINGS_TABLE_NAME} (doc_id, type, created_at);
 
-CREATE INDEX {DOCUMENT_SENTENCES_PROCESSING_DOC_START_OFFSET_INDEX_NAME}
-ON {DOCUMENT_SENTENCES_TABLE_NAME} (processing_id, doc_id, start_offset);
+CREATE INDEX IF NOT EXISTS {SENTENCES_VERSION_DOC_START_OFFSET_INDEX_NAME}
+ON {SENTENCES_TABLE_NAME} (version_id, doc_id, start_offset);
 
-CREATE INDEX {LEMMA_SEGMENTATION_SENTENCE_INDEX_NAME}
-ON {LEMMA_TABLE_NAME} (segmentation_id, sentence_id);
+CREATE INDEX IF NOT EXISTS {LEMMA_TOKENS_VERSION_SENTENCE_WORD_INDEX_NAME}
+ON {LEMMA_TOKENS_TABLE_NAME} (version_id, sentence_id, word_index);
 
-CREATE INDEX {RULE_FVG_RULE_ID_INDEX_NAME}
-ON {RULE_FVG_TABLE_NAME} (rule_id);
+CREATE INDEX IF NOT EXISTS {FVG_ENTRIES_RULE_ID_INDEX_NAME}
+ON {FVG_ENTRIES_TABLE_NAME} (rule_id);
 
-CREATE TRIGGER {DOCUMENT_SENTENCES_SOURCE_TEXT_LOCK_TRIGGER_NAME}
-BEFORE UPDATE OF {DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN}
-ON {DOCUMENT_SENTENCES_TABLE_NAME}
+CREATE TRIGGER IF NOT EXISTS {SENTENCES_SOURCE_TEXT_LOCK_TRIGGER_NAME}
+BEFORE UPDATE OF source_text
+ON {SENTENCES_TABLE_NAME}
 FOR EACH ROW
-WHEN NEW.{DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN}
-     IS NOT OLD.{DOCUMENT_SENTENCES_SOURCE_TEXT_COLUMN}
+WHEN NEW.source_text IS NOT OLD.source_text
 BEGIN
-    SELECT RAISE(ABORT, 'document_sentences.source_text is locked');
+    SELECT RAISE(ABORT, 'sentences.source_text is locked');
 END;
 """
 
@@ -178,11 +178,8 @@ def init_schema(connection: Connection | None = None) -> None:
 
 
 def _init_schema_with_connection(connection: Connection) -> None:
-    if not _list_user_tables(connection):
-        connection.executescript(SCHEMA_SQL)
-        connection.commit()
-        return
-
+    connection.executescript(SCHEMA_SQL)
+    connection.commit()
     _ensure_required_objects(connection)
 
 
