@@ -2,7 +2,7 @@ import { computed, watch, type Ref } from 'vue'
 import { useLemmaStore } from '@/stores/lemmaStore'
 import { usePaginationStore } from '@/stores/local/paginationStore'
 import { useProcessStore } from '@/stores/processStore'
-import type { LemmaItem } from '@/types/lemmas'
+import type { LemmaViewItem } from '@/types/lemmatize'
 
 export function useLemmatizationTable(docId: Ref<string>) {
   const lemmaStore = useLemmaStore()
@@ -17,7 +17,7 @@ export function useLemmatizationTable(docId: Ref<string>) {
     activeSegmentationId.value,
   ))
   const hasLemmatizeProcess = computed(() => (
-    processItemsByDocId.value.some((process) => process.type === 'lemmatize')
+    processItemsByDocId.value.some((process) => process.type === 'lemma')
   ))
   const activeDocProcessKey = computed(() => (
     docId.value && activeSegmentationId.value ? `${docId.value}::${activeSegmentationId.value}` : ''
@@ -30,14 +30,14 @@ export function useLemmatizationTable(docId: Ref<string>) {
   const hasPreviousPage = computed(() => currentPage.value > 1)
   const hasNextPage = computed(() => paginationEntry.value.hasMore)
   const lemmaItemIds = computed(() => paginationEntry.value.pageItemIds)
-  const storedLemmaMap = computed(() => new Map<string, LemmaItem>(
+  const storedLemmaMap = computed(() => new Map<string, LemmaViewItem>(
     lemmaStore
       .getLemmasBySegmentationId(activeSegmentationId.value)
       .map((item) => [item.id, item]),
   ))
   const lemmaItems = computed(() => lemmaItemIds.value
     .map((itemId) => storedLemmaMap.value.get(itemId))
-    .filter((item): item is LemmaItem => item !== undefined),
+    .filter((item): item is LemmaViewItem => item !== undefined),
   )
   const showLemmaLoading = computed(() => (
     activeLemmatizeProcess.value?.state === 'running'

@@ -1,134 +1,153 @@
 import { defineStore } from 'pinia'
-import { get, post } from '@/stores/fetchWrapper'
-import { on, SOCKET_CONNECTED_EVENT, SOCKET_DISCONNECTED_EVENT } from '@/socket/socket'
-import type { ActionResponse, LemmaItem } from '@/types/lemmas'
+
+import { post } from '@/stores/fetchWrapper'
+import { on } from '@/socket/socket'
+import { useProcessStore } from '@/stores/processStore'
+import { useSentenceStore } from '@/stores/sentenceStore'
+import type { GetLemmaRequest, GetLemmaResponse, LemmaItem, LemmaViewItem } from '@/types/lemmatize'
+
+const PAGE_ITEM_PER_PAGE = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
+
+function normalizeTokens(tokens: LemmaItem[]): LemmaItem[] {
+  return [...tokens].sort((a, b) => a.word_index - b.word_index)
+}
+
+function buildSourceText(tokens: LemmaItem[]): string {
+  return normalizeTokens(tokens).map((token) => token.source_word).join(' ').trim()
+}
+
+function buildLemmaText(tokens: LemmaItem[]): string {
+  return normalizeTokens(tokens).map((token) => token.lemma_word).join(' ').trim()
+}
 
 export const useLemmaStore = defineStore('lemma-store', {
   state: () => ({
-    lemmas: [] as LemmaItem[],
-    connected: false,
+    lemmatize: [] as LemmaItem[],
+    connected: false as boolean,
   }),
-  getters: {
-    getLemmasBySegmentationId: (state) => (segmentationId: string): LemmaItem[] => {
-      if (!segmentationId) {
-        return []
-      }
-
-      return state.lemmas.filter((lemma) => lemma.segmentationId === segmentationId)
-    },
-  },
+  getters: {},
   actions: {
-    isRecord(value: unknown): value is Record<string, unknown> {
-      return typeof value === 'object' && value !== null
-    },
-
-    toNonEmptyString(value: unknown): string | null {
-      if (typeof value !== 'string') {
-        return null
-      }
-
-      const trimmed = value.trim()
-      return trimmed.length ? trimmed : null
-    },
-
-    toLemmaItem(payload: unknown): LemmaItem | null {
-      if (!this.isRecord(payload)) {
-        return null
-      }
-
-      const id = this.toNonEmptyString(payload.id)
-      const docId = this.toNonEmptyString(payload.docId)
-      const segmentationId = this.toNonEmptyString(payload.segmentationId)
-      const sentenceId = this.toNonEmptyString(payload.sentenceId)
-      const sourceText = typeof payload.sourceText === 'string' ? payload.sourceText : null
-      const lemmaText = typeof payload.lemmaText === 'string' ? payload.lemmaText : null
-      const correctedLemma = typeof payload.correctedLemma === 'string' ? payload.correctedLemma : null
-      const fvgResultId = payload.fvgResultId === null
-        ? null
-        : (this.toNonEmptyString(payload.fvgResultId) ?? null)
-
-      if (!id || !docId || !segmentationId || !sentenceId || sourceText === null || !lemmaText || correctedLemma === null) {
-        return null
-      }
-
-      return {
-        id,
-        docId,
-        segmentationId,
-        sentenceId,
-        sourceText,
-        lemmaText,
-        correctedLemma,
-        fvgResultId,
-      }
-    },
-
-    toLemmaItems(payload: unknown): LemmaItem[] {
-      if (!Array.isArray(payload)) {
-        return []
-      }
-
-      return payload
-        .map((item) => this.toLemmaItem(item))
-        .filter((item): item is LemmaItem => item !== null)
-    },
-
+    // 1. Socket binding
     bindSocketEvents(): void {
-      on(SOCKET_CONNECTED_EVENT, () => {
-        this.connected = true
-      })
-      on(SOCKET_DISCONNECTED_EVENT, () => {
-        this.connected = false
-      })
-      on('lemma:created', (payload) => {
-        this.upsertLemmas(this.toLemmaItems(payload))
-      })
-      on('lemma:updated', (payload) => {
-        const lemma = this.toLemmaItem(payload)
-        if (!lemma) {
-          return
-        }
-
-        this.upsertLemma(lemma)
-      })
-    },
-
-    async editLemmaItem(id: string, newLemma: string): Promise<ActionResponse> {
-      return post<ActionResponse>(`/api/lemma/correct/${encodeURIComponent(id)}`, {
-        id,
-        corrected_lemma: newLemma,
-      })
-    },
-
-    async getLemmaItems(
-      segmentationId: string,
-      startFromId: string | null = null,
-      limit = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10),
-    ): Promise<LemmaItem[]> {
-      const items = await get<LemmaItem[]>(`/api/lemma/${encodeURIComponent(segmentationId)}`, {
-        params: {
-          start_lemma_id: startFromId,
-          limit,
-        },
-      })
-      this.upsertLemmas(items)
-      return items
-    },
-
-    upsertLemma(lemma: LemmaItem): void {
-      const existingIndex = this.lemmas.findIndex((existing) => existing.id === lemma.id)
-      if (existingIndex >= 0) {
-        this.lemmas.splice(existingIndex, 1, lemma)
+      if (this.connected) {
         return
       }
 
-      this.lemmas.push(lemma)
+      on('socket:connected', () => {
+        this.connected = true
+      })
+      on('socket:disconnected', () => {
+        this.connected = false
+      })
     },
 
-    upsertLemmas(lemmas: LemmaItem[]): void {
-      for (const lemma of lemmas) {
-        this.upsertLemma(lemma)
+    // 2. API requests
+    async getLemmaTokensBySentenceIds(sentenceIds: string[]): Promise<GetLemmaResponse> {
+      const normalizedSentenceIds = [...new Set(sentenceIds.filter(Boolean))]
+      if (normalizedSentenceIds.length === 0) {
+        return {}
       }
+
+      const payload: GetLemmaRequest = { sentence_ids: normalizedSentenceIds }
+      const response = await post<GetLemmaResponse>('/api/lemma', payload)
+      const tokens = Object.values(response).flat()
+      this.upsertLemmaTokens(tokens)
+      return response
+    },
+
+    // TODO: remove
+    async getLemmaItems( segmentationId: string,
+      startFromSentenceId: string | null = null,
+      limit = PAGE_ITEM_PER_PAGE,
+    ): Promise<LemmaViewItem[]> {
+      const sentenceStore = useSentenceStore()
+      const sentences = sentenceStore.sentences
+        .filter((item) => item.version_id === segmentationId)
+        .sort((a, b) => a.start_offset - b.start_offset)
+
+      if (sentences.length === 0) {
+        return []
+      }
+
+      const startIndex = startFromSentenceId
+        ? Math.max(0, sentences.findIndex((item) => item.id === startFromSentenceId) + 1)
+        : 0
+      const targetSentenceIds = sentences
+        .slice(startIndex, startIndex + limit)
+        .map((item) => item.id)
+
+      if (targetSentenceIds.length === 0) {
+        return []
+      }
+
+      await this.getLemmaTokensBySentenceIds(targetSentenceIds)
+      return this.getLemmaViewsBySentenceIds(targetSentenceIds, segmentationId)
+    },
+
+    // 3. Helpers // TODO: remove
+    upsertLemmaToken(token: LemmaItem): void {
+      const existingIndex = this.lemmatize.findIndex((item) => item.id === token.id)
+      if (existingIndex >= 0) {
+        this.lemmatize.splice(existingIndex, 1, token)
+        return
+      }
+
+      this.lemmatize.push(token)
+    },
+
+    upsertLemmaTokens(tokens: LemmaItem[]): void {
+      for (const token of tokens) {
+        this.upsertLemmaToken(token)
+      }
+    },
+
+    getLemmaTokensBySentenceId(sentenceId: string): LemmaItem[] {
+      return this.lemmatize.filter((token) => token.sentence_id === sentenceId)
+    },
+
+    getLemmaViewsBySentenceIds(sentenceIds: string[], segmentationId: string): LemmaViewItem[] {
+      return sentenceIds.map((sentenceId) => {
+        const tokens = this.getLemmaTokensBySentenceId(sentenceId)
+        return {
+          id: sentenceId,
+          segmentation_id: segmentationId,
+          sentence_id: sentenceId,
+          source_text: buildSourceText(tokens),
+          lemma_text: buildLemmaText(tokens),
+        }
+      })
+    },
+
+    getLemmasBySegmentationId(segmentationId: string): LemmaViewItem[] {
+      const processStore = useProcessStore()
+      const sentenceStore = useSentenceStore()
+      const lemmaProcessIds = processStore.processing
+        .filter((item) => item.type === 'lemma' && String(item.parent_id) === segmentationId)
+        .map((item) => item.id)
+
+      const processIdSet = new Set(lemmaProcessIds)
+      const sentenceIds = sentenceStore.sentences
+        .filter((item) => item.version_id === segmentationId)
+        .sort((a, b) => a.start_offset - b.start_offset)
+        .map((item) => item.id)
+
+      return sentenceIds
+        .map((sentenceId) => {
+          const tokens = this.lemmatize
+            .filter((token) => token.sentence_id === sentenceId && processIdSet.has(token.version_id))
+          if (tokens.length === 0) {
+            return null
+          }
+
+          return {
+            id: sentenceId,
+            segmentation_id: segmentationId,
+            sentence_id: sentenceId,
+            source_text: buildSourceText(tokens),
+            lemma_text: buildLemmaText(tokens),
+          }
+        })
+        .filter((item): item is LemmaViewItem => item !== null)
     },
   },
 })

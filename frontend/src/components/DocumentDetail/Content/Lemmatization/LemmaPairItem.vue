@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { LemmaItem } from '@/types/lemmas'
+import type { LemmaViewItem } from '@/types/lemmatize'
 
 const props = defineProps<{
-  item: LemmaItem
+  item: LemmaViewItem
 }>()
 </script>
 
@@ -13,7 +13,7 @@ const props = defineProps<{
         Source Text
       </p>
       <p class="break-words text-sm font-medium text-violet-700">
-        {{ props.item.sourceText }}
+        {{ props.item.source_text }}
       </p>
     </section>
 
@@ -22,7 +22,7 @@ const props = defineProps<{
         Lemma Text
       </p>
       <p class="break-words text-sm text-violet-950">
-        {{ props.item.lemmaText }}
+        {{ props.item.lemma_text }}
       </p>
     </section>
   </article>

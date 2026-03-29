@@ -8,7 +8,7 @@ import SearchBar from '@/components/RuleDetail/Widgets/SearchBar.vue'
 // stores
 import { useRuleFvgStore } from '@/stores/ruleFvgStore'
 // types
-import type { RuleFvgItem } from '@/types/rules'
+import type { FvgItem } from '@/types/fvg'
 
 const ruleFvgStore = useRuleFvgStore()
 
@@ -24,12 +24,12 @@ let resizeObserver: ResizeObserver | null = null
 
 const normalizedSearchValue = computed(() => searchValue.value.trim().toLowerCase())
 
-const filteredRules = computed<RuleFvgItem[]>(() => {
+const filteredRules = computed<FvgItem[]>(() => {
   if (!normalizedSearchValue.value) {
-    return ruleFvgStore.fvgRules
+    return ruleFvgStore.fvg
   }
 
-  return ruleFvgStore.fvgRules.filter((item) => {
+  return ruleFvgStore.fvg.filter((item: FvgItem) => {
     const verb = item.verb.toLowerCase()
     const phrase = item.phrase.toLowerCase()
     return verb.includes(normalizedSearchValue.value) || phrase.includes(normalizedSearchValue.value)

@@ -139,8 +139,8 @@ export const usePaginationStore = defineStore('pagination-store', {
         return {
           itemIds: page.items.map((item) => item.id),
           firstItemId: page.items[0]?.id ?? null,
-          hasMore: page.hasMore,
-          nextCursor: page.nextAfterStartOffset ?? null,
+          hasMore: page.has_more,
+          nextCursor: page.next_after_start_offset ?? null,
         }
       }
 

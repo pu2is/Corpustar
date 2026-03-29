@@ -1,22 +1,22 @@
 <script setup lang="ts">
 import { Plus } from 'lucide-vue-next'
-import { storeToRefs } from 'pinia'
+import { ref } from 'vue'
 
 import { useDocumentStore } from '@/stores/documentStore'
 
 const documentStore = useDocumentStore()
-const { loading } = storeToRefs(documentStore)
+const submitting = ref(false)
 
 async function openFilePicker(): Promise<void> {
-  if (loading.value) {
+  if (submitting.value) {
     return
   }
 
   if (!window.electronAPI?.selectDocumentFile) {
-    documentStore.error = 'Electron file picker unavailable. Start with npm run electron:dev.'
     return
   }
 
+  submitting.value = true
   try {
     const filePath = await window.electronAPI.selectDocumentFile()
     if (!filePath) {
@@ -25,7 +25,9 @@ async function openFilePicker(): Promise<void> {
 
     await documentStore.addDocumentByPath(filePath)
   } catch {
-    // store handles error state
+    // request failed
+  } finally {
+    submitting.value = false
   }
 }
 </script>
@@ -35,7 +37,7 @@ async function openFilePicker(): Promise<void> {
     <div class="absolute right-6 top-1/2 z-20 -translate-y-1/2 pointer-events-auto">
       <button type="button"
         class="inline-flex cursor-pointer h-10 w-10 items-center justify-center rounded-full border-0 bg-contrast p-0 text-primary shadow-md transition hover:bg-secondary-soft hover:text-primary"
-        :disabled="loading"
+        :disabled="submitting"
         aria-label="Add text file"
         title="Add text file"
         @click="openFilePicker">

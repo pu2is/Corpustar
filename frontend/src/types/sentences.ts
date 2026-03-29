@@ -1,39 +1,46 @@
-import type { ProcessingItem } from '@/types/processings'
-
 export interface SentenceItem {
   id: string
-  docId: string
-  processingId: string
-  startOffset: number
-  endOffset: number
-  text: string
-  lemmaText: string | null
+  version_id: string
+  doc_id: string
+  start_offset: number
+  end_offset: number
+  source_text: string
+  corrected_text: string
+}
+
+export interface CollectSentenceRequest extends Record<string, unknown> {
+  doc_id: string
+  segmentation_id: string
+  split_offset: number | null
+  limit: number
+}
+
+export interface SentenceMergeRequest extends Record<string, unknown> {
+  sentence_ids: string[]
+}
+
+export interface SentenceClipRequest extends Record<string, unknown> {
+  sentence_id: string
+  split_offset: number
+}
+
+export interface CorrectSentenceRequest extends Record<string, unknown> {
+  sentence_id: string
+  corrected_text: string
+}
+
+export interface SentenceMergedSocketPayload {
+  result: SentenceItem
+  meta: SentenceMergeRequest
+}
+
+export interface SentenceClippedSocketPayload {
+  result: SentenceItem[]
+  meta: SentenceClipRequest
 }
 
 export interface SentenceCursorPage {
   items: SentenceItem[]
-  nextAfterStartOffset: number | null
-  hasMore: boolean
-}
-
-export interface SentenceSegmentationResultSnapshot {
-  processing: ProcessingItem | null
-  sentenceCount: number
-  preview: SentenceItem[]
-}
-
-export interface SentenceSegmentationResponse extends SentenceSegmentationResultSnapshot {
-  processing: ProcessingItem
-}
-
-export interface MergeSentencesRequest extends Record<string, unknown> {
-  sentenceIds: string[]
-}
-
-export interface ClipSentenceRequest extends Record<string, unknown> {
-  splitOffset: number
-}
-
-export interface ClipSentenceResponse {
-  items: SentenceItem[]
+  next_after_start_offset: number | null
+  has_more: boolean
 }

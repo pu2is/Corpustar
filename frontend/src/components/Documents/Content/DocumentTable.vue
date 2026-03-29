@@ -7,13 +7,13 @@ import DocumentRow from '@/components/Documents/DocumentTable/DocumentRow.vue'
 import { useDocumentStore } from '@/stores/documentStore'
 
 const documentStore = useDocumentStore()
-const { documents, loading, error } = storeToRefs(documentStore)
+const { documents } = storeToRefs(documentStore)
 
 const hasDocuments = computed(() => documents.value.length > 0)
 const documentCount = computed(() => documents.value.length)
 
 onMounted(() => {
-  if (!documents.value.length && !loading.value) {
+  if (!documents.value.length) {
     void documentStore.getAllDocuments()
   }
 })
@@ -40,24 +40,12 @@ function removeDocument(id: string): void {
           </p>
         </div>
 
-        <div class="p-2 rounded-full bg-secondary/5 text-text-muted transition-colors hover:bg-secondary/20"
-          :class="loading ? 'cursor-not-allowed' : 'cursor-pointer'"
-          :disabled="loading"
+        <div class="cursor-pointer p-2 rounded-full bg-secondary/5 text-text-muted transition-colors hover:bg-secondary/20"
           aria-label="Refresh documents"
           @click="refreshDocuments">
-          <RefreshCcw class="size-4"
-            :class="loading ? 'animate-spin' : ''" />
+          <RefreshCcw class="size-4" />
         </div>
       </div>
-
-      <p v-if="error"
-        class="m-0 border border-error/30 bg-error-soft/30 px-4 py-2 text-sm text-error">
-        {{ error }}
-      </p>
-      <p v-else-if="loading"
-        class="m-0 px-2 py-1 text-sm text-text-muted">
-        Loading documents...
-      </p>
     </header>
     <div class="min-h-0 flex-1">
       <p v-if="!hasDocuments"

@@ -15,8 +15,8 @@ const emit = defineEmits<{
 }>()
 const router = useRouter()
 
-const displayName = computed(() => props.docItem.displayName.trim() || props.docItem.filename)
-const fileSizeLabel = computed(() => formatFileSize(props.docItem.fileSize))
+const displayName = computed(() => props.docItem.display_name.trim() || props.docItem.filename)
+const fileSizeLabel = computed(() => formatFileSize(props.docItem.file_size))
 
 function removeDocument(event: MouseEvent): void {
   event.stopPropagation()

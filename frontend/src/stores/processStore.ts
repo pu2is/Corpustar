@@ -1,191 +1,165 @@
 import { defineStore } from 'pinia'
+
 import { get, post } from '@/stores/fetchWrapper'
-import { on, SOCKET_CONNECTED_EVENT, SOCKET_DISCONNECTED_EVENT } from '@/socket/socket'
-import type { ActionResponse } from '@/types/lemmas'
-import type { ProcessingItem, ProcessingState, ProcessingType } from '@/types/processings'
-import type { SentenceSegmentationResponse } from '@/types/sentences'
+import { on } from '@/socket/socket'
+import type { ProcessResponse, ProcessResponseWithId } from '@/types/general'
+import type {
+  ImportRuleProcessRequest,
+  LemmatizeRequest,
+  ProcessingItem,
+  ProcessingState,
+  SentenceSegmentationRequest,
+} from '@/types/processings'
 
-type ProcessItem = ProcessingItem
-
-const PROCESSING_STATE_SET = new Set<ProcessingState>(['running', 'succeed', 'failed'])
-const sentenceItemPerPage = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10')
+const PREVIEW_LENGTH = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
 
 export const useProcessStore = defineStore('process-store', {
   state: () => ({
-    processes: [] as ProcessItem[],
-    connected: false,
+    processing: [] as ProcessingItem[],
+    connected: false as boolean,
+    running: false as boolean,
   }),
   getters: {
-    getProcessesByDocId: (state) => (docId: string): ProcessItem[] => {
-      if (!docId) {
-        return []
-      }
-
-      return state.processes.filter((process) => process.docId === docId)
-    },
-    getSentenceSegmentationProcessByDocId: (state) => (docId: string): ProcessItem | null => {
-      if (!docId) {
-        return null
-      }
-
-      return state.processes.find((process) => (
-        process.docId === docId
-        && process.type === 'sentence_segmentation'
-        && process.state === 'succeed'
-      )) ?? null
-    },
-    getLemmatizeProcessBySegmentationId: (state) => (docId: string, segmentationId: string): ProcessItem | null => {
-      if (!docId || !segmentationId) {
-        return null
-      }
-
-      return state.processes.find((process) => (
-        process.docId === docId
-        && process.type === 'lemmatize'
-        && process.meta?.segmentationId === segmentationId
-      )) ?? null
-    },
-    getSegmentationStateByDocId: (state) => (docId: string): ProcessingState | null => {
-      if (!docId) { return null }
-
-      return state.processes.find((process) => (
-        process.docId === docId && process.type === 'sentence_segmentation'
-      ))?.state ?? null
-    },
+    getProcessByDocId: (state) => (docId: string): ProcessingItem[] => (
+      state.processing.filter((item) => item.doc_id === docId)
+    ),
   },
   actions: {
-    isRecord(value: unknown): value is Record<string, unknown> {
-      return typeof value === 'object' && value !== null
-    },
-
-    toNonEmptyString(value: unknown): string | null {
-      if (typeof value !== 'string') {
-        return null
-      }
-
-      const trimmed = value.trim()
-      return trimmed.length ? trimmed : null
-    },
-
-    toProcessingState(value: unknown): ProcessingState | null {
-      const normalized = this.toNonEmptyString(value)
-      if (!normalized || !PROCESSING_STATE_SET.has(normalized as ProcessingState)) {
-        return null
-      }
-
-      return normalized as ProcessingState
-    },
-
-    toProcessingItem(payload: unknown): ProcessItem | null {
-      if (!this.isRecord(payload)) {
-        return null
-      }
-
-      const id = this.toNonEmptyString(payload.id)
-      const docId = this.toNonEmptyString(payload.docId)
-      const type = this.toNonEmptyString(payload.type) as ProcessingType | null
-      const state = this.toProcessingState(payload.state)
-      const createdAt = this.toNonEmptyString(payload.createdAt)
-      const updatedAt = this.toNonEmptyString(payload.updatedAt)
-      const errorMessage = payload.errorMessage === null
-        ? null
-        : (this.toNonEmptyString(payload.errorMessage) ?? null)
-
-      if (!id || !docId || !type || !state || !createdAt || !updatedAt) {
-        return null
-      }
-
-      return {
-        id,
-        docId,
-        type,
-        state,
-        createdAt,
-        updatedAt,
-        errorMessage,
-        meta: this.isRecord(payload.meta) ? payload.meta : null,
-      }
-    },
-
+    // 1. Socket binding
     bindSocketEvents(): void {
-      on(SOCKET_CONNECTED_EVENT, () => {
+      if (this.connected) {
+        return
+      }
+
+      on('socket:connected', () => {
         this.connected = true
-        void this.getAllProcesses().catch(() => undefined)
       })
-      on(SOCKET_DISCONNECTED_EVENT, () => {
+      on('socket:disconnected', () => {
         this.connected = false
-        this.processes = []
       })
-      on('process:created', (payload) => {
-        this.handleProcessingCreated(payload)
+      on('importRule:started', (socketMsg) => {
+        const payload = socketMsg as ProcessingItem
+        this.processing.unshift(payload)
+        this.running = true
       })
-      on('process:updated', (payload) => {
-        this.handleProcessingUpdated(payload)
+      on('importRule:succeed', (socketMsg) => {
+        const payload = socketMsg as { processing?: ProcessingItem }
+        const processItem = payload.processing
+        if (!processItem) {
+          this.running = false
+          return
+        }
+
+        const targetIndex = this.processing.findIndex((item) => item.id === processItem.id)
+        if (targetIndex >= 0) {
+          this.processing.splice(targetIndex, 1, processItem)
+        } else {
+          this.processing.unshift(processItem)
+        }
+        this.running = false
+      })
+      on('segmentation:started', (socketMsg) => {
+        const payload = socketMsg as ProcessingItem
+        this.processing.unshift(payload)
+        this.running = true
+      })
+      on('segmentation:succeed', (socketMsg) => {
+        const payload = socketMsg as { processing?: ProcessingItem }
+        const processItem = payload.processing
+        if (!processItem) {
+          this.running = false
+          return
+        }
+
+        const targetIndex = this.processing.findIndex((item) => item.id === processItem.id)
+        if (targetIndex >= 0) {
+          this.processing.splice(targetIndex, 1, processItem)
+        } else {
+          this.processing.unshift(processItem)
+        }
+        this.running = false
+      })
+      on('lemmatize:started', (socketMsg) => {
+        const payload = socketMsg as ProcessingItem
+        this.processing.unshift(payload)
+        this.running = true
+      })
+      on('lemmatize:succeed', (socketMsg) => {
+        const payload = socketMsg as ProcessingItem
+        const targetIndex = this.processing.findIndex((item) => item.id === payload.id)
+        if (targetIndex >= 0) {
+          this.processing.splice(targetIndex, 1, payload)
+        } else {
+          this.processing.unshift(payload)
+        }
+        this.running = false
       })
     },
 
-    findProcessById(processingId: string): ProcessItem | undefined {
-      return this.processes.find((process) => process.id === processingId)
+    // 2. API requests
+    async getAllProcesses(): Promise<ProcessingItem[]> {
+      const items = await get<ProcessingItem[]>('/api/process')
+      this.processing = items
+      this.running = items.some((item) => item.state === 'running')
+      return items
     },
 
-    // Get
-    async getAllProcesses(): Promise<ProcessItem[]> {
-      const processes = await get<ProcessItem[]>('/api/processes')
-      this.processes = processes
-      return processes
+    async importRule(payload: ImportRuleProcessRequest): Promise<ProcessResponse> {
+      return post<ProcessResponse>('/api/process/import_rule', payload)
     },
 
-    // Post: segment sentence
-    async segmentDocument(docId: string): Promise<SentenceSegmentationResponse> {
-      const response = await post<SentenceSegmentationResponse>(
-        `/api/process/sentence_segmentation/${encodeURIComponent(docId)}`,
-        undefined,
-        {params: {preview_length: sentenceItemPerPage},
-        },
-      )
-      this.upsertProcess(response.processing)
-      return response
-    },
-
-    async lemmatizeSegmentation(docId: string, segmentationId: string): Promise<ActionResponse> {
-      return post<ActionResponse>(
-        `/api/process/lemmatize/${encodeURIComponent(segmentationId)}`,
-        {
-          doc_id: docId,
-          segmentation_id: segmentationId,
-          preview_length: sentenceItemPerPage,
-        },
-      )
-    },
-
-    // Socket event handlers
-    handleProcessingCreated(payload: unknown): void {
-      const processing = this.toProcessingItem(payload)
-      if (!processing) {
-        return
+    async segmentDocument(docId: string): Promise<ProcessResponseWithId> {
+      const payload: SentenceSegmentationRequest = {
+        doc_id: docId,
+        preview_length: PREVIEW_LENGTH,
       }
-
-      this.upsertProcess(processing)
+      return post<ProcessResponseWithId>('/api/process/sentence_segmentation', payload)
     },
 
-    handleProcessingUpdated(payload: unknown): void {
-      const processing = this.toProcessingItem(payload)
-      if (!processing) {
-        return
-      }
-
-      this.upsertProcess(processing)
+    async lemmatizeSegmentation(_docId: string, segmentationId: string): Promise<ProcessResponseWithId> {
+      const payload: LemmatizeRequest = { segmentation_id: segmentationId }
+      return post<ProcessResponseWithId>('/api/process/lemmatize', payload)
     },
 
-    // helper
-    upsertProcess(processing: ProcessItem): void {
-      const existingIndex = this.processes.findIndex((existing) => existing.id === processing.id)
+    // 3. Helpers
+    upsertProcessing(item: ProcessingItem): void {
+      const existingIndex = this.processing.findIndex((entry) => entry.id === item.id)
       if (existingIndex >= 0) {
-        this.processes.splice(existingIndex, 1, processing)
+        this.processing.splice(existingIndex, 1, item)
         return
       }
 
-      this.processes.unshift(processing)
+      this.processing.unshift(item)
+    },
+
+    findProcessById(processId: string): ProcessingItem | undefined {
+      return this.processing.find((item) => item.id === processId)
+    },
+
+    getProcessesByDocId(docId: string): ProcessingItem[] {
+      return this.getProcessByDocId(docId)
+    },
+
+    getSentenceSegmentationProcessByDocId(docId: string): ProcessingItem | null {
+      return this.processing.find((item) => (
+        item.doc_id === docId
+        && item.type === 'sentence_segmentation'
+        && item.state === 'succeed'
+      )) ?? null
+    },
+
+    getLemmatizeProcessBySegmentationId(docId: string, segmentationId: string): ProcessingItem | null {
+      return this.processing.find((item) => (
+        item.doc_id === docId
+        && item.type === 'lemma'
+        && String(item.meta?.segmentation_id ?? '') === segmentationId
+      )) ?? null
+    },
+
+    getSegmentationStateByDocId(docId: string): ProcessingState | null {
+      return this.processing.find((item) => (
+        item.doc_id === docId && item.type === 'sentence_segmentation'
+      ))?.state ?? null
     },
   },
 })

@@ -1,18 +1,29 @@
-export type ProcessingType =
-  | 'sentence_segmentation'
-  | 'lemmatize'
-  | 'fvg_detection'
-  | 'manual_sentence_edit'
-
+export type ProcessingType = 'sentence_segmentation' | 'lemma' | 'fvg' | 'import_rule'
 export type ProcessingState = 'running' | 'succeed' | 'failed'
 
 export interface ProcessingItem {
   id: string
-  docId: string
+  parent_id: string
+  doc_id: string | null
   type: ProcessingType
   state: ProcessingState
-  createdAt: string
-  updatedAt: string
-  errorMessage: string | null
+  created_at: string
+  updated_at: string
+  error_message: string | null
+  meta_json: string | null
   meta: Record<string, unknown> | null
+}
+
+export interface ImportRuleProcessRequest extends Record<string, unknown> {
+  path: string
+  type: 'fvg'
+}
+
+export interface SentenceSegmentationRequest extends Record<string, unknown> {
+  doc_id: string
+  preview_length: number
+}
+
+export interface LemmatizeRequest extends Record<string, unknown> {
+  segmentation_id: string
 }

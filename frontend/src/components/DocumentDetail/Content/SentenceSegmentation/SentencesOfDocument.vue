@@ -40,7 +40,7 @@ interface SentenceWordToken {
   splitOffset: number | null
 }
 
-const wordTokens = computed(() => splitSentenceToWords(props.item.text, props.item.startOffset))
+const wordTokens = computed(() => splitSentenceToWords(props.item.source_text, props.item.start_offset))
 const sentenceContainerRef = ref<HTMLDivElement | null>(null)
 const selectedSymbolWordIndex = ref<number | null>(null)
 const selectedSymbolSplitOffset = computed(() => {
@@ -99,7 +99,7 @@ function toggleSymbolWord(wordIndex: number): void {
   }
 }
 
-watch(() => [props.item.id, props.item.text],
+watch(() => [props.item.id, props.item.source_text],
   () => {
     selectedSymbolWordIndex.value = null
   },
@@ -115,7 +115,7 @@ watch(() => [props.item.id, props.item.text],
     <div class="min-w-0 flex-1 space-y-1">
       <!-- Header -->
       <p class="text-xs text-text-muted">
-        {{ item.startOffset }} - {{ item.endOffset }}
+        {{ item.start_offset }} - {{ item.end_offset }}
       </p>
       <!-- Sentence text -->
       <div class="flex flex-wrap gap-1 break-words text-sm">

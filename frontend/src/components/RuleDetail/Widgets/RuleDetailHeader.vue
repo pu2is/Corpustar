@@ -13,7 +13,7 @@ const ruleStore = useRuleStore()
 const ruleFvgStore = useRuleFvgStore()
 
 const ruleFileName = computed(() => ruleStore.getRuleNameById(ruleId.value))
-const rowsCount = computed(() => ruleFvgStore.fvgRules?.length ?? 0 )
+const rowsCount = computed(() => ruleFvgStore.fvg.length)
 </script>
 
 <template>

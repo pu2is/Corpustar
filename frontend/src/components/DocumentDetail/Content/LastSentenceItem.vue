@@ -16,10 +16,10 @@ const props = defineProps<{
           Previous Sentence
         </p>
         <p class="text-xs text-violet-900/80">
-          {{ props.item.startOffset }} - {{ props.item.endOffset }}
+          {{ props.item.start_offset }} - {{ props.item.end_offset }}
         </p>
         <p class="line-clamp-2 break-words text-sm font-medium text-violet-950">
-          {{ props.item.text }}
+          {{ props.item.source_text }}
         </p>
       </div>
 

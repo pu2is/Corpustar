@@ -25,6 +25,8 @@ const {
   mergePreviousSentence,
   clipSentence,
 } = useSentenceSegmentationTable(computed(() => props.docId))
+
+void tableRef
 </script>
 
 <template>

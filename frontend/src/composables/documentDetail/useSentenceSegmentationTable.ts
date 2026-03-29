@@ -51,7 +51,7 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
     const firstSentence = sentenceItems.value[0]
     const requestToken = ++lastSentenceRequestToken
     if (!currentDocId || !processingId || !firstSentence
-      || firstSentence.startOffset === 0 || currentPage.value <= 1) {
+      || firstSentence.start_offset === 0 || currentPage.value <= 1) {
       lastSentenceItem.value = null
       lastSentenceLoading.value = false
       return
@@ -123,7 +123,7 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
       return sentenceItems.value[sentenceIndex - 1]?.id ?? null
     }
 
-    return sentenceItems.value[0]?.startOffset === 0 ? null : lastSentenceItem.value?.id ?? null
+    return sentenceItems.value[0]?.start_offset === 0 ? null : lastSentenceItem.value?.id ?? null
   }
 
   async function goToPreviousPage(): Promise<void> {
@@ -180,8 +180,8 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
     mutationLoading.value = true
     captureScrollPosition()
     try {
-      const clippedItems = await sentenceStore.clipSentence(sentenceId, splitOffset)
-      setHighlightedSentenceIds(clippedItems.slice(0, 2).map((item) => item.id))
+      await sentenceStore.clipSentence(sentenceId, splitOffset)
+      setHighlightedSentenceIds([])
       await paginationStore.refreshCurrentPage(currentDocId, processingId, 'sentence')
       await restoreScrollPosition()
     } catch {
@@ -212,7 +212,7 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
       activeDocProcessKey,
       currentPage,
       () => sentenceItems.value[0]?.id ?? '',
-      () => sentenceItems.value[0]?.startOffset ?? 0,
+      () => sentenceItems.value[0]?.start_offset ?? 0,
     ],
     () => {
       void loadLastSentenceItem()

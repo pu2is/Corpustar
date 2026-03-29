@@ -1,28 +1,20 @@
 import { defineStore } from 'pinia'
-import { del, get, patch, post } from '@/stores/fetchWrapper'
+
+import { del, get, post } from '@/stores/fetchWrapper'
 import { on } from '@/socket/socket'
-// types
-import type { AddFvgRuleRequest, RemoveFvgRuleResponse, RuleFvgItem, UpdateFvgRuleRequest } from '@/types/rules'
+import type { FvgAppendRequest, FvgCorrectRequest, FvgItem } from '@/types/fvg'
+import type { ProcessResponseWithId } from '@/types/general'
 
 export const useRuleFvgStore = defineStore('rule-fvg-store', {
   state: () => ({
-    activeRuleId: '' as string,
-    fvgRules: [] as RuleFvgItem[],
-    connected: false,
-    hasBoundSocketEvents: false,
+    fvg: [] as FvgItem[],
+    connected: false as boolean,
   }),
-  getters: {
-    getFvgRuleById: (state) => (fvgRuleId: string): RuleFvgItem | null => {
-      if (!fvgRuleId) {
-        return null
-      }
-
-      return state.fvgRules.find((item) => item.id === fvgRuleId) ?? null
-    },
-  },
+  getters: {},
   actions: {
+    // 1. Socket binding
     bindSocketEvents(): void {
-      if (this.hasBoundSocketEvents) {
+      if (this.connected) {
         return
       }
 
@@ -32,229 +24,100 @@ export const useRuleFvgStore = defineStore('rule-fvg-store', {
       on('socket:disconnected', () => {
         this.connected = false
       })
-      on('fvgRules:created', (payload) => {
-        if (Array.isArray(payload)) {
-          const items = payload
-            .map((item) => {
-              if (typeof item !== 'object' || item === null) {
-                return null
-              }
-
-              const rawItem = item as Record<string, unknown>
-              const id = typeof rawItem.id === 'string' ? rawItem.id.trim() : ''
-              const ruleId = typeof rawItem.ruleId === 'string' ? rawItem.ruleId.trim() : ''
-              const verb = typeof rawItem.verb === 'string' ? rawItem.verb.trim() : ''
-              const phrase = typeof rawItem.phrase === 'string' ? rawItem.phrase.trim() : ''
-
-              if (!id || !ruleId || !verb || !phrase) {
-                return null
-              }
-
-              return { id, ruleId, verb, phrase }
-            })
-            .filter((item): item is RuleFvgItem => item !== null)
-
-          this.fvgRules = items
+      on('fvg:removed', (socketMsg) => {
+        const removedId = (socketMsg as { id?: string })?.id
+        if (!removedId) {
           return
         }
 
-        if (typeof payload !== 'object' || payload === null) {
-          return
+        const removeIndex = this.fvg.findIndex((item) => item.id === removedId)
+        if (removeIndex >= 0) {
+          this.fvg.splice(removeIndex, 1)
         }
-
-        const rawPayload = payload as Record<string, unknown>
-        const ruleId = typeof rawPayload.ruleId === 'string' ? rawPayload.ruleId.trim() : ''
-
-        if (Array.isArray(rawPayload.items)) {
-          if (ruleId && this.activeRuleId !== ruleId) {
-            return
-          }
-
-          const items = rawPayload.items
-            .map((item) => {
-              if (typeof item !== 'object' || item === null) {
-                return null
-              }
-
-              const rawItem = item as Record<string, unknown>
-              const id = typeof rawItem.id === 'string' ? rawItem.id.trim() : ''
-              const itemRuleId = typeof rawItem.ruleId === 'string' ? rawItem.ruleId.trim() : ''
-              const verb = typeof rawItem.verb === 'string' ? rawItem.verb.trim() : ''
-              const phrase = typeof rawItem.phrase === 'string' ? rawItem.phrase.trim() : ''
-
-              if (!id || !itemRuleId || !verb || !phrase) {
-                return null
-              }
-
-              return { id, ruleId: itemRuleId, verb, phrase }
-            })
-            .filter((item): item is RuleFvgItem => item !== null)
-
-          this.fvgRules = items
-          return
-        }
-
-        if (!ruleId || this.activeRuleId !== ruleId) {
-          return
-        }
-
-        void this.getAllFvgRuleByRuleId(ruleId).catch(() => undefined)
       })
-      on('fvgRules:removed', (payload) => {
-        if (typeof payload === 'object' && payload !== null) {
-          const rawPayload = payload as Record<string, unknown>
-          const ruleId = typeof rawPayload.ruleId === 'string' ? rawPayload.ruleId.trim() : ''
-
-          if (ruleId && this.activeRuleId !== ruleId) {
-            return
-          }
-
-          if (ruleId && this.activeRuleId === ruleId) {
-            this.activeRuleId = ''
-          }
+      on('fvg:updated', (socketMsg) => {
+        const payload = socketMsg as FvgItem
+        const targetIndex = this.fvg.findIndex((item) => item.id === payload.id)
+        if (targetIndex >= 0) {
+          this.fvg.splice(targetIndex, 1, payload)
+          return
         }
 
-        this.fvgRules = []
+        this.fvg.push(payload)
       })
-      on('fvgRule:appended', (payload) => {
-        if (typeof payload !== 'object' || payload === null) {
+      on('fvg:appended', (socketMsg) => {
+        const payload = socketMsg as FvgItem
+        const existingIndex = this.fvg.findIndex((item) => item.id === payload.id)
+        if (existingIndex >= 0) {
+          this.fvg.splice(existingIndex, 1, payload)
           return
         }
 
-        const rawItem = payload as Record<string, unknown>
-        const id = typeof rawItem.id === 'string' ? rawItem.id.trim() : ''
-        const ruleId = typeof rawItem.ruleId === 'string' ? rawItem.ruleId.trim() : ''
-        const verb = typeof rawItem.verb === 'string' ? rawItem.verb.trim() : ''
-        const phrase = typeof rawItem.phrase === 'string' ? rawItem.phrase.trim() : ''
-
-        if (!id || !ruleId || !verb || !phrase) {
-          return
-        }
-
-        if (!this.activeRuleId || ruleId !== this.activeRuleId) {
-          return
-        }
-
-        this.upsertFvgRule({ id, ruleId, verb, phrase })
+        this.fvg.push(payload)
       })
-      on('fvgRule:removed', (payload) => {
-        if (typeof payload !== 'object' || payload === null) {
-          return
-        }
-
-        const rawPayload = payload as Record<string, unknown>
-        const id = typeof rawPayload.id === 'string' ? rawPayload.id.trim() : ''
-        const ruleId = typeof rawPayload.ruleId === 'string' ? rawPayload.ruleId.trim() : ''
-
-        if (!id) {
-          return
-        }
-
-        if (ruleId && this.activeRuleId && ruleId !== this.activeRuleId) {
-          return
-        }
-
-        this.removeFvgRuleFromStore(id)
-      })
-      // Support both backend event name and requested event spelling.
-      on('fvgRule:updated', (payload) => {
-        if (typeof payload !== 'object' || payload === null) {
-          return
-        }
-
-        const rawItem = payload as Record<string, unknown>
-        const id = typeof rawItem.id === 'string' ? rawItem.id.trim() : ''
-        const ruleId = typeof rawItem.ruleId === 'string' ? rawItem.ruleId.trim() : ''
-        const verb = typeof rawItem.verb === 'string' ? rawItem.verb.trim() : ''
-        const phrase = typeof rawItem.phrase === 'string' ? rawItem.phrase.trim() : ''
-
-        if (!id || !ruleId || !verb || !phrase) {
-          return
-        }
-
-        if (!this.activeRuleId || ruleId !== this.activeRuleId) {
-          return
-        }
-
-        this.upsertFvgRule({ id, ruleId, verb, phrase })
-      })
-      on('fvgRule:update', (payload) => {
-        if (typeof payload !== 'object' || payload === null) {
-          return
-        }
-
-        const rawItem = payload as Record<string, unknown>
-        const id = typeof rawItem.id === 'string' ? rawItem.id.trim() : ''
-        const ruleId = typeof rawItem.ruleId === 'string' ? rawItem.ruleId.trim() : ''
-        const verb = typeof rawItem.verb === 'string' ? rawItem.verb.trim() : ''
-        const phrase = typeof rawItem.phrase === 'string' ? rawItem.phrase.trim() : ''
-
-        if (!id || !ruleId || !verb || !phrase) {
-          return
-        }
-
-        if (!this.activeRuleId || ruleId !== this.activeRuleId) {
-          return
-        }
-
-        this.upsertFvgRule({ id, ruleId, verb, phrase })
-      })
-
-      this.hasBoundSocketEvents = true
     },
 
-    setActiveRuleId(ruleId: string): void {
-      this.activeRuleId = ruleId
-
-      if (!ruleId) {
-        this.fvgRules = []
-      }
-    },
-
-    // Get
-    async getAllFvgRuleByRuleId(ruleId: string): Promise<RuleFvgItem[]> {
-      this.activeRuleId = ruleId
-
-      const requestedRuleId = ruleId
-      const items = await get<RuleFvgItem[]>(`/api/rules/fvg/${encodeURIComponent(ruleId)}`)
-      if (this.activeRuleId === requestedRuleId) {
-        this.fvgRules = items
-      }
-
+    // 2. API requests
+    async getFvgByRuleId(ruleId: string): Promise<FvgItem[]> {
+      const items = await get<FvgItem[]>(`/api/fvg/${encodeURIComponent(ruleId)}`)
+      this.fvg = items
       return items
     },
 
-    // Post
-    async addFvgRule(payload: AddFvgRuleRequest): Promise<RuleFvgItem> {
-      const item = await post<RuleFvgItem>('/api/rules/add-fvg', payload)
-      return item
+    async appendFvg(payload: FvgAppendRequest): Promise<ProcessResponseWithId> {
+      return post<ProcessResponseWithId>('/api/fvg/append', payload)
     },
 
-    // Delete
-    async removerFvgRule(fvgRuleId: string): Promise<RemoveFvgRuleResponse> {
-      const response = await del<RemoveFvgRuleResponse>(`/api/rules/rm-fvg/${encodeURIComponent(fvgRuleId)}`)
-      return response
+    async correctFvg(payload: FvgCorrectRequest): Promise<ProcessResponseWithId> {
+      return post<ProcessResponseWithId>('/api/fvg/correct', payload)
     },
 
-    // Patch
-    async modifyFvgRule(fvgRuleId: string, payload: UpdateFvgRuleRequest): Promise<RuleFvgItem> {
-      const item = await patch<RuleFvgItem>(`/api/rules/fvg/${encodeURIComponent(fvgRuleId)}`, payload)
-      this.upsertFvgRule(item)
-      return item
+    async removeFvgById(fvgId: string): Promise<ProcessResponseWithId> {
+      return del<ProcessResponseWithId>(`/api/fvg/${encodeURIComponent(fvgId)}`)
     },
 
-    upsertFvgRule(item: RuleFvgItem): void {
-      const existingIndex = this.fvgRules.findIndex((existingItem) => existingItem.id === item.id)
+    // 3. Helpers
+    upsertFvg(item: FvgItem): void {
+      const existingIndex = this.fvg.findIndex((entry) => entry.id === item.id)
       if (existingIndex >= 0) {
-        this.fvgRules.splice(existingIndex, 1, item)
+        this.fvg.splice(existingIndex, 1, item)
         return
       }
 
-      this.fvgRules.push(item)
+      this.fvg.push(item)
     },
 
-    removeFvgRuleFromStore(fvgRuleId: string): void {
-      this.fvgRules = this.fvgRules.filter((item) => item.id !== fvgRuleId)
+    findFvgById(fvgId: string): FvgItem | null {
+      return this.fvg.find((item) => item.id === fvgId) ?? null
+    },
+
+    // Backward-compatible aliases
+    getAllFvgRuleByRuleId(ruleId: string): Promise<FvgItem[]> {
+      return this.getFvgByRuleId(ruleId)
+    },
+
+    addFvgRule(payload: { ruleId: string; verb: string; phrase: string }): Promise<ProcessResponseWithId> {
+      return this.appendFvg({
+        rule_id: payload.ruleId,
+        verb: payload.verb,
+        phrase: payload.phrase,
+      })
+    },
+
+    modifyFvgRule(fvgId: string, payload: { verb?: string; phrase?: string }): Promise<ProcessResponseWithId> {
+      return this.correctFvg({
+        id: fvgId,
+        verb: payload.verb,
+        phrase: payload.phrase,
+      })
+    },
+
+    removerFvgRule(fvgRuleId: string): Promise<ProcessResponseWithId> {
+      return this.removeFvgById(fvgRuleId)
+    },
+
+    setActiveRuleId(_ruleId: string): void {
+      // no-op for backward compatibility
     },
   },
 })

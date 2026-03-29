@@ -1,146 +1,157 @@
 import { defineStore } from 'pinia'
-import { get, post } from '@/stores/fetchWrapper'
+
+import { post } from '@/stores/fetchWrapper'
 import { on } from '@/socket/socket'
-import type { ClipSentenceResponse, SentenceCursorPage, SentenceItem} from '@/types/sentences'
+import type { ProcessResponseWithId } from '@/types/general'
+import type {
+  CollectSentenceRequest,
+  CorrectSentenceRequest,
+  SentenceClipRequest,
+  SentenceClippedSocketPayload,
+  SentenceCursorPage,
+  SentenceItem,
+  SentenceMergeRequest,
+  SentenceMergedSocketPayload,
+} from '@/types/sentences'
 
-export type SentenceDisplayType = 'source' | 'lemma'
-
-function getSentencePageKey(docId: string, processId: string): string {
-  return `${docId}::${processId}`
-}
+const SENTENCE_ITEM_PER_PAGE = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
 
 export const useSentenceStore = defineStore('sentence-store', {
   state: () => ({
     sentences: [] as SentenceItem[],
     connected: false as boolean,
-    displayType: null as SentenceDisplayType | null,
-    pageStateByDocProcessKey: {} as Record<string, { offset: number | null, limit: number }>,
   }),
-  getters: {
-    getSentenceItems: (state) => (docId: string, processId: string): SentenceItem[] => {
-      if (!docId || !processId) {
-        return []
-      }
-
-      return state.sentences.filter((sentence) => (
-        sentence.docId === docId && sentence.processingId === processId
-      ))
-    },
-  },
+  getters: {},
   actions: {
+    // 1. Socket binding
     bindSocketEvents(): void {
       if (this.connected) {
         return
       }
 
+      on('socket:connected', () => {
+        this.connected = true
+      })
+      on('socket:disconnected', () => {
+        this.connected = false
+      })
       on('sentence:merged', (socketMsg) => {
-        const sentence =
-          (socketMsg as { result?: SentenceItem })?.result
-          ?? (socketMsg as SentenceItem)
-        if (!sentence?.docId || !sentence?.processingId) {
+        const payload = socketMsg as SentenceMergedSocketPayload
+        const sentenceIds = payload?.meta?.sentence_ids ?? []
+        const mergedSentence = payload?.result
+
+        if (!mergedSentence || sentenceIds.length === 0) {
           return
         }
 
-        void this.refreshLoadedSentences(sentence.docId, sentence.processingId).catch(() => undefined)
+        const originalInsertIndex = this.sentences.findIndex((item) => sentenceIds.includes(item.id))
+        this.sentences = this.sentences.filter((item) => !sentenceIds.includes(item.id))
+        if (originalInsertIndex >= 0) {
+          this.sentences.splice(originalInsertIndex, 0, mergedSentence)
+          return
+        }
+
+        this.sentences.unshift(mergedSentence)
       })
       on('sentence:clipped', (socketMsg) => {
-        const firstSentence =
-          (socketMsg as { result?: SentenceItem[] })?.result?.[0]
-          ?? (socketMsg as SentenceItem[])?.[0]
-        if (!firstSentence?.docId || !firstSentence?.processingId) {
+        const payload = socketMsg as SentenceClippedSocketPayload
+        const sentenceId = payload?.meta?.sentence_id ?? ''
+        const clippedItems = payload?.result ?? []
+        if (!sentenceId || clippedItems.length === 0) {
           return
         }
 
-        void this.refreshLoadedSentences(firstSentence.docId, firstSentence.processingId).catch(() => undefined)
-      })
-      this.connected = true
-    },
-
-    // Get
-    async getSentences(docId: string, processId: string,
-      offset: number | null = null, limit?: number,
-      saveToStore = true): Promise<SentenceCursorPage> {
-      const resolvedLimit = limit ?? Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10')
-      const page = await get<SentenceCursorPage>(
-        `/api/sentences/${encodeURIComponent(docId)}`,
-        {
-          params: {
-            processingId: processId,
-            afterStartOffset: offset,
-            limit: resolvedLimit,
-          },
-        },
-      )
-
-      if (saveToStore) {
-        const pageKey = getSentencePageKey(docId, processId)
-        this.pageStateByDocProcessKey[pageKey] = {
-          offset,
-          limit: resolvedLimit,
+        const clippedIndex = this.sentences.findIndex((item) => item.id === sentenceId)
+        if (clippedIndex >= 0) {
+          this.sentences.splice(clippedIndex, 1, ...clippedItems)
+          return
         }
-        this.sentences = page.items ?? []
-      }
 
-      return page
-    },
-
-    // Post: merge
-    async mergeSentences(sentenceIds: string[]): Promise<SentenceItem> {
-      const normalizedSentenceIds = [...new Set(sentenceIds.filter((sentenceId) => sentenceId))]
-      if (normalizedSentenceIds.length < 2) {
-        throw new Error('At least two sentence IDs are required for merge.')
-      }
-
-      const mergedItem = await post<SentenceItem>('/api/sentences/merge', {
-        sentenceIds: normalizedSentenceIds,
+        this.sentences.push(...clippedItems)
       })
-      return mergedItem
+      on('sentence:corrected', (socketMsg) => {
+        const payload = socketMsg as SentenceItem
+        const sentenceIndex = this.sentences.findIndex((item) => item.id === payload.id)
+        if (sentenceIndex >= 0) {
+          this.sentences.splice(sentenceIndex, 1, payload)
+        }
+      })
+      on('segmentation:succeed', (socketMsg) => {
+        const previewItems = (socketMsg as { preview?: SentenceItem[] })?.preview ?? []
+        this.sentences = previewItems
+      })
     },
 
-    // Post: clip
-    async clipSentence(sentenceId: string, splitOffset: number): Promise<SentenceItem[]> {
-      const response = await post<ClipSentenceResponse>(
-        `/api/sentences/${encodeURIComponent(sentenceId)}/clip`,
-        { splitOffset },
-      )
-      return response.items ?? []
+    // 2. API requests
+    async collectSentences(payload: CollectSentenceRequest, saveToStore = true): Promise<SentenceItem[]> {
+      const items = await post<SentenceItem[]>('/api/sentences', payload)
+      if (saveToStore) {
+        this.sentences = items
+      }
+      return items
     },
 
-    async refreshLoadedSentences(docId: string, processId: string): Promise<SentenceCursorPage> {
-      const pageKey = getSentencePageKey(docId, processId)
-      const existingItems = this.sentences.filter((sentence) => (
-        sentence.docId === docId && sentence.processingId === processId
-      ))
-      const trackedPageState = this.pageStateByDocProcessKey[pageKey]
-      const limit = trackedPageState?.limit
-        ?? Math.max(existingItems.length, Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10'))
-      const offset = trackedPageState?.offset ?? null
-      this.sentences = []
-      return this.getSentences(docId, processId, offset, limit)
+    async getSentences(
+      docId: string,
+      segmentationId: string,
+      splitOffset: number | null = null,
+      limit = SENTENCE_ITEM_PER_PAGE,
+      saveToStore = true,
+    ): Promise<SentenceCursorPage> {
+      const requestPayload: CollectSentenceRequest = {
+        doc_id: docId,
+        segmentation_id: segmentationId,
+        split_offset: splitOffset,
+        limit,
+      }
+      const items = await this.collectSentences(requestPayload, saveToStore)
+      const hasMore = items.length === limit
+      const nextAfterStartOffset = hasMore ? items[items.length - 1]?.start_offset ?? null : null
+      return {
+        items,
+        next_after_start_offset: nextAfterStartOffset,
+        has_more: hasMore,
+      }
     },
 
-    // Sentence Table Display
-    resetDisplayType(): void {
-      this.displayType = null
+    async mergeSentences(sentenceIds: string[]): Promise<ProcessResponseWithId> {
+      const payload: SentenceMergeRequest = { sentence_ids: sentenceIds }
+      return post<ProcessResponseWithId>('/api/sentence/merge', payload)
     },
 
-    ensureDisplayType(canDisplayLemma: boolean): void {
-      if (!canDisplayLemma) {
-        this.displayType = null
+    async clipSentence(sentenceId: string, splitOffset: number): Promise<ProcessResponseWithId> {
+      const payload: SentenceClipRequest = {
+        sentence_id: sentenceId,
+        split_offset: splitOffset,
+      }
+      return post<ProcessResponseWithId>('/api/sentence/clip', payload)
+    },
+
+    async correctSentence(sentenceId: string, correctedText: string): Promise<ProcessResponseWithId> {
+      const payload: CorrectSentenceRequest = {
+        sentence_id: sentenceId,
+        corrected_text: correctedText,
+      }
+      return post<ProcessResponseWithId>('/api/sentence/correct', payload)
+    },
+
+    // 3. Helpers
+    upsertSentence(sentence: SentenceItem): void {
+      const existingIndex = this.sentences.findIndex((item) => item.id === sentence.id)
+      if (existingIndex >= 0) {
+        this.sentences.splice(existingIndex, 1, sentence)
         return
       }
 
-      if (this.displayType === null) {
-        this.displayType = 'source'
-      }
+      this.sentences.push(sentence)
     },
 
-    toggleDisplayType(): void {
-      if (this.displayType === null) {
-        return
-      }
+    findSentenceById(sentenceId: string): SentenceItem | null {
+      return this.sentences.find((item) => item.id === sentenceId) ?? null
+    },
 
-      this.displayType = this.displayType === 'source' ? 'lemma' : 'source'
+    getSentenceItems(docId: string, segmentationId: string): SentenceItem[] {
+      return this.sentences.filter((item) => item.doc_id === docId && item.version_id === segmentationId)
     },
   },
 })

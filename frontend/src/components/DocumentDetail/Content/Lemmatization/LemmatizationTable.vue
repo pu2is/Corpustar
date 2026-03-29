@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import SentencePagination from '@/components/DocumentDetail/Content/SentencePagination.vue'
 import LemmaPairItem from '@/components/DocumentDetail/Content/Lemmatization/LemmaPairItem.vue'
-import type { LemmaItem } from '@/types/lemmas'
+import type { LemmaViewItem } from '@/types/lemmatize'
 
 const props = defineProps<{
-  items: LemmaItem[]
+  items: LemmaViewItem[]
   currentPage: number
   hasPrevious: boolean
   hasNext: boolean

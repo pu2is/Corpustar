@@ -1,213 +1,76 @@
-import { defineStore } from 'pinia';
-// fetch wrapper
-import { del, get, post } from '@/stores/fetchWrapper';
-import { on, SOCKET_CONNECTED_EVENT } from '@/socket/socket';
-// types
-import type { DocItem } from '@/types/documents';
+import { defineStore } from 'pinia'
 
-interface DocumentState {
-  documents: DocItem[]
-  loading: boolean
-  error: string | null
-}
-
-const DOC_FILE_TYPES = new Set(['doc', 'docx', 'odt', 'txt']);
-// Keep socket lifecycle in socket.ts; store only consumes events.
-let hasBoundSocketEvents = false;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function toNonEmptyString(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length ? trimmed : null;
-}
-
-function toDocItemFromCreatedPayload(value: unknown): DocItem | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-
-  const id = toNonEmptyString(value.id);
-  const filename = toNonEmptyString(value.filename);
-  const displayName = toNonEmptyString(value.displayName);
-  const fileType = toNonEmptyString(value.fileType);
-  const createdAt = toNonEmptyString(value.createdAt);
-  const updatedAt = toNonEmptyString(value.updatedAt);
-  const fileSize = typeof value.fileSize === 'number' ? value.fileSize : null;
-  const textCharCount = typeof value.textCharCount === 'number' ? value.textCharCount : null;
-
-  if (!id || !filename || !displayName || !fileType || !createdAt || !updatedAt || fileSize === null || textCharCount === null) {
-    return null;
-  }
-
-  if (!Number.isFinite(fileSize) || !Number.isFinite(textCharCount) || !DOC_FILE_TYPES.has(fileType)) {
-    return null;
-  }
-
-  return {
-    id,
-    filename,
-    displayName,
-    fileType: fileType as DocItem['fileType'],
-    fileSize,
-    textCharCount,
-    createdAt,
-    updatedAt,
-    note: typeof value.note === 'string' ? value.note : '',
-    sourcePath: typeof value.sourcePath === 'string' ? value.sourcePath : '',
-    textPath: typeof value.textPath === 'string' ? value.textPath : '',
-  };
-}
+import { del, get, post } from '@/stores/fetchWrapper'
+import { on } from '@/socket/socket'
+import type { AddDocumentRequest, DocItem } from '@/types/documents'
+import type { ProcessResponseWithId } from '@/types/general'
 
 export const useDocumentStore = defineStore('document-store', {
-  state: (): DocumentState => ({
-    documents: [],
-    loading: false,
-    error: null,
+  state: () => ({
+    documents: [] as DocItem[],
+    connected: false as boolean,
   }),
-  getters: {
-    getDocumentById: (state) => (docId: string): DocItem | null => {
-      const documentMap = new Map<string, DocItem>(
-        state.documents.map((document) => [document.id, document] as const),
-      );
-
-      return documentMap.get(docId) ?? null;
-    },
-  },
+  getters: {},
   actions: {
+    // 1. Socket binding
     bindSocketEvents(): void {
-      if (hasBoundSocketEvents) {
-        return;
+      if (this.connected) {
+        return
       }
 
-      on(SOCKET_CONNECTED_EVENT, () => {
-        void this.getAllDocuments().catch(() => undefined);
-      });
-      on('document:created', (payload) => {
-        this.handleDocumentCreated(payload);
-      });
-      on('document:removed', (payload) => {
-        this.handleDocumentRemoved(payload);
-      });
+      on('socket:connected', () => {
+        this.connected = true
+      })
+      on('socket:disconnected', () => {
+        this.connected = false
+      })
+      on('document:created', (socketMsg) => {
+        const item = socketMsg as DocItem
+        const existingIndex = this.documents.findIndex((doc) => doc.id === item.id)
+        if (existingIndex >= 0) {
+          this.documents.splice(existingIndex, 1, item)
+          return
+        }
 
-      hasBoundSocketEvents = true;
+        this.documents.unshift(item)
+      })
+      on('document:removed', (socketMsg) => {
+        const removedId = (socketMsg as { id?: string })?.id
+        if (!removedId) {
+          return
+        }
+
+        const removeIndex = this.documents.findIndex((doc) => doc.id === removedId)
+        if (removeIndex >= 0) {
+          this.documents.splice(removeIndex, 1)
+        }
+      })
     },
 
-    // Get
+    // 2. API requests
     async getAllDocuments(): Promise<DocItem[]> {
-      this.loading = true;
-      this.error = null;
-
-      try {
-        const documents = await get<DocItem[]>('/api/documents');
-        this.documents = documents;
-        return documents;
-      } catch (error) {
-        this.error = error instanceof Error ? error.message : String(error);
-        throw error;
-      } finally {
-        this.loading = false;
-      }
+      const documents = await get<DocItem[]>('/api/documents')
+      this.documents = documents
+      return documents
     },
 
-    // Post
-    async addDocumentByPath(filePath: string): Promise<DocItem> {
-      this.loading = true;
-      this.error = null;
-
-      try {
-        const doc = await post<DocItem>('/api/add_document', { filePath });
-        this.addDocumentToStore(doc);
-        return doc;
-      } catch (error) {
-        this.error = error instanceof Error ? error.message : String(error);
-        throw error;
-      } finally {
-        this.loading = false;
-      }
+    async addDocumentByPath(filePath: string): Promise<ProcessResponseWithId> {
+      const payload: AddDocumentRequest = { filePath }
+      return post<ProcessResponseWithId>('/api/documents', payload)
     },
 
-    // Delete
-    async removeDocument(id: string): Promise<void> {
-      this.loading = true;
-      this.error = null;
-
-      try {
-        const response = await del<{ success: boolean; id: string }>(`/api/remove_document/${encodeURIComponent(id)}`);
-        this.removeDocumentFromStore(response.id);
-      } catch (error) {
-        this.error = error instanceof Error ? error.message : String(error);
-        throw error;
-      } finally {
-        this.loading = false;
-      }
+    async removeDocument(id: string): Promise<ProcessResponseWithId> {
+      return del<ProcessResponseWithId>(`/api/documents/${encodeURIComponent(id)}`)
     },
 
-    // Socket
-    handleDocumentCreated(payload: unknown): void {
-      if (!isRecord(payload)) {
-        return;
-      }
-
-      const tempId = toNonEmptyString(payload.tempId);
-      const candidate = toDocItemFromCreatedPayload(payload)
-        ?? toDocItemFromCreatedPayload(payload.doc)
-        ?? toDocItemFromCreatedPayload(payload.document);
-
-      if (!candidate) {
-        return;
-      }
-
-      if (tempId) {
-        this.replaceDocument(tempId, candidate);
-        return;
-      }
-
-      this.addDocumentToStore(candidate);
+    // 3. Helpers
+    findDocumentById(docId: string): DocItem | null {
+      return this.documents.find((item) => item.id === docId) ?? null
     },
 
-    handleDocumentRemoved(payload: unknown): void {
-      if (!isRecord(payload)) {
-        return;
-      }
-
-      const removedId = toNonEmptyString(payload.id);
-      if (!removedId) {
-        return;
-      }
-
-      this.removeDocumentFromStore(removedId);
-    },
-
-    // Store manipulation
-    addDocumentToStore(doc: DocItem): void {
-      const existingIndex = this.documents.findIndex((existingDoc) => existingDoc.id === doc.id);
-      if (existingIndex >= 0) {
-        this.documents.splice(existingIndex, 1, doc);
-        return;
-      }
-
-      this.documents.unshift(doc);
-    },
-
-    replaceDocument(tempId: string, doc: DocItem): void {
-      const targetIndex = this.documents.findIndex((existingDoc) => existingDoc.id === tempId);
-      if (targetIndex >= 0) {
-        this.documents.splice(targetIndex, 1, doc);
-        return;
-      }
-
-      this.addDocumentToStore(doc);
-    },
-
-    removeDocumentFromStore(id: string): void {
-      this.documents = this.documents.filter((doc) => doc.id !== id);
+    // Backward-compatible alias
+    getDocumentById(docId: string): DocItem | null {
+      return this.findDocumentById(docId)
     },
   },
 })

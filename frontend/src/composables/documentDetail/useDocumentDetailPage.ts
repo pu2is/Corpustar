@@ -17,16 +17,16 @@ export function useDocumentDetailPage(docId: Ref<string>) {
     segmentationProcess.value?.id ?? '',
   ))
   const segmentationRunning = computed(() => processStore.getSegmentationStateByDocId(docId.value))
-  const textPath = computed(() => documentItem.value?.textPath ?? '')
+  const textPath = computed(() => documentItem.value?.text_path ?? '')
   const hasSourceText = computed(() => Boolean(textPath.value.trim()))
   const hasLemmatizeProcess = computed(() => (
-    processItemsByDocId.value.some((process) => process.type === 'lemmatize')
+    processItemsByDocId.value.some((process) => process.type === 'lemma')
   ))
   const canDisplayLemma = computed(() => lemmatizeProcess.value?.state === 'succeed')
   const lemmatizeRunning = computed(() => lemmatizeProcess.value?.state === 'running')
   const lemmatizeFailed = computed(() => lemmatizeProcess.value?.state === 'failed')
-  const displayName = computed(() => documentItem.value?.displayName ?? '')
-  const formattedCharCount = computed(() => (documentItem.value?.textCharCount ?? 0).toLocaleString())
+  const displayName = computed(() => documentItem.value?.display_name ?? '')
+  const formattedCharCount = computed(() => (documentItem.value?.char_count ?? 0).toLocaleString())
   const { sourceText, sourceTextLoading } = useDocumentSourceText(textPath)
 
   const viewMode = computed<DocumentDetailViewMode>(() => {

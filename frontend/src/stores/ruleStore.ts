@@ -2,117 +2,75 @@ import { defineStore } from 'pinia'
 
 import { del, get, post } from '@/stores/fetchWrapper'
 import { on } from '@/socket/socket'
-import type { ImportRuleRequest, RemoveRuleResponse, RuleItem, RuleType } from '@/types/rules'
+import type { ProcessResponse, ProcessResponseWithId } from '@/types/general'
+import type { ImportRuleProcessRequest } from '@/types/processings'
+import type { RuleItem } from '@/types/rules'
 
 export const useRuleStore = defineStore('rule-store', {
   state: () => ({
     rules: [] as RuleItem[],
-    connected: false,
-    hasBoundSocketEvents: false,
+    connected: false as boolean,
   }),
-  getters: {
-    getRuleByStoreId: (state) => (ruleId: string): RuleItem | null => {
-      if (!ruleId) {
-        return null
-      }
-
-      return state.rules.find((rule) => rule.id === ruleId) ?? null
-    },
-    getRuleNameById(): (ruleId: string) => string {
-      const ruleNameById = new Map<string, string>(
-        this.rules.map((rule) => {
-          const fileNameWithExtension = rule.path.split(/[\\/]/).pop() ?? ''
-          const extensionIndex = fileNameWithExtension.lastIndexOf('.')
-          const fileName = extensionIndex > 0
-            ? fileNameWithExtension.slice(0, extensionIndex)
-            : fileNameWithExtension
-
-          return [rule.id, fileName]
-        }),
-      )
-
-      return (ruleId: string): string => {
-        if (!ruleId) {
-          return ''
-        }
-
-        return ruleNameById.get(ruleId) ?? ''
-      }
-    },
-  },
+  getters: {},
   actions: {
+    // 1. Socket binding
     bindSocketEvents(): void {
-      if (this.hasBoundSocketEvents) {
+      if (this.connected) {
         return
       }
 
       on('socket:connected', () => {
         this.connected = true
-        void this.getAllRules().catch(() => undefined)
       })
       on('socket:disconnected', () => {
         this.connected = false
       })
-      on('rule:created', (payload) => {
-        if (typeof payload !== 'object' || payload === null) {
+      on('importRule:succeed', (socketMsg) => {
+        const payload = socketMsg as { rule?: RuleItem }
+        const rule = payload?.rule
+        if (!rule) {
           return
         }
 
-        const rawRule = payload as Record<string, unknown>
-        const id = typeof rawRule.id === 'string' ? rawRule.id.trim() : ''
-        const path = typeof rawRule.path === 'string' ? rawRule.path.trim() : ''
-        const type = rawRule.type === 'fvg' ? (rawRule.type as RuleType) : null
-
-        if (!id || !path || !type) {
+        const existingIndex = this.rules.findIndex((item) => item.id === rule.id)
+        if (existingIndex >= 0) {
+          this.rules.splice(existingIndex, 1, rule)
           return
         }
 
-        this.upsertRule({ id, type, path})
+        this.rules.unshift(rule)
       })
-      on('rule:removed', (payload) => {
-        if (typeof payload !== 'object' || payload === null) {
+      on('rule:removed', (socketMsg) => {
+        const removedId = (socketMsg as { id?: string })?.id
+        if (!removedId) {
           return
         }
 
-        const rawRule = payload as Record<string, unknown>
-        const ruleId = typeof rawRule.id === 'string' ? rawRule.id.trim() : ''
-        if (!ruleId) {
-          return
+        const removeIndex = this.rules.findIndex((rule) => rule.id === removedId)
+        if (removeIndex >= 0) {
+          this.rules.splice(removeIndex, 1)
         }
-
-        this.removeRuleFromStore(ruleId)
       })
-
-      this.hasBoundSocketEvents = true
     },
 
-    // Get
+    // 2. API requests
     async getAllRules(): Promise<RuleItem[]> {
-      const rules = await get<RuleItem[]>('/api/rules')
+      const rules = await get<RuleItem[]>('/api/rule')
       this.rules = rules
       return rules
     },
 
-    // Get by Id
-    async getRuleById(ruleId: string): Promise<RuleItem | null> {
-      const rule = await get<RuleItem | null>(`/api/rules/${encodeURIComponent(ruleId)}`)
-      return rule
+    async removeRuleById(ruleId: string): Promise<ProcessResponseWithId> {
+      return del<ProcessResponseWithId>(`/api/rule/${encodeURIComponent(ruleId)}`)
     },
 
-    // Post: import & create
-    async importRule(payload: ImportRuleRequest): Promise<RuleItem> {
-      const rule = await post<RuleItem>('/api/rules', payload)
-      return rule
+    async importRule(payload: ImportRuleProcessRequest): Promise<ProcessResponse> {
+      return post<ProcessResponse>('/api/process/import_rule', payload)
     },
 
-    // Delete
-    async removeRuleById(ruleId: string): Promise<RemoveRuleResponse> {
-      const response = await del<RemoveRuleResponse>(`/api/rules/${encodeURIComponent(ruleId)}`)
-      return response
-    },
-
+    // 3. Helpers
     upsertRule(rule: RuleItem): void {
-      const existingIndex = this.rules.findIndex((existingRule) => existingRule.id === rule.id)
+      const existingIndex = this.rules.findIndex((item) => item.id === rule.id)
       if (existingIndex >= 0) {
         this.rules.splice(existingIndex, 1, rule)
         return
@@ -121,8 +79,26 @@ export const useRuleStore = defineStore('rule-store', {
       this.rules.unshift(rule)
     },
 
-    removeRuleFromStore(ruleId: string): void {
-      this.rules = this.rules.filter((rule) => rule.id !== ruleId)
+    findRuleById(ruleId: string): RuleItem | null {
+      return this.rules.find((item) => item.id === ruleId) ?? null
+    },
+
+    getRuleNameById(ruleId: string): string {
+      const rule = this.findRuleById(ruleId)
+      if (!rule?.path) {
+        return ''
+      }
+
+      const fileNameWithExtension = rule.path.split(/[\\/]/).pop() ?? ''
+      const extensionIndex = fileNameWithExtension.lastIndexOf('.')
+      return extensionIndex > 0
+        ? fileNameWithExtension.slice(0, extensionIndex)
+        : fileNameWithExtension
+    },
+
+    // Backward-compatible alias
+    getRuleByStoreId(ruleId: string): RuleItem | null {
+      return this.findRuleById(ruleId)
     },
   },
 })

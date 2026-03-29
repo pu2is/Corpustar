@@ -59,7 +59,7 @@ defineExpose({
           :key="item.id"
           :item="item"
           :loading="props.tableLoading"
-          :can-merge-prev="index > 0 || (index === 0 && item.startOffset > 0 && props.lastSentenceItem !== null)"
+          :can-merge-prev="index > 0 || (index === 0 && item.start_offset > 0 && props.lastSentenceItem !== null)"
           :highlighted="highlightedSentenceIdSet.has(item.id)"
           :allow-sentence-actions="true"
           @request-merge="handleRequestMerge"
