@@ -18,12 +18,13 @@ export const useRuleStore = defineStore('rule-store', {
       if (this.connected) {
         return
       }
-
-      on('socket:connected', () => {
+      on('socket:connected', async () => {
         this.connected = true
+        this.rules = await this.getAllRules()
       })
       on('socket:disconnected', () => {
         this.connected = false
+        this.rules = []
       })
       on('importRule:succeed', (socketMsg) => {
         const payload = socketMsg as { rule?: RuleItem }

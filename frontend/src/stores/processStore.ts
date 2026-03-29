@@ -30,12 +30,13 @@ export const useProcessStore = defineStore('process-store', {
       if (this.connected) {
         return
       }
-
-      on('socket:connected', () => {
+      on('socket:connected', async () => {
         this.connected = true
+        this.processing = await this.getAllProcesses()
       })
       on('socket:disconnected', () => {
         this.connected = false
+        this.processing = []
       })
       on('importRule:started', (socketMsg) => {
         const payload = socketMsg as ProcessingItem

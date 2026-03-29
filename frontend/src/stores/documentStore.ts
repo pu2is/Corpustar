@@ -10,7 +10,11 @@ export const useDocumentStore = defineStore('document-store', {
     documents: [] as DocItem[],
     connected: false as boolean,
   }),
-  getters: {},
+  getters: {
+    getDocumentById: (state) => (docId: string): DocItem | null => {
+      return state.documents.find((item) => item.id === docId) ?? null
+    },
+  },
   actions: {
     // 1. Socket binding
     bindSocketEvents(): void {
@@ -20,9 +24,11 @@ export const useDocumentStore = defineStore('document-store', {
 
       on('socket:connected', () => {
         this.connected = true
+        void this.getAllDocuments();
       })
       on('socket:disconnected', () => {
         this.connected = false
+        this.documents = []
       })
       on('document:created', (socketMsg) => {
         const item = socketMsg as DocItem
@@ -63,14 +69,5 @@ export const useDocumentStore = defineStore('document-store', {
       return del<ProcessResponseWithId>(`/api/documents/${encodeURIComponent(id)}`)
     },
 
-    // 3. Helpers
-    findDocumentById(docId: string): DocItem | null {
-      return this.documents.find((item) => item.id === docId) ?? null
-    },
-
-    // Backward-compatible alias
-    getDocumentById(docId: string): DocItem | null {
-      return this.findDocumentById(docId)
-    },
   },
 })
