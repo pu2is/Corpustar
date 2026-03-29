@@ -55,25 +55,32 @@ def _validate_sentence_rows_for_merge(
 
 def merge_sentences(sentence_ids: list[str]) -> SentenceItem:
     unique_sentence_ids = list(dict.fromkeys(sentence_ids))
-    if len(unique_sentence_ids) < 2:
-        raise ValueError("At least two sentence IDs are required for merge")
+    if len(unique_sentence_ids) != 2:
+        raise ValueError("Exactly two sentence IDs are required for merge")
 
     sentence_rows = get_sentences_by_ids(unique_sentence_ids)
     if len(sentence_rows) != len(unique_sentence_ids):
         raise FileNotFoundError("One or more sentences were not found")
 
-    doc_id = str(sentence_rows[0]["doc_id"])
+    sentence_row_by_id = {str(row["id"]): row for row in sentence_rows}
+    first_row = sentence_row_by_id[unique_sentence_ids[0]]
+    second_row = sentence_row_by_id[unique_sentence_ids[1]]
+
+    doc_id = str(first_row["doc_id"])
     document = read_document_by_id(doc_id)
     if document is None:
         raise FileNotFoundError(f"Document not found: {doc_id}")
 
     full_text = load_txt_by_path(str(document["text_path"]))
-    sorted_rows = _validate_sentence_rows_for_merge(sentence_rows, full_text)
+    _validate_sentence_rows_for_merge(sentence_rows, full_text)
 
-    merged_start_offset = int(min(row["start_offset"] for row in sorted_rows))
-    merged_end_offset = int(max(row["end_offset"] for row in sorted_rows))
+    merged_start_offset = int(first_row["start_offset"])
+    merged_end_offset = int(second_row["end_offset"])
+    if merged_end_offset <= merged_start_offset:
+        raise ValueError("sentence_ids must be in [previous_sentence_id, current_sentence_id] order")
+
     merged_id = str(uuid4())
-    version_id = str(sorted_rows[0]["version_id"])
+    version_id = str(first_row["version_id"])
 
     source_text = full_text[merged_start_offset:merged_end_offset]
 

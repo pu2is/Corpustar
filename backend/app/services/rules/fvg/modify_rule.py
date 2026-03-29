@@ -21,6 +21,20 @@ def _validate_non_empty_text(field_name: str, value: str) -> str:
     return normalized
 
 
+def _recalculate_fvg_metadata(*, verb: str, phrase: str) -> dict[str, str]:
+    labeled_rows = _PRELABEL.label([{"verb": verb, "phrase": phrase}])
+    if labeled_rows:
+        return labeled_rows[0]
+    return {
+        "verb": verb,
+        "phrase": phrase,
+        "noun": "",
+        "prep": "",
+        "structure_type": "akku",
+        "semantic_type": "unknown",
+    }
+
+
 def add_fvg_entry(
     *,
     rule_id: str,
@@ -45,7 +59,10 @@ def add_fvg_entry(
                 raise ValueError(f"Rule {rule_id} is not type 'fvg'")
 
             if not all([noun, prep, structure_type, semantic_type]):
-                prelabel = _PRELABEL.label([{"verb": normalized_verb, "phrase": normalized_phrase}])[0]
+                prelabel = _recalculate_fvg_metadata(
+                    verb=normalized_verb,
+                    phrase=normalized_phrase,
+                )
                 noun = noun if noun is not None else prelabel["noun"]
                 prep = prep if prep is not None else prelabel["prep"]
                 structure_type = structure_type if structure_type is not None else prelabel["structure_type"]
@@ -113,6 +130,27 @@ def correct_fvg_entry(
     with connection_scope() as connection:
         try:
             connection.execute("BEGIN")
+            existing = get_fvg_entry_by_id(fvg_id=fvg_id, connection=connection)
+            if existing is None:
+                raise FileNotFoundError(f"FVG entry not found: {fvg_id}")
+
+            resolved_verb = verb if verb is not None else existing["verb"]
+            resolved_phrase = phrase if phrase is not None else existing["phrase"]
+            should_recalculate = (
+                resolved_verb != existing["verb"]
+                or resolved_phrase != existing["phrase"]
+            )
+
+            if should_recalculate:
+                prelabel = _recalculate_fvg_metadata(
+                    verb=resolved_verb,
+                    phrase=resolved_phrase,
+                )
+                noun = prelabel["noun"]
+                prep = prelabel["prep"]
+                structure_type = prelabel["structure_type"]
+                semantic_type = prelabel["semantic_type"]
+
             updated = modify_fvg_by_id(
                 fvg_id,
                 verb=verb,

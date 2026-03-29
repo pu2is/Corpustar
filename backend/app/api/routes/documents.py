@@ -75,7 +75,7 @@ def health():
         raise
 
 
-@router.post("/add_document")
+@router.post("/documents")
 async def add_document_route(payload: AddDocumentRequest) -> dict[str, object]:
     function_name = "add_document_route"
     log_event(
@@ -132,7 +132,7 @@ async def add_document_route(payload: AddDocumentRequest) -> dict[str, object]:
         raise HTTPException(status_code=500, detail="Internal server error") from error
 
 
-@router.delete("/remove_document/{id}")
+@router.delete("/documents/{id}")
 async def remove_document_route(id: str) -> dict[str, object]:
     function_name = "remove_document_route"
     log_event(

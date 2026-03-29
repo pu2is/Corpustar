@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 
 from app.core.log import get_logger, log_event
 from app.schemas.sentences import (
@@ -6,7 +6,7 @@ from app.schemas.sentences import (
     SentenceClipRequest,
     SentenceClipResponse,
     SentenceCorrectRequest,
-    SentenceCursorPage,
+    SentenceCursorPageRequest,
     SentenceItem,
 )
 from app.services.sentence.pagination import get_sentence_cursor_page
@@ -21,33 +21,28 @@ LOGGER = get_logger(__name__)
 MODULE_FILE = __file__
 
 
-@router.get("/sentences/{doc_id}", response_model=SentenceCursorPage)
-def get_document_sentences(
-    doc_id: str,
-    segmentation_id: str = Query(..., alias="segmentationId"),
-    after_start_offset: int | None = Query(default=None, alias="afterStartOffset"),
-    limit: int = Query(..., ge=1),
-) -> SentenceCursorPage:
+@router.post("/sentences", response_model=list[SentenceItem])
+def get_document_sentences(payload: SentenceCursorPageRequest) -> list[SentenceItem]:
     function_name = "get_document_sentences"
     log_event(
         LOGGER,
         stage="CALL",
         module_file=MODULE_FILE,
         function_name=function_name,
-        doc_id=doc_id,
-        segmentation_id=segmentation_id,
-        after_start_offset=after_start_offset,
-        limit=limit,
+        doc_id=payload.doc_id,
+        segmentation_id=payload.segmentation_id,
+        after_start_offset=payload.after_start_offset,
+        limit=payload.limit,
     )
 
     try:
-        response = get_sentence_cursor_page(
-            doc_id=doc_id,
-            segmentation_id=segmentation_id,
-            after_start_offset=after_start_offset,
-            limit=limit,
+        page = get_sentence_cursor_page(
+            doc_id=payload.doc_id,
+            segmentation_id=payload.segmentation_id,
+            after_start_offset=payload.after_start_offset,
+            limit=payload.limit,
         )
-        return response
+        return page["items"]
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
@@ -58,15 +53,15 @@ def get_document_sentences(
             stage="ERROR",
             module_file=MODULE_FILE,
             function_name=function_name,
-            doc_id=doc_id,
-            segmentation_id=segmentation_id,
+            doc_id=payload.doc_id,
+            segmentation_id=payload.segmentation_id,
             error=str(error),
             exc_info=True,
         )
         raise HTTPException(status_code=500, detail="Internal server error") from error
 
 
-@router.post("/sentences/merge", response_model=SentenceItem)
+@router.post("/sentence/merge", response_model=SentenceItem)
 def merge_sentences_route(payload: MergeSentenceRequest) -> SentenceItem:
     try:
         return merge_sentences(payload.sentence_ids)

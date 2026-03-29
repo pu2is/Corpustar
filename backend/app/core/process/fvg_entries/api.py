@@ -50,12 +50,12 @@ async def delete_fvg_entry(fvg_id: str) -> dict[str, object]:
 async def update_fvg_entry(
     *,
     fvg_id: str,
-    verb: str,
-    phrase: str,
-    noun: str,
-    prep: str,
-    structure_type: str,
-    semantic_type: str,
+    verb: str | None = None,
+    phrase: str | None = None,
+    noun: str | None = None,
+    prep: str | None = None,
+    structure_type: str | None = None,
+    semantic_type: str | None = None,
 ) -> dict[str, str]:
     response = correct_fvg_entry(
         fvg_id=fvg_id,
