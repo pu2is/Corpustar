@@ -13,7 +13,7 @@ export const useDocumentStore = defineStore('document-store', {
   getters: {
     getDocumentById: (state) => (docId: string): DocItem | null => {
       return state.documents.find((item) => item.id === docId) ?? null
-    },
+    }
   },
   actions: {
     // 1. Socket binding

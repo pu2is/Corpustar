@@ -2,14 +2,9 @@ import { defineStore } from 'pinia'
 
 import { get, post } from '@/stores/fetchWrapper'
 import { on } from '@/socket/socket'
+// types
 import type { ProcessResponse, ProcessResponseWithId } from '@/types/general'
-import type {
-  ImportRuleProcessRequest,
-  LemmatizeRequest,
-  ProcessingItem,
-  ProcessingState,
-  SentenceSegmentationRequest,
-} from '@/types/processings'
+import type { ImportRuleProcessRequest, LemmatizeRequest, ProcessingItem, SentenceSegmentationRequest} from '@/types/processings'
 
 const PREVIEW_LENGTH = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
 
@@ -22,6 +17,23 @@ export const useProcessStore = defineStore('process-store', {
   getters: {
     getProcessByDocId: (state) => (docId: string): ProcessingItem[] => (
       state.processing.filter((item) => item.doc_id === docId)
+    ),
+    getProcessById: (state) => (processId: string): ProcessingItem | undefined => (
+      state.processing.find((item) => item.id === processId)
+    ),
+    getSentenceSegmentationProcessByDocId: (state) => (docId: string): ProcessingItem | null => (
+      state.processing.find((item) => (
+        item.doc_id === docId
+        && item.type === 'sentence_segmentation'
+        && item.state === 'succeed'
+      )) ?? null
+    ),
+    getLemmatizeProcessBySegmentationId: (state) => (docId: string, segmentationId: string): ProcessingItem | null => (
+      state.processing.find((item) => (
+        item.doc_id === docId
+        && item.type === 'lemma'
+        && String(item.meta?.segmentation_id ?? '') === segmentationId
+      )) ?? null
     ),
   },
   actions: {
@@ -131,36 +143,6 @@ export const useProcessStore = defineStore('process-store', {
       }
 
       this.processing.unshift(item)
-    },
-
-    findProcessById(processId: string): ProcessingItem | undefined {
-      return this.processing.find((item) => item.id === processId)
-    },
-
-    getProcessesByDocId(docId: string): ProcessingItem[] {
-      return this.getProcessByDocId(docId)
-    },
-
-    getSentenceSegmentationProcessByDocId(docId: string): ProcessingItem | null {
-      return this.processing.find((item) => (
-        item.doc_id === docId
-        && item.type === 'sentence_segmentation'
-        && item.state === 'succeed'
-      )) ?? null
-    },
-
-    getLemmatizeProcessBySegmentationId(docId: string, segmentationId: string): ProcessingItem | null {
-      return this.processing.find((item) => (
-        item.doc_id === docId
-        && item.type === 'lemma'
-        && String(item.meta?.segmentation_id ?? '') === segmentationId
-      )) ?? null
-    },
-
-    getSegmentationStateByDocId(docId: string): ProcessingState | null {
-      return this.processing.find((item) => (
-        item.doc_id === docId && item.type === 'sentence_segmentation'
-      ))?.state ?? null
     },
   },
 })

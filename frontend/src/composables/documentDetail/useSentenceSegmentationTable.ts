@@ -14,7 +14,11 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
   const activeDocProcessKey = computed(() => (
     docId.value && activeProcessingId.value ? `${docId.value}::${activeProcessingId.value}` : ''
   ))
-  const segmentationState = computed(() => processStore.getSegmentationStateByDocId(docId.value))
+  const segmentationState = computed(() => (
+    processStore
+      .getProcessByDocId(docId.value)
+      .find((process) => process.type === 'sentence_segmentation')?.state ?? null
+  ))
 
   const sentenceItemPerPage = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
   const lastSentenceItem = ref<SentenceItem | null>(null)

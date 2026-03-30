@@ -9,7 +9,7 @@ export function useLemmatizationTable(docId: Ref<string>) {
   const paginationStore = usePaginationStore()
   const processStore = useProcessStore()
 
-  const processItemsByDocId = computed(() => processStore.getProcessesByDocId(docId.value))
+  const processItemsByDocId = computed(() => processStore.getProcessByDocId(docId.value))
   const activeSegmentation = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value))
   const activeSegmentationId = computed(() => activeSegmentation.value?.id ?? '')
   const activeLemmatizeProcess = computed(() => processStore.getLemmatizeProcessBySegmentationId(

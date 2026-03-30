@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
+    "axios": "^1.14.0",
     "lucide-vue-next": "^0.577.0",
     "pinia": "^3.0.4",
     "reka-ui": "^2.9.0",

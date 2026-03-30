@@ -10,13 +10,15 @@ export function useDocumentDetailPage(docId: Ref<string>) {
   const workspaceLoading = ref(false)
 
   const documentItem = computed(() => documentStore.getDocumentById(docId.value))
-  const processItemsByDocId = computed(() => processStore.getProcessesByDocId(docId.value))
+  const processItemsByDocId = computed(() => processStore.getProcessByDocId(docId.value))
   const segmentationProcess = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value))
   const lemmatizeProcess = computed(() => processStore.getLemmatizeProcessBySegmentationId(
     docId.value,
     segmentationProcess.value?.id ?? '',
   ))
-  const segmentationRunning = computed(() => processStore.getSegmentationStateByDocId(docId.value))
+  const segmentationRunning = computed(() => (
+    processItemsByDocId.value.find((process) => process.type === 'sentence_segmentation')?.state ?? null
+  ))
   const textPath = computed(() => documentItem.value?.text_path ?? '')
   const hasSourceText = computed(() => Boolean(textPath.value.trim()))
   const hasLemmatizeProcess = computed(() => (
