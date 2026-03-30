@@ -13,6 +13,7 @@ const props = defineProps<{
 const processStore = useProcessStore(); 
 
 const hasSegmentation = computed(() => props.processes.some(p => p.type === 'sentence_segmentation'));
+// const hasLemmatize = computed(() => props.processes.some(p => p.type === 'lemma'));
 
 // Actions
 function startSentenceSegmentation(): void {
@@ -21,11 +22,13 @@ function startSentenceSegmentation(): void {
 </script>
 
 <template>
-  <div v-if="hasSegmentation" class="absolute right-0 top-1/2 -translate-y-1/2">
-    <article>
+  <div class="absolute right-0 top-1/2 -translate-y-1/2">
+    <article v-if="!hasSegmentation">
       <button type="button"
-        class="bg-yellow-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+        class="cursor-pointer bg-violet-300 text-violet-800 px-3 py-1.5 text-sm font-medium transition hover:opacity-80 
+          disabled:cursor-not-allowed disabled:opacity-60"
         @click="startSentenceSegmentation()">
+        Start segmentation
       </button>
     </article>
   </div>

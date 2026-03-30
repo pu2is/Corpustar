@@ -243,3 +243,5 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
     clipSentence,
   }
 }
+
+export type SegmentItem = ReturnType<typeof useSentenceSegmentationTable>

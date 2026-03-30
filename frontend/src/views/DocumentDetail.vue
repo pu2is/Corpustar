@@ -3,13 +3,15 @@ import { computed } from 'vue'
 // stores
 import { useDocumentStore } from '@/stores/documentStore';
 import { useProcessStore } from '@/stores/processStore';
-// components
-import TopNav from '@/components/Nav/TopNav.vue';
 // icons
 // composables
 import { getIdFromUrl } from '@/composables/useRouteId'
+// components
+import TopNav from '@/components/Nav/TopNav.vue';
 import DocumentInfo from '@/components/DocumentDetail/DetailHeader/DocumentInfo.vue';
 import DocumentAction from '@/components/DocumentDetail/DetailHeader/DocumentAction.vue';
+import SourceText from '@/components/DocumentDetail/SourceText.vue';  
+import SentenceTable from '@/components/DocumentDetail/SentenceTable.vue';
 
 const docId = getIdFromUrl();
 const documentStore = useDocumentStore();
@@ -17,10 +19,7 @@ const processStore = useProcessStore();
 
 const document = computed(() => documentStore.getDocumentById(docId.value));
 const processesOfDoc = computed(() => processStore.getProcessByDocId(docId.value));
-
-
-
-
+const hasSegmentation = computed(() => processesOfDoc.value.some(p => p.type === 'sentence_segmentation'));
 </script>
 
 <template>
@@ -29,13 +28,13 @@ const processesOfDoc = computed(() => processStore.getProcessByDocId(docId.value
       <TopNav />
     </header>
 
-    <section class="ml-16 min-h-0 flex flex-col overflow-hidden px-16 py-6">
-      <div v-if="document" class="relative pr-52">
+    <section class="ml-16 min-h-0 flex flex-1 flex-col overflow-hidden p-6 px-16">
+      <div v-if="document" class="relative min-h-0 overflow-hidden">
         <DocumentInfo :document="document" />
         <DocumentAction :document=document :processes=processesOfDoc />
-
-      
       </div>
+      <SourceText v-if="!hasSegmentation && document" :documents="document" />
+      <SentenceTable :doc-id="docId" />
     </section>
   </main>  
 </template>

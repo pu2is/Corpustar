@@ -7,8 +7,7 @@ const props = defineProps<{
   docId: string
 }>()
 
-const {
-  activeProcessingId,
+const {activeProcessingId,
   sentenceItems,
   lastSentenceItem,
   lastSentenceLoading,
