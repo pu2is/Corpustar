@@ -23,3 +23,7 @@ postman/
 postman/*
 
 *.drawio
+
+# Windows reserved device names accidentally created from non-Windows tools
+CON
+**/CON

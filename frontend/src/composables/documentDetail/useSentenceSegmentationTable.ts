@@ -27,16 +27,35 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
   const tableRef = ref<{ getScrollAreaElement: () => HTMLDivElement | null } | null>(null)
   const mutationLoading = ref(false)
   const pendingScrollTop = ref<number | null>(null)
+  const previousPageLastSentenceCache = new Map<string, SentenceItem | null>()
   let lastSentenceRequestToken = 0
 
+  const paginationEntry = computed(() => paginationStore.getPaginationEntry(docId.value, 'sentence'))
+  const sentenceItemIds = computed(() => paginationEntry.value.pageItemIds)
+  const storedSentenceMap = computed(() => {
+    if (!docId.value || !activeProcessingId.value) {
+      return new Map<string, SentenceItem>()
+    }
+
+    return new Map<string, SentenceItem>(
+      sentenceStore
+        .getSentenceItems(docId.value, activeProcessingId.value)
+        .map((item) => [item.id, item]),
+    )
+  })
   const sentenceItems = computed(() => {
     if (!docId.value || !activeProcessingId.value) {
       return []
     }
 
-    return sentenceStore.getSentenceItems(docId.value, activeProcessingId.value)
+    if (sentenceItemIds.value.length === 0) {
+      return Array.from(storedSentenceMap.value.values())
+    }
+
+    return sentenceItemIds.value
+      .map((itemId) => storedSentenceMap.value.get(itemId))
+      .filter((item): item is SentenceItem => item !== undefined)
   })
-  const paginationEntry = computed(() => paginationStore.getPaginationEntry(docId.value, 'sentence'))
   const paginationReady = computed(() => paginationEntry.value.processingId === activeProcessingId.value)
   const pageLoading = computed(() => paginationEntry.value.loading)
   const currentPage = computed(() => paginationEntry.value.currentPage)
@@ -62,6 +81,14 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
     }
 
     const previousPageOffset = paginationEntry.value.offsets[currentPage.value - 2] ?? null
+    const previousPageCursor = typeof previousPageOffset === 'number' ? previousPageOffset : null
+    const cacheKey = `${currentDocId}::${processingId}::${previousPageCursor ?? 'null'}`
+    if (previousPageLastSentenceCache.has(cacheKey)) {
+      lastSentenceItem.value = previousPageLastSentenceCache.get(cacheKey) ?? null
+      lastSentenceLoading.value = false
+      return
+    }
+
     lastSentenceLoading.value = true
     lastSentenceItem.value = null
 
@@ -69,7 +96,7 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
       const previousPage = await sentenceStore.getSentences(
         currentDocId,
         processingId,
-        typeof previousPageOffset === 'number' ? previousPageOffset : null,
+        previousPageCursor,
         sentenceItemPerPage,
         false,
       )
@@ -78,12 +105,14 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
       }
 
       lastSentenceItem.value = previousPage.items[previousPage.items.length - 1] ?? null
+      previousPageLastSentenceCache.set(cacheKey, lastSentenceItem.value)
     } catch {
       if (requestToken !== lastSentenceRequestToken) {
         return
       }
 
       lastSentenceItem.value = null
+      previousPageLastSentenceCache.delete(cacheKey)
     } finally {
       if (requestToken === lastSentenceRequestToken) {
         lastSentenceLoading.value = false
@@ -165,6 +194,7 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
     try {
       const mergedItem = await sentenceStore.mergeSentences([previousSentenceId, sentenceId])
       setHighlightedSentenceIds([mergedItem.id])
+      previousPageLastSentenceCache.clear()
       await paginationStore.refreshCurrentPage(currentDocId, processingId, 'sentence')
       await restoreScrollPosition()
     } catch {
@@ -186,6 +216,7 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
     try {
       await sentenceStore.clipSentence(sentenceId, splitOffset)
       setHighlightedSentenceIds([])
+      previousPageLastSentenceCache.clear()
       await paginationStore.refreshCurrentPage(currentDocId, processingId, 'sentence')
       await restoreScrollPosition()
     } catch {
@@ -202,6 +233,7 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
       lastSentenceItem.value = null
       lastSentenceLoading.value = false
       pendingScrollTop.value = null
+      previousPageLastSentenceCache.clear()
       if (!nextKey || !docId.value || !activeProcessingId.value) {
         return
       }
