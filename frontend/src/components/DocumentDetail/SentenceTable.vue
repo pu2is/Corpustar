@@ -369,9 +369,7 @@ watch(sentenceItems, (items) => {
 
     <template v-else>
       <LastSentenceOfPrevPage
-        v-if="lastSentenceItem"
-        :last-sentence-item="lastSentenceItem"
-        :is-updating="sentenceActionLoading || lastSentenceLoading" />
+        :last-sentence-item="lastSentenceItem" />
 
       <div ref="scrollAreaRef"
         class="scroll-area min-h-0 flex-1 overflow-y-auto">
