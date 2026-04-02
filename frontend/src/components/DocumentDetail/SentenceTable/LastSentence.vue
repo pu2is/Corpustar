@@ -1,7 +1,11 @@
 <script setup lang="ts">
-const props = defineProps<{
-  lastSentenceText: string
-}>()
+import { computed } from 'vue'
+// stores
+import { useSentenceStore } from '@/stores/sentenceStore';
+
+const sentenceStore = useSentenceStore();
+const sentenceList = computed(() => sentenceStore.sentenceList);
+
 </script>
 
 <template>
@@ -10,7 +14,7 @@ const props = defineProps<{
       Previous Sentence
     </p>
     <p class="mt-1 text-sm font-medium text-violet-950">
-      {{ props.lastSentenceText }}
+      {{ sentenceList.prevSentence?.source_text ?? '' }}
     </p>
   </header>
 </template>

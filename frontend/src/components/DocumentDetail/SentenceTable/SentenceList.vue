@@ -3,14 +3,12 @@ import { computed } from 'vue'
 import { useSentenceStore } from '@/stores/sentenceStore'
 
 const sentenceStore = useSentenceStore()
-const sentenceItems = computed(() => sentenceStore.sentenceList.sentences)
+const sentenceList = computed(() => sentenceStore.sentenceList);
 const highlightedSentenceIdSet = computed(() => new Set(sentenceStore.sentenceList.highlight))
-
-// actions: merge, split, correct
 </script>
 
 <template>
-  <article v-for="item in sentenceItems"
+  <article v-for="item in sentenceList.sentences"
     :key="item.id"
     class="mb-2 border p-2 transition-colors duration-200"
     :class="highlightedSentenceIdSet.has(item.id) ? 'border-emerald-500 bg-emerald-50/60' : 'border-border'">

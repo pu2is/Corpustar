@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 // stores
 import { useDocumentStore } from '@/stores/documentStore';
 import { useProcessStore } from '@/stores/processStore';
+import { useSentenceStore } from '@/stores/sentenceStore';
 // icons
 // composables
 import { getIdFromUrl } from '@/composables/useRouteId'
@@ -16,10 +17,24 @@ import SentenceTable from '@/components/DocumentDetail/SentenceTable.vue';
 const docId = getIdFromUrl();
 const documentStore = useDocumentStore();
 const processStore = useProcessStore();
+const sentenceStore = useSentenceStore();
 
 const document = computed(() => documentStore.getDocumentById(docId.value));
 const processesOfDoc = computed(() => processStore.getProcessByDocId(docId.value));
 const hasSegmentation = computed(() => processesOfDoc.value.some(p => p.type === 'sentence_segmentation'));
+const segmentationId = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value)?.id ?? '');
+
+watch(
+  [docId, segmentationId],
+  async ([nextDocId, nextSegmentationId]) => {
+    if (!nextDocId || !nextSegmentationId) {
+      return;
+    }
+
+    await sentenceStore.getSentences(nextDocId, nextSegmentationId, null);
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
