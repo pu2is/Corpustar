@@ -2,7 +2,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from sqlite3 import Connection
 from uuid import uuid4
 
-from sqlalchemy import bindparam, delete, insert, select, update
+from sqlalchemy import and_, bindparam, delete, insert, or_, select, update
 
 from app.infrastructure.db.connection import connection_scope, open_connection
 from app.infrastructure.repositories._sqlalchemy import (
@@ -74,7 +74,6 @@ def read_sentences_by_version_cursor(
     *,
     doc_id: str,
     version_id: str,
-    split_offset: int | None,
     limit: int | None,
 ) -> list[SentenceRow]:
     if limit is not None and limit <= 0:
@@ -95,10 +94,98 @@ def read_sentences_by_version_cursor(
             (sentences_table.c.doc_id == doc_id)
             & (sentences_table.c.version_id == version_id)
         )
-        .order_by(sentences_table.c.start_offset.asc())
+        .order_by(sentences_table.c.start_offset.asc(), sentences_table.c.id.asc())
     )
-    if split_offset is not None:
-        statement = statement.where(sentences_table.c.start_offset > split_offset)
+    if limit is not None:
+        statement = statement.limit(limit)
+
+    with connection_scope() as connection:
+        rows = execute(connection, statement).fetchall()
+
+    return [_map_sentence_row(row) for row in rows]
+
+
+def read_sentences_by_version_from_cursor(
+    *,
+    doc_id: str,
+    version_id: str,
+    cursor_start_offset: int,
+    cursor_id: str,
+    limit: int | None,
+) -> list[SentenceRow]:
+    if limit is not None and limit <= 0:
+        return []
+
+    statement = (
+        select(
+            sentences_table.c.id,
+            sentences_table.c.version_id,
+            sentences_table.c.doc_id,
+            sentences_table.c.start_offset,
+            sentences_table.c.end_offset,
+            sentences_table.c.source_text,
+            sentences_table.c.corrected_text,
+        )
+        .select_from(sentences_table)
+        .where(
+            (sentences_table.c.doc_id == doc_id)
+            & (sentences_table.c.version_id == version_id)
+            & (
+                (sentences_table.c.start_offset > cursor_start_offset)
+                | (
+                    (sentences_table.c.start_offset == cursor_start_offset)
+                    & (sentences_table.c.id >= cursor_id)
+                )
+            )
+        )
+        .order_by(sentences_table.c.start_offset.asc(), sentences_table.c.id.asc())
+    )
+    if limit is not None:
+        statement = statement.limit(limit)
+
+    with connection_scope() as connection:
+        rows = execute(connection, statement).fetchall()
+
+    return [_map_sentence_row(row) for row in rows]
+
+
+def read_sentences_before_cursor(
+    *,
+    doc_id: str,
+    version_id: str,
+    cursor_start_offset: int,
+    cursor_id: str,
+    limit: int | None,
+) -> list[SentenceRow]:
+    if limit is not None and limit <= 0:
+        return []
+
+    statement = (
+        select(
+            sentences_table.c.id,
+            sentences_table.c.version_id,
+            sentences_table.c.doc_id,
+            sentences_table.c.start_offset,
+            sentences_table.c.end_offset,
+            sentences_table.c.source_text,
+            sentences_table.c.corrected_text,
+        )
+        .select_from(sentences_table)
+        .where(
+            and_(
+                sentences_table.c.doc_id == doc_id,
+                sentences_table.c.version_id == version_id,
+                or_(
+                    sentences_table.c.start_offset < cursor_start_offset,
+                    and_(
+                        sentences_table.c.start_offset == cursor_start_offset,
+                        sentences_table.c.id < cursor_id,
+                    ),
+                ),
+            )
+        )
+        .order_by(sentences_table.c.start_offset.desc(), sentences_table.c.id.desc())
+    )
     if limit is not None:
         statement = statement.limit(limit)
 

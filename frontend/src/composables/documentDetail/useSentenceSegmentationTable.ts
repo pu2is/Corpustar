@@ -81,7 +81,7 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
     }
 
     const previousPageOffset = paginationEntry.value.offsets[currentPage.value - 2] ?? null
-    const previousPageCursor = typeof previousPageOffset === 'number' ? previousPageOffset : null
+    const previousPageCursor = typeof previousPageOffset === 'string' ? previousPageOffset : null
     const cacheKey = `${currentDocId}::${processingId}::${previousPageCursor ?? 'null'}`
     if (previousPageLastSentenceCache.has(cacheKey)) {
       lastSentenceItem.value = previousPageLastSentenceCache.get(cacheKey) ?? null
@@ -104,7 +104,7 @@ export function useSentenceSegmentationTable(docId: Ref<string>) {
         return
       }
 
-      lastSentenceItem.value = previousPage.items[previousPage.items.length - 1] ?? null
+      lastSentenceItem.value = previousPage.sentences[previousPage.sentences.length - 1] ?? null
       previousPageLastSentenceCache.set(cacheKey, lastSentenceItem.value)
     } catch {
       if (requestToken !== lastSentenceRequestToken) {

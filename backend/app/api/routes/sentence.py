@@ -8,7 +8,7 @@ from app.schemas.sentences import (
     SentenceClipRequest,
     SentenceCorrectRequest,
     SentenceCursorPageRequest,
-    SentenceItem,
+    SentenceDisplayResponse,
 )
 from app.services.sentence.pagination import get_sentence_cursor_page
 from app.services.sentence.sentence_edit_service import (
@@ -22,8 +22,8 @@ LOGGER = get_logger(__name__)
 MODULE_FILE = __file__
 
 
-@router.post("/sentences", response_model=list[SentenceItem])
-def get_document_sentences(payload: SentenceCursorPageRequest) -> list[SentenceItem]:
+@router.post("/sentences", response_model=SentenceDisplayResponse)
+def get_document_sentences(payload: SentenceCursorPageRequest) -> SentenceDisplayResponse:
     function_name = "get_document_sentences"
     log_event(
         LOGGER,
@@ -32,7 +32,7 @@ def get_document_sentences(payload: SentenceCursorPageRequest) -> list[SentenceI
         function_name=function_name,
         doc_id=payload.doc_id,
         segmentation_id=payload.segmentation_id,
-        split_offset=payload.split_offset,
+        cursor=payload.cursor,
         limit=payload.limit,
     )
 
@@ -40,10 +40,11 @@ def get_document_sentences(payload: SentenceCursorPageRequest) -> list[SentenceI
         page = get_sentence_cursor_page(
             doc_id=payload.doc_id,
             segmentation_id=payload.segmentation_id,
-            split_offset=payload.split_offset,
+            cursor=payload.cursor,
             limit=payload.limit,
+            highlight=[],
         )
-        return page["items"]
+        return page
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
@@ -119,6 +120,7 @@ def correct_sentence_route(payload: SentenceCorrectRequest) -> SentenceActionRes
         sentence = correct_sentence(
             sentence_id=payload.sentence_id,
             corrected_text=payload.corrected_text,
+            socket_meta=payload.model_dump(),
         )
         return {"id": sentence["id"], "ok": True, "error_msg": ""}
     except FileNotFoundError as error:

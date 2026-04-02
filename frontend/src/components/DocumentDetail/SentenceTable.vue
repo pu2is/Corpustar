@@ -8,9 +8,8 @@ import Pagination from '@/components/DocumentDetail/SentenceTable/Pagination.vue
 import { useSentenceStore } from '@/stores/sentenceStore'
 
 const sentenceStore = useSentenceStore();
-const isFirstPage = computed(() => sentenceStore.sentences[0]?.start_offset === 0);
-
-const lastSentenceText = 'last sentence text'
+const isFirstPage = computed(() => sentenceStore.sentenceList.prevSentence === null)
+const lastSentenceText = computed(() => sentenceStore.sentenceList.prevSentence?.source_text ?? '')
 </script>
 
 <template>

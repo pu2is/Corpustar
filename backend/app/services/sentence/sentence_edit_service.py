@@ -12,6 +12,7 @@ from app.infrastructure.repositories.sentences import (
     replace_sentence_with_split,
     update_sentence_corrected_text,
 )
+from app.services.sentence.pagination import DEFAULT_PAGE_LIMIT, get_sentence_cursor_page
 from app.services.sentence.types import ClipSentenceResult, SentenceItem, SentenceRow
 from app.socket.socket_events import SENTENCE_CLIPPED, SENTENCE_CORRECTED, SENTENCE_MERGED
 from app.socket.socket_publisher import publish_best_effort
@@ -117,13 +118,27 @@ def merge_sentences(
         full_text=full_text,
     )
 
-    publish_best_effort(
-        SENTENCE_MERGED,
-        {
-            "result": merged_item,
-            "meta": socket_meta if socket_meta is not None else {"sentence_ids": unique_sentence_ids},
-        },
+    page_limit = DEFAULT_PAGE_LIMIT
+    if socket_meta is not None:
+        for candidate in (
+            socket_meta.get("limit"),
+            socket_meta.get("page_size"),
+            socket_meta.get("pageSize"),
+        ):
+            if isinstance(candidate, int) and candidate > 0:
+                page_limit = candidate
+                break
+
+    page_payload = get_sentence_cursor_page(
+        doc_id=doc_id,
+        segmentation_id=version_id,
+        cursor=None,
+        limit=page_limit,
+        focus_sentence_id=merged_id,
+        highlight=[merged_id],
     )
+
+    publish_best_effort(SENTENCE_MERGED, page_payload)
     return merged_item
 
 
@@ -211,26 +226,78 @@ def clip_sentence(
     if f"{left_item['source_text']}{right_item['source_text']}" != original_text:
         raise RuntimeError("Sentence clip failed: split text does not match original sentence text")
 
-    publish_best_effort(
-        SENTENCE_CLIPPED,
-        {
-            "result": [left_item, right_item],
-            "meta": (
-                socket_meta
-                if socket_meta is not None
-                else {"sentence_id": sentence_id, "split_offset": split_offset}
-            ),
-        },
+    page_limit = DEFAULT_PAGE_LIMIT
+    if socket_meta is not None:
+        for candidate in (
+            socket_meta.get("limit"),
+            socket_meta.get("page_size"),
+            socket_meta.get("pageSize"),
+        ):
+            if isinstance(candidate, int) and candidate > 0:
+                page_limit = candidate
+                break
+
+    page_payload = get_sentence_cursor_page(
+        doc_id=doc_id,
+        segmentation_id=version_id,
+        cursor=None,
+        limit=page_limit,
+        focus_sentence_id=left_id,
+        highlight=[left_id, right_id],
     )
+
+    publish_best_effort(SENTENCE_CLIPPED, page_payload)
     return {"items": [left_item, right_item]}
 
 
-def correct_sentence(sentence_id: str, corrected_text: str) -> SentenceItem:
+def correct_sentence(
+    sentence_id: str,
+    corrected_text: str,
+    *,
+    socket_meta: dict[str, Any] | None = None,
+) -> SentenceItem:
     normalized_text = corrected_text.strip()
     if not normalized_text:
         raise ValueError("corrected_text is required")
 
     sentence_row = update_sentence_corrected_text(sentence_id, normalized_text)
     sentence_item = build_sentence_item_from_row(sentence_row)
-    publish_best_effort(SENTENCE_CORRECTED, sentence_item)
+
+    page_limit = DEFAULT_PAGE_LIMIT
+    requested_cursor = None
+    if socket_meta is not None:
+        for candidate in (
+            socket_meta.get("limit"),
+            socket_meta.get("page_size"),
+            socket_meta.get("pageSize"),
+        ):
+            if isinstance(candidate, int) and candidate > 0:
+                page_limit = candidate
+                break
+
+        cursor_candidate = socket_meta.get("cursor")
+        if isinstance(cursor_candidate, str):
+            cursor_candidate = cursor_candidate.strip()
+            requested_cursor = cursor_candidate or None
+
+    payload = get_sentence_cursor_page(
+        doc_id=sentence_item["doc_id"],
+        segmentation_id=sentence_item["version_id"],
+        cursor=requested_cursor,
+        limit=page_limit,
+        highlight=[sentence_id],
+    )
+    contains_corrected_sentence = any(item["id"] == sentence_id for item in payload["sentences"])
+    cursor_changed = requested_cursor is not None and payload["cursor"]["currentCursor"] != requested_cursor
+    if cursor_changed or not contains_corrected_sentence:
+        payload = get_sentence_cursor_page(
+            doc_id=sentence_item["doc_id"],
+            segmentation_id=sentence_item["version_id"],
+            cursor=None,
+            limit=page_limit,
+            focus_sentence_id=sentence_id,
+            highlight=[sentence_id],
+        )
+
+    publish_best_effort(SENTENCE_CORRECTED, payload)
     return sentence_item

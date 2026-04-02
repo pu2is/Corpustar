@@ -14,10 +14,26 @@ class SentenceItem(TypedDict):
     corrected_text: str
 
 
-class SentenceCursorPage(TypedDict):
-    items: list[SentenceItem]
-    next_after_start_offset: int | None
-    has_more: bool
+class ExtendedSentenceItem(SentenceItem):
+    pass
+
+
+class SentenceCursorKey(TypedDict):
+    start_offset: int
+    id: str
+
+
+class SentenceCursorState(TypedDict):
+    currentCursor: str | None
+    nextCursor: str | None
+    prevCursor: str | None
+
+
+class SentenceDisplayPage(TypedDict):
+    prevSentence: SentenceItem | None
+    sentences: list[ExtendedSentenceItem]
+    cursor: SentenceCursorState
+    highlight: list[str]
 
 
 class ClipSentenceResult(TypedDict):

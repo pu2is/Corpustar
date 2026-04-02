@@ -1,20 +1,19 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useSentenceStore } from '@/stores/sentenceStore'
 
 const sentenceStore = useSentenceStore()
-const sentenceItems = computed(() => sentenceStore.sentences)
-
-const highlightIndex = ref(3);
+const sentenceItems = computed(() => sentenceStore.sentenceList.sentences)
+const highlightedSentenceIdSet = computed(() => new Set(sentenceStore.sentenceList.highlight))
 
 // actions: merge, split, correct
 </script>
 
 <template>
-  <article v-for="(item, index) in sentenceItems"
+  <article v-for="item in sentenceItems"
     :key="item.id"
     class="mb-2 border p-2 transition-colors duration-200"
-    :class="index === highlightIndex ? 'border-emerald-500 bg-emerald-50/60' : 'border-border'">
+    :class="highlightedSentenceIdSet.has(item.id) ? 'border-emerald-500 bg-emerald-50/60' : 'border-border'">
     <p class="text-xs text-text-muted">
       {{ item.start_offset }} - {{ item.end_offset }}
     </p>

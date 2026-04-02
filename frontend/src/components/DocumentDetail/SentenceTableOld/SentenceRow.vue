@@ -104,7 +104,7 @@ async function loadLastSentenceItem(): Promise<void> {
   }
 
   const previousPageOffset = paginationEntry.value.offsets[currentPage.value - 2] ?? null
-  const previousPageCursor = typeof previousPageOffset === 'number' ? previousPageOffset : null
+  const previousPageCursor = typeof previousPageOffset === 'string' ? previousPageOffset : null
   const cacheKey = `${currentDocId}::${processingId}::${previousPageCursor ?? 'null'}`
 
   if (lastSentenceOnPrevPage.has(cacheKey)) {
@@ -126,7 +126,7 @@ async function loadLastSentenceItem(): Promise<void> {
       return
     }
 
-    lastSentenceItem.value = previousPage.items[previousPage.items.length - 1] ?? null
+    lastSentenceItem.value = previousPage.sentences[previousPage.sentences.length - 1] ?? null
     lastSentenceOnPrevPage.set(cacheKey, lastSentenceItem.value)
   } catch {
     if (requestToken !== lastSentenceRequestToken) {

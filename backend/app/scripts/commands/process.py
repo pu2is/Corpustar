@@ -31,10 +31,10 @@ def register(subparsers) -> None:
     page_parser.add_argument("doc_id", help="Document id")
     page_parser.add_argument("segmentation_id", help="Segmentation id")
     page_parser.add_argument(
-        "--split-offset",
-        type=int,
+        "--cursor",
+        type=str,
         default=None,
-        help="Cursor start offset",
+        help="Opaque page cursor",
     )
     page_parser.add_argument(
         "--limit",
@@ -53,6 +53,6 @@ def _handle_sentence_page(args: argparse.Namespace) -> dict:
     return get_sentence_cursor_page(
         doc_id=args.doc_id,
         segmentation_id=args.segmentation_id,
-        split_offset=args.split_offset,
+        cursor=args.cursor,
         limit=args.limit,
     )

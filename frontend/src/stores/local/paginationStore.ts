@@ -5,7 +5,7 @@ import { useSentenceStore } from '@/stores/sentenceStore'
 export type PaginationScope = 'sentence' | 'lemma'
 export type PaginationAnchorMap = Record<string, string>
 
-type PaginationCursor = number | string | null
+type PaginationCursor = string | null
 
 interface PaginationEntry {
   currentPage: number
@@ -131,23 +131,23 @@ export const usePaginationStore = defineStore('pagination-store', {
         const page = await sentenceStore.getSentences(
           docId,
           processingId,
-          typeof cursor === 'number' ? cursor : null,
+          cursor,
           PAGE_ITEM_PER_PAGE,
           syncSentenceStore,
         )
 
         return {
-          itemIds: page.items.map((item) => item.id),
-          firstItemId: page.items[0]?.id ?? null,
-          hasMore: page.has_more,
-          nextCursor: page.next_after_start_offset ?? null,
+          itemIds: page.sentences.map((item) => item.id),
+          firstItemId: page.sentences[0]?.id ?? null,
+          hasMore: page.cursor.nextCursor !== null,
+          nextCursor: page.cursor.nextCursor,
         }
       }
 
       const lemmaStore = useLemmaStore()
       const fetchedItems = await lemmaStore.getLemmaItems(
         processingId,
-        typeof cursor === 'string' ? cursor : null,
+        cursor,
         PAGE_ITEM_PER_PAGE + 1,
       )
       const pageItems = fetchedItems.slice(0, PAGE_ITEM_PER_PAGE)

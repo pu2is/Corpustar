@@ -1,6 +1,5 @@
 from app.core.document.document_utils import load_txt_by_path
 from app.core.process.sentence_segmentation import segment_sentences
-from app.core.sentence.build_sentence_items import build_sentence_item_from_row
 from app.infrastructure.repositories.documents import read_document_by_id
 from app.infrastructure.repositories.processings import (
     change_process_item_state,
@@ -8,6 +7,7 @@ from app.infrastructure.repositories.processings import (
     write_process_item,
 )
 from app.infrastructure.repositories.sentences import write_sentences_in_batch
+from app.services.sentence.pagination import get_sentence_cursor_page
 from app.services.process.types import SentenceSegmentationResult
 from app.socket.socket_events import SEGMENTATION_FAILED, SEGMENTATION_STARTED, SEGMENTATION_SUCCEED
 from app.socket.socket_publisher import publish_best_effort
@@ -36,7 +36,7 @@ def segment_document_sentences(doc_id: str, preview_length: int) -> SentenceSegm
 
     try:
         spans = segment_sentences(full_text)
-        sentence_rows = write_sentences_in_batch(
+        write_sentences_in_batch(
             version_id=process_id,
             doc_id=doc_id,
             spans=spans,
@@ -57,13 +57,31 @@ def segment_document_sentences(doc_id: str, preview_length: int) -> SentenceSegm
         raise
 
     process_item = map_process_row_to_item(processing)
-    sentence_items = [build_sentence_item_from_row(sentence_row=row, full_text=full_text) for row in sentence_rows]
-    preview_items = sentence_items[:preview_length]
+    if preview_length <= 0:
+        preview_payload = {
+            "prevSentence": None,
+            "sentences": [],
+            "cursor": {
+                "currentCursor": None,
+                "nextCursor": None,
+                "prevCursor": None,
+            },
+            "highlight": [],
+        }
+    else:
+        preview_payload = get_sentence_cursor_page(
+            doc_id=doc_id,
+            segmentation_id=process_id,
+            cursor=None,
+            limit=preview_length,
+            highlight=[],
+        )
+
     publish_best_effort(
         SEGMENTATION_SUCCEED,
         {
             "processing": process_item,
-            "preview": preview_items,
+            "preview": preview_payload,
         },
     )
 

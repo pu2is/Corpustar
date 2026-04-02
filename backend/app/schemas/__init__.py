@@ -16,6 +16,7 @@ from app.schemas.sentences import (
     SentenceClipRequest,
     SentenceCorrectRequest,
     SentenceCursorPageRequest,
+    SentenceDisplayResponse,
     SentenceItem,
 )
 
@@ -37,6 +38,7 @@ __all__ = [
     "SentenceClipRequest",
     "SentenceCorrectRequest",
     "SentenceCursorPageRequest",
+    "SentenceDisplayResponse",
     "SentenceItem",
     "SentenceSegmentationProcessRequest",
 ]
