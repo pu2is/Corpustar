@@ -26,7 +26,7 @@ ruleStore.bindSocketEvents()
 ruleFvgStore.bindSocketEvents()
 sentenceStore.bindSocketEvents()
 lemmaStore.bindSocketEvents()
-paginationStore.hydrateFromLocalStorage()
+paginationStore.loadPagination()
 connect()
 
 createApp(App).use(pinia).use(router).mount('#app')
