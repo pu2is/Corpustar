@@ -21,7 +21,17 @@ export const useSentenceStore = defineStore('sentence-store', {
     sentences: [] as SentenceItem[],
     connected: false as boolean,
   }),
-  getters: {},
+  getters: {
+    findSentenceById:
+      (state) =>
+      (sentenceId: string): SentenceItem | null =>
+        state.sentences.find((item) => item.id === sentenceId) ?? null,
+
+    getSentenceItems:
+      (state) =>
+      (docId: string, segmentationId: string): SentenceItem[] =>
+        state.sentences.filter((item) => item.doc_id === docId && item.version_id === segmentationId),
+  },
   actions: {
     // 1. Socket binding
     bindSocketEvents(): void {
@@ -83,35 +93,21 @@ export const useSentenceStore = defineStore('sentence-store', {
     },
 
     // 2. API requests
-    async collectSentences(payload: CollectSentenceRequest, saveToStore = true): Promise<SentenceItem[]> {
-      const items = await post<SentenceItem[]>('/api/sentences', payload)
-      if (saveToStore) {
-        this.sentences = items
-      }
-      return items
-    },
-
-    async getSentences(
-      docId: string,
-      segmentationId: string,
-      splitOffset: number | null = null,
-      limit = SENTENCE_ITEM_PER_PAGE,
-      saveToStore = true,
-    ): Promise<SentenceCursorPage> {
+    async getSentences(docId: string, segmentationId: string, splitOffset: number | null = null,
+      limit = SENTENCE_ITEM_PER_PAGE, saveToStore = true): Promise<SentenceCursorPage> {
       const requestPayload: CollectSentenceRequest = {
         doc_id: docId,
         segmentation_id: segmentationId,
         split_offset: splitOffset,
         limit,
       }
-      const items = await this.collectSentences(requestPayload, saveToStore)
+      const items = await post<SentenceItem[]>('/api/sentences', requestPayload)
+      if (saveToStore) {
+        this.sentences = items
+      }
       const hasMore = items.length === limit
       const nextAfterStartOffset = hasMore ? items[items.length - 1]?.start_offset ?? null : null
-      return {
-        items,
-        next_after_start_offset: nextAfterStartOffset,
-        has_more: hasMore,
-      }
+      return { items, next_after_start_offset: nextAfterStartOffset, has_more: hasMore}
     },
 
     async mergeSentences(sentenceIds: string[]): Promise<ProcessResponseWithId> {
@@ -144,14 +140,6 @@ export const useSentenceStore = defineStore('sentence-store', {
       }
 
       this.sentences.push(sentence)
-    },
-
-    findSentenceById(sentenceId: string): SentenceItem | null {
-      return this.sentences.find((item) => item.id === sentenceId) ?? null
-    },
-
-    getSentenceItems(docId: string, segmentationId: string): SentenceItem[] {
-      return this.sentences.filter((item) => item.doc_id === docId && item.version_id === segmentationId)
     },
   },
 })
