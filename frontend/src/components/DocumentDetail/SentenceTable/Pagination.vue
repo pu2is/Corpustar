@@ -2,16 +2,18 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import { getIdFromUrl } from '@/composables/useRouteId'
 import { usePaginationStore } from '@/stores/local/paginationStore'
+import { useProcessStore } from '@/stores/processStore'
 import { useSentenceStore } from '@/stores/sentenceStore'
 
 const docId = getIdFromUrl()
 const sentenceStore = useSentenceStore()
 const paginationStore = usePaginationStore()
+const processStore = useProcessStore()
 
 const loading = ref(false)
 const page = computed(() => savedCursor.value?.page ?? 1)
 
-const segmentationId = computed(() => sentenceStore.sentenceList.sentences[0]?.version_id ?? '');
+const segmentationId = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value)?.id ?? '')
 const savedCursor = computed(() => paginationStore.paginationInfo.sentenceTable[segmentationId.value])
 const prevCursor = computed(() => savedCursor.value?.prevCursor ?? sentenceStore.sentenceList.cursor.prevCursor)
 const nextCursor = computed(() => savedCursor.value?.nextCursor ?? sentenceStore.sentenceList.cursor.nextCursor)
@@ -78,7 +80,7 @@ async function goNext(): Promise<void> {
 
 // Monitor: docId, segmente id changes
 watch([docId, segmentationId],
-  async ([nextDocId, nextSegmentationId]) => {
+  ([nextDocId, nextSegmentationId]) => {
     if (!nextDocId || !nextSegmentationId) { return}
 
     const currentSegmentationId = sentenceStore.sentenceList.sentences[0]?.version_id ?? ''
@@ -88,16 +90,15 @@ watch([docId, segmentationId],
     )
 
     const saved = paginationStore.paginationInfo.sentenceTable[nextSegmentationId]
-    if (!saved || alreadyLoadedCurrentSegmentation) {
-      return saveCursor(saved?.page ?? 1)
+    if (alreadyLoadedCurrentSegmentation) {
+      if (!saved) {
+        saveCursor(1)
+      }
+      return
     }
 
-    loading.value = true
-    try {
-      await sentenceStore.getSentences(nextDocId, nextSegmentationId, saved.currentCursor)
-      saveCursor(saved.page)
-    } finally {
-      loading.value = false
+    if (!saved) {
+      return
     }
   },
   { immediate: true },

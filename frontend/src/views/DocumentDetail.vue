@@ -4,6 +4,7 @@ import { computed, watch } from 'vue'
 import { useDocumentStore } from '@/stores/documentStore';
 import { useProcessStore } from '@/stores/processStore';
 import { useSentenceStore } from '@/stores/sentenceStore';
+import { usePaginationStore } from '@/stores/local/paginationStore';
 // icons
 // composables
 import { getIdFromUrl } from '@/composables/useRouteId'
@@ -18,6 +19,7 @@ const docId = getIdFromUrl();
 const documentStore = useDocumentStore();
 const processStore = useProcessStore();
 const sentenceStore = useSentenceStore();
+const paginationStore = usePaginationStore();
 
 const document = computed(() => documentStore.getDocumentById(docId.value));
 const processesOfDoc = computed(() => processStore.getProcessByDocId(docId.value));
@@ -31,7 +33,8 @@ watch(
       return;
     }
 
-    await sentenceStore.getSentences(nextDocId, nextSegmentationId, null);
+    const savedCursor = paginationStore.paginationInfo.sentenceTable[nextSegmentationId]?.currentCursor ?? null;
+    await sentenceStore.getSentences(nextDocId, nextSegmentationId, savedCursor);
   },
   { immediate: true },
 );

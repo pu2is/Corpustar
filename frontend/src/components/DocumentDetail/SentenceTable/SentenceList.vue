@@ -1,21 +1,18 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import {mergePrevSentence} from '@/composables/SentenceTable/actions'
 import { useSentenceStore } from '@/stores/sentenceStore'
 
 const sentenceStore = useSentenceStore()
 const sentenceList = computed(() => sentenceStore.sentenceList);
 const highlightedSentenceIdSet = computed(() => new Set(sentenceStore.sentenceList.highlight))
 
+const edit = ref<boolean>(false);
+
 interface TokenItem {
   text: string
   isSymbol: boolean
 }
-
-interface SentenceStoreMergeAction {
-  mergeSentence?: (sentenceIds: string[]) => Promise<unknown>
-}
-
-const edit = ref<boolean>(false);
 
 // Tokens: merge & split
 const tokens = computed(() => new Map(
@@ -36,28 +33,8 @@ function isLastToken(tokens: TokenItem[], tokenIndex: number): boolean {
   return tokenIndex === tokens.length - 1
 }
 
-function canMergePrevious(index: number): boolean {
-  if (index > 0) { return true}
-  return sentenceList.value.prevSentence !== null
-}
-
-async function requestMerge(index: number, sentenceId: string): Promise<void> {
-  const previousSentenceId = index > 0
-    ? (sentenceList.value.sentences[index - 1]?.id ?? null)
-    : (sentenceList.value.prevSentence?.id ?? null)
-  if (!previousSentenceId) {
-    return
-  }
-
-  const mergeSentence = (sentenceStore as unknown as SentenceStoreMergeAction).mergeSentence
-  if (typeof mergeSentence === 'function') {
-    await mergeSentence([previousSentenceId, sentenceId])
-    return
-  }
-
-  await sentenceStore.mergeSentences([previousSentenceId, sentenceId])
-}
-
+// actions
+const { merge } = mergePrevSentence({ sentenceList })
 </script>
 
 <template>
@@ -100,9 +77,9 @@ async function requestMerge(index: number, sentenceId: string): Promise<void> {
     <!-- Actions -->
     <div class="mt-2 flex gap-2">
       <button type="button"
-        :disabled="!canMergePrevious(index)"
+        :disabled="!merge.canPrevious(index)"
         class="cursor-pointer bg-violet-200 px-3 py-0.5 text-xs text-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
-        @click="void requestMerge(index, item.id)">
+        @click="void merge.previous(index, item.id)">
         Merge Prev
       </button>
       <button type="button"
