@@ -124,6 +124,19 @@ def get_sentence_cursor_page(
         )
 
     page_rows = rows[:limit]
+    if page_rows and len(page_rows) < limit:
+        missing_count = limit - len(page_rows)
+        first_page_row = page_rows[0]
+        before_rows = read_sentences_before_cursor(
+            doc_id=doc_id,
+            version_id=segmentation_id,
+            cursor_start_offset=int(first_page_row["start_offset"]),
+            cursor_id=str(first_page_row["id"]),
+            limit=missing_count,
+        )
+        if before_rows:
+            page_rows = list(reversed(before_rows)) + page_rows
+
     sentences = [build_sentence_item_from_row(sentence_row=row) for row in page_rows]
 
     if not sentences:
@@ -183,4 +196,3 @@ def get_sentence_cursor_page(
         },
         "highlight": normalized_highlight,
     }
-

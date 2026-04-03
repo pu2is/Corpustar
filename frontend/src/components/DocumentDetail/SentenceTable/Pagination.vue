@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { getIdFromUrl } from '@/composables/useRouteId'
 import { usePaginationStore } from '@/stores/local/paginationStore'
 import { useSentenceStore } from '@/stores/sentenceStore'
@@ -18,6 +18,14 @@ const nextCursor = computed(() => savedCursor.value?.nextCursor ?? sentenceStore
 
 const allowPrev = computed(() => !loading.value && Boolean(prevCursor.value))
 const allowNext = computed(() => !loading.value && Boolean(nextCursor.value))
+
+async function scrollSentenceListToTop(): Promise<void> {
+  await nextTick()
+  const scrollArea = document.querySelector<HTMLElement>('[data-sentence-scroll-area]')
+  if (scrollArea) {
+    scrollArea.scrollTop = 0
+  }
+}
 
 function saveCursor(page: number): void {
   if (!segmentationId.value) {
@@ -47,6 +55,7 @@ async function goPrev(): Promise<void> {
   try {
     await sentenceStore.getSentences(docId.value, segmentationId.value, prevCursor.value)
     saveCursor(Math.max(page.value - 1, 1))
+    await scrollSentenceListToTop()
   } finally {
     loading.value = false
   }
@@ -61,6 +70,7 @@ async function goNext(): Promise<void> {
   try {
     await sentenceStore.getSentences(docId.value, segmentationId.value, nextCursor.value)
     saveCursor(page.value + 1)
+    await scrollSentenceListToTop()
   } finally {
     loading.value = false
   }
@@ -71,8 +81,16 @@ watch([docId, segmentationId],
   async ([nextDocId, nextSegmentationId]) => {
     if (!nextDocId || !nextSegmentationId) { return}
 
+    const currentSegmentationId = sentenceStore.sentenceList.sentences[0]?.version_id ?? ''
+    const alreadyLoadedCurrentSegmentation = (
+      sentenceStore.sentenceList.sentences.length > 0
+      && currentSegmentationId === nextSegmentationId
+    )
+
     const saved = paginationStore.paginationInfo.sentenceTable[nextSegmentationId]
-    if (!saved) { return saveCursor(1)}
+    if (!saved || alreadyLoadedCurrentSegmentation) {
+      return saveCursor(saved?.page ?? 1)
+    }
 
     loading.value = true
     try {
@@ -91,6 +109,13 @@ watch(cursor, () => {
   if (!segmentationId.value) { return }
   saveCursor(page.value)
 },{ deep: true })
+
+watch([prevCursor, page], ([nextPrevCursor, nextPage]) => {
+  if (!segmentationId.value) { return }
+  if (!nextPrevCursor && nextPage !== 1) {
+    saveCursor(1)
+  }
+}, { immediate: true })
 </script>
 
 <template>

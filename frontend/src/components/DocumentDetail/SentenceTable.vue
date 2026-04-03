@@ -16,7 +16,8 @@ const sentenceList = computed(() => sentenceStore.sentenceList)
   <section class="min-h-0 flex flex-1 flex-col overflow-hidden bg-background-elevated/15">
     <LastSentence v-if="sentenceList.prevSentence" />
 
-    <main class="min-h-0 flex-1 overflow-y-auto p-2">
+    <main data-sentence-scroll-area
+      class="min-h-0 flex-1 overflow-y-auto p-2">
       <SentenceList />
     </main>
 

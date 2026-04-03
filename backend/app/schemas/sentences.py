@@ -37,12 +37,14 @@ class SentenceDisplayResponse(BaseModel):
 
 class MergeSentenceRequest(BaseModel):
     sentence_ids: list[str]
+    cursor: str | None = None
     limit: int | None = Field(default=None, ge=1)
 
 
 class SentenceClipRequest(BaseModel):
     sentence_id: str
     split_offset: int
+    cursor: str | None = None
     limit: int | None = Field(default=None, ge=1)
 
 
