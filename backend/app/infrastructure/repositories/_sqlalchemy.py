@@ -88,6 +88,30 @@ fvg_entries_table = Table(
     Column("semantic_type", String),
 )
 
+fvg_candidates_table = Table(
+    "fvg_candidates",
+    metadata,
+    Column("id", String, primary_key=True),
+    Column("sentence_id", String),
+    Column("algo_fvg_entry_id", String),
+    Column("corrected_fvg_entry_id", String),
+    Column("algo_verb_token", String),
+    Column("algo_verb_index", Integer),
+    Column("corrected_verb_token", String),
+    Column("corrected_verb_index", Integer),
+    Column("algo_noun_token", String),
+    Column("algo_noun_index", Integer),
+    Column("corrected_noun_token", String),
+    Column("corrected_noun_index", Integer),
+    Column("algo_prep_token", String),
+    Column("algo_prep_index", Integer),
+    Column("corrected_prep_token", String),
+    Column("corrected_prep_index", Integer),
+    Column("label", String),
+    Column("manuelle_created", Integer),
+    Column("removed", Integer),
+)
+
 _SQLITE_DIALECT = sqlite.dialect(paramstyle="qmark")
 
 

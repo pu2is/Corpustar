@@ -5,6 +5,7 @@ from app.api.root import router as root_router
 from app.api.routes import router as api_router
 from app.api.ws import router as ws_router
 from app.core.config import settings
+from app.infrastructure.db.bootstrap import ensure_database_ready
 
 
 def create_app() -> FastAPI:
@@ -20,6 +21,11 @@ def create_app() -> FastAPI:
     app.include_router(root_router)
     app.include_router(api_router, prefix="/api")
     app.include_router(ws_router)
+
+    @app.on_event("startup")
+    def _startup_database_bootstrap() -> None:
+        ensure_database_ready()
+
     return app
 
 

@@ -14,6 +14,11 @@ LEMMATIZE_STARTED = "lemmatize:started"
 LEMMATIZE_FAILED = "lemmatize:failed"
 LEMMATIZE_SUCCEED = "lemmatize:succeed"
 
+FVG_MATCH_START = "fvgMatch:start"
+FVG_MATCH_LEMMATIZE_START = "fvgMatch:lemmatizeStart"
+FVG_MATCH_LEMMATIZE_FINISHED = "fvgMatch:lemmatizeFinished"
+FVG_MATCH_FINISHED = "fvgMatch:finished"
+
 IMPORT_RULE_STARTED = "importRule:started"
 IMPORT_RULE_FAILED = "importRule:failed"
 IMPORT_RULE_SUCCEED = "importRule:succeed"

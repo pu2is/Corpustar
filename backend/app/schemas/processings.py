@@ -29,6 +29,11 @@ class LemmatizeProcessRequest(BaseModel):
     segmentation_id: str
 
 
+class FvgCandidateProcessRequest(BaseModel):
+    segmentation_id: str
+    rule_id: str
+
+
 class ImportRuleProcessRequest(BaseModel):
     path: str
     type: str = "fvg"
@@ -42,4 +47,10 @@ class ProcessActionResponse(BaseModel):
 
 class ImportRuleActionResponse(BaseModel):
     ok: bool
+    error_msg: str = ""
+
+
+class FvgCandidateProcessActionResponse(BaseModel):
+    id: str
+    state: ProcessingState
     error_msg: str = ""

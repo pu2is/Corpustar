@@ -6,6 +6,7 @@ from app.core.log import get_logger, log_event
 from app.infrastructure.db.connection import connection_scope
 from app.infrastructure.db.schema import (
     DOCUMENTS_TABLE_NAME,
+    FVG_CANDIDATES_TABLE_NAME,
     FVG_ENTRIES_TABLE_NAME,
     LEMMA_TOKENS_TABLE_NAME,
     PROCESSINGS_TABLE_NAME,
@@ -55,6 +56,7 @@ def _apply_migrations_with_connection(connection: Connection) -> None:
     _migrate_lemma_tokens_table(connection)
     _migrate_rules_table(connection)
     _migrate_fvg_entries_table(connection)
+    _migrate_fvg_candidates_table(connection)
 
     connection.commit()
 
@@ -320,6 +322,74 @@ def _migrate_fvg_entries_table(connection: Connection) -> None:
             connection.execute(
                 f"ALTER TABLE {FVG_ENTRIES_TABLE_NAME} ADD COLUMN {column_name} {definition}"
             )
+
+
+def _migrate_fvg_candidates_table(connection: Connection) -> None:
+    if not _table_exists(connection, FVG_CANDIDATES_TABLE_NAME):
+        connection.execute(
+            f"""
+            CREATE TABLE {FVG_CANDIDATES_TABLE_NAME} (
+                id TEXT PRIMARY KEY,
+                sentence_id TEXT NOT NULL,
+                algo_fvg_entry_id TEXT NOT NULL DEFAULT '',
+                corrected_fvg_entry_id TEXT NOT NULL DEFAULT '',
+                algo_verb_token TEXT NOT NULL DEFAULT '',
+                algo_verb_index INTEGER NOT NULL DEFAULT -1,
+                corrected_verb_token TEXT NOT NULL DEFAULT '',
+                corrected_verb_index INTEGER NOT NULL DEFAULT -1,
+                algo_noun_token TEXT NOT NULL DEFAULT '',
+                algo_noun_index INTEGER NOT NULL DEFAULT -1,
+                corrected_noun_token TEXT NOT NULL DEFAULT '',
+                corrected_noun_index INTEGER NOT NULL DEFAULT -1,
+                algo_prep_token TEXT NOT NULL DEFAULT '',
+                algo_prep_index INTEGER NOT NULL DEFAULT -1,
+                corrected_prep_token TEXT NOT NULL DEFAULT '',
+                corrected_prep_index INTEGER NOT NULL DEFAULT -1,
+                label TEXT NOT NULL DEFAULT '',
+                manuelle_created INTEGER NOT NULL DEFAULT 0,
+                removed INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (sentence_id) REFERENCES {SENTENCES_TABLE_NAME}(id) ON DELETE CASCADE
+            )
+            """
+        )
+        connection.execute(
+            f"""
+            CREATE INDEX IF NOT EXISTS idx_fvg_candidates_sentence_id
+            ON {FVG_CANDIDATES_TABLE_NAME} (sentence_id)
+            """
+        )
+        return
+
+    for column_name, definition in (
+        ("algo_fvg_entry_id", "TEXT NOT NULL DEFAULT ''"),
+        ("corrected_fvg_entry_id", "TEXT NOT NULL DEFAULT ''"),
+        ("algo_verb_token", "TEXT NOT NULL DEFAULT ''"),
+        ("algo_verb_index", "INTEGER NOT NULL DEFAULT -1"),
+        ("corrected_verb_token", "TEXT NOT NULL DEFAULT ''"),
+        ("corrected_verb_index", "INTEGER NOT NULL DEFAULT -1"),
+        ("algo_noun_token", "TEXT NOT NULL DEFAULT ''"),
+        ("algo_noun_index", "INTEGER NOT NULL DEFAULT -1"),
+        ("corrected_noun_token", "TEXT NOT NULL DEFAULT ''"),
+        ("corrected_noun_index", "INTEGER NOT NULL DEFAULT -1"),
+        ("algo_prep_token", "TEXT NOT NULL DEFAULT ''"),
+        ("algo_prep_index", "INTEGER NOT NULL DEFAULT -1"),
+        ("corrected_prep_token", "TEXT NOT NULL DEFAULT ''"),
+        ("corrected_prep_index", "INTEGER NOT NULL DEFAULT -1"),
+        ("label", "TEXT NOT NULL DEFAULT ''"),
+        ("manuelle_created", "INTEGER NOT NULL DEFAULT 0"),
+        ("removed", "INTEGER NOT NULL DEFAULT 0"),
+    ):
+        if not _column_exists(connection, FVG_CANDIDATES_TABLE_NAME, column_name):
+            connection.execute(
+                f"ALTER TABLE {FVG_CANDIDATES_TABLE_NAME} ADD COLUMN {column_name} {definition}"
+            )
+
+    connection.execute(
+        f"""
+        CREATE INDEX IF NOT EXISTS idx_fvg_candidates_sentence_id
+        ON {FVG_CANDIDATES_TABLE_NAME} (sentence_id)
+        """
+    )
 
 
 __all__ = ["apply_migrations"]

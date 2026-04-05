@@ -2,7 +2,7 @@ from collections.abc import Iterable, Mapping
 from sqlite3 import Connection
 from typing import Any
 
-from sqlalchemy import bindparam, delete, insert, select
+from sqlalchemy import bindparam, delete, func, insert, select
 
 from app.infrastructure.db.connection import connection_scope
 from app.infrastructure.repositories._sqlalchemy import (
@@ -134,6 +134,21 @@ def rm_lemma_tokens_by_version_id(version_id: str, connection: Connection | None
         delete(lemma_tokens_table).where(lemma_tokens_table.c.version_id == version_id),
     )
     return cursor.rowcount
+
+
+def count_lemma_tokens_by_version_id(version_id: str, connection: Connection | None = None) -> int:
+    statement = select(func.count()).select_from(lemma_tokens_table).where(
+        lemma_tokens_table.c.version_id == version_id
+    )
+
+    if connection is None:
+        with connection_scope() as scoped_connection:
+            return count_lemma_tokens_by_version_id(version_id, connection=scoped_connection)
+
+    row = execute(connection, statement).fetchone()
+    if row is None:
+        return 0
+    return int(row[0])
 
 
 def _normalize_lemma_token_row(row: Mapping[str, int | str]) -> LemmaTokenRow:

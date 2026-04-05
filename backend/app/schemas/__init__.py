@@ -1,6 +1,8 @@
 from app.schemas.documents import DocFileType, DocItem, DocumentActionResponse
 from app.schemas.lemmas import LemmaTokenItem, LemmaTokensBySentenceRequest
 from app.schemas.processings import (
+    FvgCandidateProcessActionResponse,
+    FvgCandidateProcessRequest,
     ImportRuleActionResponse,
     ImportRuleProcessRequest,
     LemmatizeProcessRequest,
@@ -24,6 +26,8 @@ __all__ = [
     "DocFileType",
     "DocItem",
     "DocumentActionResponse",
+    "FvgCandidateProcessActionResponse",
+    "FvgCandidateProcessRequest",
     "ImportRuleActionResponse",
     "ImportRuleProcessRequest",
     "LemmaTokenItem",

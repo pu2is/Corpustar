@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 from app.schemas.processings import (
+    FvgCandidateProcessActionResponse,
+    FvgCandidateProcessRequest,
     ImportRuleActionResponse,
     ImportRuleProcessRequest,
     LemmatizeProcessRequest,
@@ -11,6 +13,7 @@ from app.schemas.processings import (
 )
 from app.services.process.process_query_service import list_processing_items
 from app.services.process.rule.main import import_rule as import_rule_process
+from app.services.process.fvg_candidates import run_fvg_candidate_matching
 from app.services.process.sentence_lemmatization import lemmatize_sentences
 from app.services.process.sentence_segmentation import segment_document_sentences
 
@@ -95,4 +98,35 @@ def import_rule_route(payload: ImportRuleProcessRequest) -> ImportRuleActionResp
         return JSONResponse(
             status_code=500,
             content={"ok": False, "error_msg": "Internal server error"},
+        )
+
+
+@router.post("/process/fvg_candidate", response_model=FvgCandidateProcessActionResponse)
+def fvg_candidate_route(
+    payload: FvgCandidateProcessRequest,
+) -> FvgCandidateProcessActionResponse | JSONResponse:
+    try:
+        process_item = run_fvg_candidate_matching(
+            segmentation_id=payload.segmentation_id,
+            rule_id=payload.rule_id,
+        )
+        return {
+            "id": process_item["id"],
+            "state": process_item["state"],
+            "error_msg": "",
+        }
+    except FileNotFoundError as error:
+        return JSONResponse(
+            status_code=404,
+            content={"id": "", "state": "failed", "error_msg": str(error)},
+        )
+    except ValueError as error:
+        return JSONResponse(
+            status_code=400,
+            content={"id": "", "state": "failed", "error_msg": str(error)},
+        )
+    except Exception:
+        return JSONResponse(
+            status_code=500,
+            content={"id": "", "state": "failed", "error_msg": "Internal server error"},
         )

@@ -1,6 +1,8 @@
 from app.core.process.lemmatize import lemmatize_sentence_to_tokens
 from app.core.process.worker.accelerate_io import accelerate_io
+from app.infrastructure.db.connection import connection_scope
 from app.infrastructure.repositories.lemma_tokens import (
+    count_lemma_tokens_by_version_id,
     rm_lemma_tokens_by_version_id,
     save_lemma_token_in_batch,
 )
@@ -46,9 +48,25 @@ def lemmatize_sentences(segmentation_id: str) -> dict[str, object]:
         for group in token_groups:
             token_rows.extend(group)  # type: ignore[arg-type]
 
-        save_lemma_token_in_batch(token_rows, clear_existing=True)
+        with connection_scope() as connection:
+            save_lemma_token_in_batch(token_rows, clear_existing=True, connection=connection)
+            persisted_count = count_lemma_tokens_by_version_id(
+                lemma_process_id,
+                connection=connection,
+            )
+            if persisted_count != len(token_rows):
+                raise RuntimeError(
+                    "Lemma tokens persistence mismatch: "
+                    f"expected={len(token_rows)} persisted={persisted_count}"
+                )
 
-        succeeded = change_process_item_state(lemma_process_id, "succeed")
+            succeeded = change_process_item_state(
+                lemma_process_id,
+                "succeed",
+                connection=connection,
+            )
+            connection.commit()
+
         process_item = map_process_row_to_item(succeeded)
         publish_best_effort(LEMMATIZE_SUCCEED, process_item)
         return process_item
