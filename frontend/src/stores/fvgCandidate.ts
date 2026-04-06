@@ -40,6 +40,13 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
       this.cursor = response.cursor
     },
 
+    toggleCandidateRemoved(candidateId: string): void {
+      const candidate = this.sentenceFvgList
+        .flatMap((s) => s.fvg_candidates)
+        .find((c) => c.id === candidateId)
+      if (candidate) candidate.removed = !candidate.removed
+    },
+
     // helper
     changeDisplay(display: 'detected' | 'undetected' | 'all'): void {
       this.display = display
