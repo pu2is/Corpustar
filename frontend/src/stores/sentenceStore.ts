@@ -33,6 +33,9 @@ export const useSentenceStore = defineStore('sentence-store', {
         state.sentenceList.sentences.filter(
           (item) => item.doc_id === docId && item.version_id === segmentationId,
         ),
+    getSentenceLengthBySegmentationId: (state) =>
+      (segmentationId: string): number =>
+        state.sentenceList.sentences.filter((item) => item.version_id === segmentationId).length,
   },
   actions: {
     // 1. Socket binding

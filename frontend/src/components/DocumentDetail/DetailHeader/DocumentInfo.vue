@@ -6,6 +6,7 @@ import { BookOpenText } from 'lucide-vue-next';
 
 const props = defineProps<{
   document: DocItem;
+  sentenceLength: number;
 }>();
 </script>
 
@@ -14,9 +15,14 @@ const props = defineProps<{
     <h2 class="text-xl font-semibold text-violet-950">
       {{ document.display_name }}
     </h2>
-    <p class="inline-flex items-center gap-2 text-sm text-violet-500">
+    <p v-if= "sentenceLength < 0" 
+      class="inline-flex items-center gap-2 text-sm text-violet-500">
       <BookOpenText class="h-3.5 w-3.5" />
       {{ document.char_count }} characters
     </p>
+    <!-- <p v-else-if="sentenceLength >= 0" class="inline-flex items-center gap-2 text-sm text-violet-500">
+      <BookOpenText class="h-3.5 w-3.5" />
+      {{ sentenceLength }} sentences
+    </p> -->
   </header>
 </template>

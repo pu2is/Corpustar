@@ -27,6 +27,8 @@ const processesOfDoc = computed(() => processStore.getProcessByDocId(docId.value
 const hasSegmentation = computed(() => processesOfDoc.value.some(p => p.type === 'sentence_segmentation'));
 const hasFvgSearch = computed(() => processesOfDoc.value.some(p => p.type === 'fvg'));
 const segmentationId = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value)?.id ?? '');
+// Backend function: `/api/sentences/length {segmentation_id: string}`
+const sentenceLength = computed(() => -1);
 
 watch(
   [docId, segmentationId],
@@ -50,7 +52,7 @@ watch(
 
     <section class="ml-16 min-h-0 flex flex-1 flex-col overflow-hidden p-6 px-16">
       <div v-if="document" class="relative min-h-0 overflow-hidden">
-        <DocumentInfo :document="document" />
+        <DocumentInfo :document="document" :sentence-length="sentenceLength" />
         <DocumentAction :document=document :processes=processesOfDoc />
       </div>
       <SourceText v-if="!hasSegmentation && document" :documents="document" />

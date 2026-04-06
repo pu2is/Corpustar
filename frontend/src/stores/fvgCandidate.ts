@@ -19,7 +19,7 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
     connected: false as boolean,
   }),
   actions: {
-    async getFvgCandidates(segmentationId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT): Promise<void> {
+    async getSentences(segmentationId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT): Promise<void> {
       const payload: FvgCandidateListRequest = { segmentation_id: segmentationId, cursor, limit }
       const response = await post<{ sentences: SentenceFvgItem[]; cursor: FvgCursorItem }>('/api/fvg_candidates', payload)
       this.sentenceFvgList = response.sentences
