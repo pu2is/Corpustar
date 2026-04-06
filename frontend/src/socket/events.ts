@@ -29,6 +29,9 @@ export const SOCKET_EVENT = {
   FVG_APPENDED: 'fvg:appended',
   FVG_REMOVED: 'fvg:removed',
   FVG_UPDATED: 'fvg:updated',
+
+  FVG_CANDIDATE_REMOVE_FAILED: 'fvgCandidate:removeFailed',
+  FVG_CANDIDATE_RESTORE_FAILED: 'fvgCandidate:restoreFailed',
 } as const
 
 export type BackendSocketEventName = (typeof SOCKET_EVENT)[keyof typeof SOCKET_EVENT]

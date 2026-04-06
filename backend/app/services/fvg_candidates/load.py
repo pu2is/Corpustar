@@ -7,6 +7,7 @@ from app.core.sentence.build_lemma_items import build_lemma_token_item_from_row
 from app.infrastructure.repositories.fvg_candidates import (
     get_fvg_candidate_items_by_process_id,
     get_fvg_candidate_items_by_sentence_id,
+    get_fvg_candidate_items_by_sentence_ids,
 )
 from app.infrastructure.repositories.lemma_tokens import read_lemma_tokens_by_sentence_ids
 from app.infrastructure.repositories.processings import map_process_row_to_item, read_process_item_by_id
@@ -34,11 +35,13 @@ def collect_fvg_candidates_and_sentence_by_cursor(
     page_sentence_rows = sentence_page["sentences"]
     page_sentence_ids = [str(sentence_row["id"]) for sentence_row in page_sentence_rows]
     lemma_items_by_sentence_id = _build_lemma_items_by_sentence_ids(page_sentence_ids)
+    fvg_candidates_by_sentence_id = _build_fvg_candidates_by_sentence_ids(page_sentence_ids)
 
     sentences = [
-        _attach_all_candidates(
+        _build_sentence_item(
             sentence_row,
-            lemma_items=lemma_items_by_sentence_id.get(str(sentence_row["id"]), []),
+            fvg_candidates=fvg_candidates_by_sentence_id.get(str(sentence_row["id"]), []),
+            lemma_tokens=lemma_items_by_sentence_id.get(str(sentence_row["id"]), []),
         )
         for sentence_row in page_sentence_rows
     ]
@@ -60,11 +63,7 @@ def collect_detected_fvg_candidates_by_cursor(
 ) -> dict[str, object]:
     _, segmentation_id = _resolve_fvg_process_scope(fvg_process_id)
 
-    candidate_rows = [
-        row
-        for row in get_fvg_candidate_items_by_process_id(fvg_process_id)
-        if not bool(row.get("removed", False))
-    ]
+    candidate_rows = list(get_fvg_candidate_items_by_process_id(fvg_process_id))
     if not candidate_rows:
         return _empty_page()
 
@@ -333,6 +332,16 @@ def _attach_all_candidates(
         fvg_candidates=[_normalize_candidate(candidate_row) for candidate_row in visible_candidates],
         lemma_tokens=lemma_items,
     )
+
+
+def _build_fvg_candidates_by_sentence_ids(sentence_ids: list[str]) -> dict[str, list[dict[str, int | str | bool]]]:
+    if not sentence_ids:
+        return {}
+    rows_by_sentence_id = get_fvg_candidate_items_by_sentence_ids(sentence_ids)
+    return {
+        sentence_id: [_normalize_candidate(row) for row in rows]
+        for sentence_id, rows in rows_by_sentence_id.items()
+    }
 
 
 def _build_lemma_items_by_sentence_ids(sentence_ids: list[str]) -> dict[str, list[dict[str, int | str]]]:

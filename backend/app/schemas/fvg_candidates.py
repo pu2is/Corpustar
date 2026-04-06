@@ -27,6 +27,16 @@ class FvgCandidateItem(BaseModel):
     removed: bool
 
 
+class FvgCandidateToggleRequest(BaseModel):
+    sentence_id: str
+    fvg_candidate_id: str
+
+
+class FvgCandidateToggleResponse(BaseModel):
+    sentence_id: str
+    fvg_candidate: FvgCandidateItem
+
+
 class SentenceFvgItem(SentenceItem):
     fvg_candidates: list[FvgCandidateItem] = Field(default_factory=list)
     lemma_tokens: list[LemmaTokenItem] = Field(default_factory=list)

@@ -1,8 +1,11 @@
 import { defineStore } from 'pinia'
 
 import { post } from '@/stores/fetchWrapper'
+import { on } from '@/socket/socket'
+import { SOCKET_EVENT } from '@/socket/events'
 // types
 import type {
+  FvgCandidateItem,
   FvgCandidateListRequest,
   FvgCandidateFilteredListRequest,
   FvgCursorItem,
@@ -19,6 +22,14 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
     connected: false as boolean,
   }),
   actions: {
+    
+    bindSocketEvents(): void {
+      if (this.connected) return
+      on(SOCKET_EVENT.FVG_CANDIDATE_REMOVE_FAILED, (_socketMsg) => { /* no-op */ })
+      on(SOCKET_EVENT.FVG_CANDIDATE_RESTORE_FAILED, (_socketMsg) => { /* no-op */ })
+      this.connected = true
+    },
+
     async getSentences(segmentationId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT): Promise<void> {
       const payload: FvgCandidateListRequest = { segmentation_id: segmentationId, cursor, limit }
       const response = await post<{ sentences: SentenceFvgItem[]; cursor: FvgCursorItem }>('/api/fvg_candidates', payload)
@@ -45,6 +56,28 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
         .flatMap((s) => s.fvg_candidates)
         .find((c) => c.id === candidateId)
       if (candidate) candidate.removed = !candidate.removed
+    },
+
+    async removeFvgCandidate(sentenceId: string, fvgCandidateId: string): Promise<void> {
+      const response = await post<{ sentence_id: string; fvg_candidate: FvgCandidateItem }>(
+        '/api/fvg_candidates/remove',
+        { sentence_id: sentenceId, fvg_candidate_id: fvgCandidateId },
+      )
+      const sentence = this.sentenceFvgList.find((s) => s.id === response.sentence_id)
+      if (!sentence) return
+      const idx = sentence.fvg_candidates.findIndex((c) => c.id === response.fvg_candidate.id)
+      if (idx !== -1) sentence.fvg_candidates[idx] = response.fvg_candidate
+    },
+
+    async restoreFvgCandidate(sentenceId: string, fvgCandidateId: string): Promise<void> {
+      const response = await post<{ sentence_id: string; fvg_candidate: FvgCandidateItem }>(
+        '/api/fvg_candidates/restore',
+        { sentence_id: sentenceId, fvg_candidate_id: fvgCandidateId },
+      )
+      const sentence = this.sentenceFvgList.find((s) => s.id === response.sentence_id)
+      if (!sentence) return
+      const idx = sentence.fvg_candidates.findIndex((c) => c.id === response.fvg_candidate.id)
+      if (idx !== -1) sentence.fvg_candidates[idx] = response.fvg_candidate
     },
 
     // helper

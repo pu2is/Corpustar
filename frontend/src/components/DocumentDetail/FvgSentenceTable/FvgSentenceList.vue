@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useFvgCandidateStore } from '@/stores/fvgCandidate'
 
 import type { SentenceFvgItem } from '@/types/fvg'
 import FvgCandidateBadge from './FvgCandidateBadge.vue'
+import Lemmas from './Lemmas.vue'
 
 const fvgCandidateStore = useFvgCandidateStore()
 const sentenceList = computed(() => fvgCandidateStore.sentenceFvgList)
@@ -54,11 +55,20 @@ function removedCandidateTokenIndices(item: SentenceFvgItem): Set<number> {
   return indices
 }
 
+// hover lemma highlight source text
+const hoveredLemmaIndex = ref<Record<string, number | null>>({})
+
+function onLemmaHover(sentenceId: string, wordIndex: number | null): void {
+  hoveredLemmaIndex.value[sentenceId] = wordIndex
+}
+
 function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
   if (candidateTokenIndices(item).has(tokenIndex))
     return 'px-1 bg-yellow-300 text-violet-700 font-medium'
   if (removedCandidateTokenIndices(item).has(tokenIndex))
     return 'px-1'
+  if (hoveredLemmaIndex.value[item.id] === tokenIndex)
+    return 'px-1 bg-violet-100 text-violet-700 font-medium'
   return 'px-1 text-contrast-strong'
 }
 </script>
@@ -70,11 +80,10 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
     <p class="text-xs text-text-muted">
       <span class="font-medium small-caps">Span</span> {{ item.start_offset }} – {{ item.end_offset }}
     </p>
-
     <div v-if="item.fvg_candidates.length > 0" class="flex flex-wrap gap-1">
       <FvgCandidateBadge v-for="candidate in item.fvg_candidates"
-        :key="candidate.id"
-        :fvg-candidate-item="candidate" />
+        :key="candidate.id" 
+        :sentence-id="item.id" :fvg-candidate-item="candidate" />
     </div>
 
     <div class="cursor-default flex flex-wrap gap-1 text-sm">
@@ -85,5 +94,10 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
         {{ token.text }}
       </span>
     </div>
+
+    <Lemmas v-if="item.fvg_candidates.length === 0 && item.lemma_tokens.length > 0"
+      :lemma-tokens="item.lemma_tokens"
+      @hover-lemma="(idx) => onLemmaHover(item.id, idx)" />
+
   </article>
 </template>

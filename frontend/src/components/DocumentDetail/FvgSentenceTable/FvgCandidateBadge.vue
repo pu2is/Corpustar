@@ -4,6 +4,7 @@ import type { FvgCandidateItem } from '@/types/fvg'
 import { useFvgCandidateStore } from '@/stores/fvgCandidate'
 
 const props = defineProps<{
+  sentenceId: string,
   fvgCandidateItem: FvgCandidateItem
 }>()
 
@@ -26,12 +27,12 @@ const fvgCandidateStore = useFvgCandidateStore()
     </template>
     <button v-if="!fvgCandidateItem.removed"
       class="cursor-pointer ml-0.5 text-red-500 hover:text-red-600 transition-colors"
-      @click="fvgCandidateStore.toggleCandidateRemoved(props.fvgCandidateItem.id)">
+      @click="fvgCandidateStore.removeFvgCandidate(props.sentenceId, props.fvgCandidateItem.id)">
       <X :size="10" />
     </button>
     <button v-else
       class="cursor-pointer ml-0.5 text-green-500 hover:text-green-600 transition-colors"
-      @click="fvgCandidateStore.toggleCandidateRemoved(props.fvgCandidateItem.id)">
+      @click="fvgCandidateStore.restoreFvgCandidate(props.sentenceId, props.fvgCandidateItem.id)">
       <Plus :size="10" />
     </button>
   </span>

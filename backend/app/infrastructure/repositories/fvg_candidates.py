@@ -229,6 +229,55 @@ def get_fvg_candidate_items_by_sentence_id(
     return [_map_fvg_candidate_row(row) for row in rows]
 
 
+def get_fvg_candidate_items_by_sentence_ids(
+    sentence_ids: list[str],
+) -> dict[str, list[FvgCandidateRow]]:
+    if not sentence_ids:
+        return {}
+
+    unique_sentence_ids = list(dict.fromkeys(sentence_ids))
+    statement = (
+        select(
+            fvg_candidates_table.c.id,
+            fvg_candidates_table.c.sentence_id,
+            fvg_candidates_table.c.process_id,
+            fvg_candidates_table.c.algo_fvg_entry_id,
+            fvg_candidates_table.c.corrected_fvg_entry_id,
+            fvg_candidates_table.c.algo_verb_token,
+            fvg_candidates_table.c.algo_verb_index,
+            fvg_candidates_table.c.corrected_verb_token,
+            fvg_candidates_table.c.corrected_verb_index,
+            fvg_candidates_table.c.algo_noun_token,
+            fvg_candidates_table.c.algo_noun_index,
+            fvg_candidates_table.c.corrected_noun_token,
+            fvg_candidates_table.c.corrected_noun_index,
+            fvg_candidates_table.c.algo_prep_token,
+            fvg_candidates_table.c.algo_prep_index,
+            fvg_candidates_table.c.corrected_prep_token,
+            fvg_candidates_table.c.corrected_prep_index,
+            fvg_candidates_table.c.label,
+            fvg_candidates_table.c.manuelle_created,
+            fvg_candidates_table.c.removed,
+        )
+        .select_from(fvg_candidates_table)
+        .where(fvg_candidates_table.c.sentence_id.in_(unique_sentence_ids))
+        .order_by(
+            fvg_candidates_table.c.sentence_id.asc(),
+            fvg_candidates_table.c.algo_verb_index.asc(),
+            fvg_candidates_table.c.id.asc(),
+        )
+    )
+
+    with connection_scope() as connection:
+        rows = execute(connection, statement).fetchall()
+
+    result: dict[str, list[FvgCandidateRow]] = {sentence_id: [] for sentence_id in unique_sentence_ids}
+    for row in rows:
+        mapped = _map_fvg_candidate_row(row)
+        result.setdefault(str(mapped["sentence_id"]), []).append(mapped)
+    return result
+
+
 def get_fvg_candidate_items_by_process_id(
     process_id: str,
     *,
