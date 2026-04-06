@@ -4,7 +4,7 @@ import { get, post } from '@/stores/fetchWrapper'
 import { on } from '@/socket/socket'
 // types
 import type { ProcessResponse, ProcessResponseWithId } from '@/types/general'
-import type { ImportRuleProcessRequest, LemmatizeRequest, ProcessingItem, SentenceSegmentationRequest} from '@/types/processings'
+import type { FvgMatchRequest, ImportRuleProcessRequest, LemmatizeRequest, ProcessingItem, SentenceSegmentationRequest} from '@/types/processings'
 
 const PREVIEW_LENGTH = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
 
@@ -107,6 +107,35 @@ export const useProcessStore = defineStore('process-store', {
         }
         this.running = false
       })
+      on('fvgMatch:start', (socketMsg) => {
+        const payload = socketMsg as ProcessingItem
+        this.processing.unshift(payload)
+        this.running = true
+      })
+      on('fvgMatch:lemmatizeStart', (socketMsg) => {
+        const payload = socketMsg as ProcessingItem
+        this.processing.unshift(payload)
+        this.running = true
+      })
+      on('fvgMatch:lemmatizeFinished', (socketMsg) => {
+        const payload = socketMsg as ProcessingItem
+        const targetIndex = this.processing.findIndex((item) => item.id === payload.id)
+        if (targetIndex >= 0) {
+          this.processing.splice(targetIndex, 1, payload)
+        } else {
+          this.processing.unshift(payload)
+        }
+      })
+      on('fvgMatch:finished', (socketMsg) => {
+        const payload = socketMsg as ProcessingItem
+        const targetIndex = this.processing.findIndex((item) => item.id === payload.id)
+        if (targetIndex >= 0) {
+          this.processing.splice(targetIndex, 1, payload)
+        } else {
+          this.processing.unshift(payload)
+        }
+        this.running = false
+      })
     },
 
     // 2. API requests
@@ -132,6 +161,11 @@ export const useProcessStore = defineStore('process-store', {
     async lemmatizeSegmentation(_docId: string, segmentationId: string): Promise<ProcessResponseWithId> {
       const payload: LemmatizeRequest = { segmentation_id: segmentationId }
       return post<ProcessResponseWithId>('/api/process/lemmatize', payload)
+    },
+
+    async fvgMatch(segmentationId: string, ruleId: string): Promise<ProcessResponseWithId> {
+      const payload: FvgMatchRequest = { segmentation_id: segmentationId, rule_id: ruleId }
+      return post<ProcessResponseWithId>('/api/process/fvg_candidate', payload)
     },
 
     // 3. Helpers

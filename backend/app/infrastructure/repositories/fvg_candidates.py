@@ -37,6 +37,7 @@ def _map_fvg_candidate_row(row: Mapping[str, Any]) -> FvgCandidateRow:
     return {
         "id": _to_str(row["id"]),
         "sentence_id": _to_str(row["sentence_id"]),
+        "process_id": _to_str(row["process_id"]),
         "algo_fvg_entry_id": _to_str(row["algo_fvg_entry_id"]),
         "corrected_fvg_entry_id": _to_str(row["corrected_fvg_entry_id"]),
         "algo_verb_token": _to_str(row["algo_verb_token"]),
@@ -61,6 +62,7 @@ def _normalize_fvg_candidate_row(row: Mapping[str, int | str | bool]) -> FvgCand
     return {
         "id": _to_str(row.get("id")),
         "sentence_id": _to_str(row.get("sentence_id")),
+        "process_id": _to_str(row.get("process_id")),
         "algo_fvg_entry_id": _to_str(row.get("algo_fvg_entry_id")),
         "corrected_fvg_entry_id": _to_str(row.get("corrected_fvg_entry_id")),
         "algo_verb_token": _to_str(row.get("algo_verb_token")),
@@ -122,6 +124,7 @@ def write_fvg_candidate_items(
     rows: Iterable[Mapping[str, int | str | bool]],
     *,
     clear_sentence_ids: list[str] | None = None,
+    clear_process_id: str | None = None,
     connection: Connection | None = None,
 ) -> list[FvgCandidateRow]:
     normalized_rows = [_normalize_fvg_candidate_row(row) for row in rows]
@@ -132,6 +135,7 @@ def write_fvg_candidate_items(
             if clear_sentence_ids:
                 _rm_fvg_candidate_items_by_sentence_ids(
                     clear_sentence_ids,
+                    process_id=clear_process_id,
                     connection=active_connection,
                 )
 
@@ -139,6 +143,7 @@ def write_fvg_candidate_items(
                 statement = insert(fvg_candidates_table).values(
                     id=bindparam("id"),
                     sentence_id=bindparam("sentence_id"),
+                    process_id=bindparam("process_id"),
                     algo_fvg_entry_id=bindparam("algo_fvg_entry_id"),
                     corrected_fvg_entry_id=bindparam("corrected_fvg_entry_id"),
                     algo_verb_token=bindparam("algo_verb_token"),
@@ -181,12 +186,14 @@ def write_fvg_candidate_items(
 
 def get_fvg_candidate_items_by_sentence_id(
     sentence_id: str,
+    process_id: str | None = None,
     connection: Connection | None = None,
 ) -> list[FvgCandidateRow]:
     statement = (
         select(
             fvg_candidates_table.c.id,
             fvg_candidates_table.c.sentence_id,
+            fvg_candidates_table.c.process_id,
             fvg_candidates_table.c.algo_fvg_entry_id,
             fvg_candidates_table.c.corrected_fvg_entry_id,
             fvg_candidates_table.c.algo_verb_token,
@@ -206,8 +213,57 @@ def get_fvg_candidate_items_by_sentence_id(
             fvg_candidates_table.c.removed,
         )
         .select_from(fvg_candidates_table)
-        .where(fvg_candidates_table.c.sentence_id == sentence_id)
-        .order_by(fvg_candidates_table.c.algo_verb_index.asc(), fvg_candidates_table.c.id.asc())
+    )
+    if process_id is None:
+        statement = statement.where(fvg_candidates_table.c.sentence_id == sentence_id)
+    else:
+        statement = statement.where(
+            (fvg_candidates_table.c.sentence_id == sentence_id)
+            & (fvg_candidates_table.c.process_id == process_id)
+        )
+
+    statement = statement.order_by(fvg_candidates_table.c.algo_verb_index.asc(), fvg_candidates_table.c.id.asc())
+
+    with _use_connection(connection) as active_connection:
+        rows = execute(active_connection, statement).fetchall()
+    return [_map_fvg_candidate_row(row) for row in rows]
+
+
+def get_fvg_candidate_items_by_process_id(
+    process_id: str,
+    *,
+    connection: Connection | None = None,
+) -> list[FvgCandidateRow]:
+    statement = (
+        select(
+            fvg_candidates_table.c.id,
+            fvg_candidates_table.c.sentence_id,
+            fvg_candidates_table.c.process_id,
+            fvg_candidates_table.c.algo_fvg_entry_id,
+            fvg_candidates_table.c.corrected_fvg_entry_id,
+            fvg_candidates_table.c.algo_verb_token,
+            fvg_candidates_table.c.algo_verb_index,
+            fvg_candidates_table.c.corrected_verb_token,
+            fvg_candidates_table.c.corrected_verb_index,
+            fvg_candidates_table.c.algo_noun_token,
+            fvg_candidates_table.c.algo_noun_index,
+            fvg_candidates_table.c.corrected_noun_token,
+            fvg_candidates_table.c.corrected_noun_index,
+            fvg_candidates_table.c.algo_prep_token,
+            fvg_candidates_table.c.algo_prep_index,
+            fvg_candidates_table.c.corrected_prep_token,
+            fvg_candidates_table.c.corrected_prep_index,
+            fvg_candidates_table.c.label,
+            fvg_candidates_table.c.manuelle_created,
+            fvg_candidates_table.c.removed,
+        )
+        .select_from(fvg_candidates_table)
+        .where(fvg_candidates_table.c.process_id == process_id)
+        .order_by(
+            fvg_candidates_table.c.sentence_id.asc(),
+            fvg_candidates_table.c.algo_verb_index.asc(),
+            fvg_candidates_table.c.id.asc(),
+        )
     )
 
     with _use_connection(connection) as active_connection:
@@ -287,6 +343,7 @@ def _get_fvg_candidate_item_by_id(
         select(
             fvg_candidates_table.c.id,
             fvg_candidates_table.c.sentence_id,
+            fvg_candidates_table.c.process_id,
             fvg_candidates_table.c.algo_fvg_entry_id,
             fvg_candidates_table.c.corrected_fvg_entry_id,
             fvg_candidates_table.c.algo_verb_token,
@@ -317,14 +374,16 @@ def _get_fvg_candidate_item_by_id(
 def _rm_fvg_candidate_items_by_sentence_ids(
     sentence_ids: list[str],
     *,
+    process_id: str | None,
     connection: Connection,
 ) -> int:
     if not sentence_ids:
         return 0
 
     unique_ids = list(dict.fromkeys(sentence_ids))
-    cursor = execute(
-        connection,
-        delete(fvg_candidates_table).where(fvg_candidates_table.c.sentence_id.in_(unique_ids)),
-    )
+    where_clause = fvg_candidates_table.c.sentence_id.in_(unique_ids)
+    if process_id is not None:
+        where_clause = where_clause & (fvg_candidates_table.c.process_id == process_id)
+
+    cursor = execute(connection, delete(fvg_candidates_table).where(where_clause))
     return cursor.rowcount

@@ -1,4 +1,11 @@
 from app.schemas.documents import DocFileType, DocItem, DocumentActionResponse
+from app.schemas.fvg_candidates import (
+    FvgCandidateItem,
+    SentenceFvgDetectedListRequest,
+    SentenceFvgItem,
+    SentenceFvgListItem,
+    SentenceFvgListRequest,
+)
 from app.schemas.lemmas import LemmaTokenItem, LemmaTokensBySentenceRequest
 from app.schemas.processings import (
     FvgCandidateProcessActionResponse,
@@ -26,6 +33,7 @@ __all__ = [
     "DocFileType",
     "DocItem",
     "DocumentActionResponse",
+    "FvgCandidateItem",
     "FvgCandidateProcessActionResponse",
     "FvgCandidateProcessRequest",
     "ImportRuleActionResponse",
@@ -43,6 +51,10 @@ __all__ = [
     "SentenceCorrectRequest",
     "SentenceCursorPageRequest",
     "SentenceDisplayResponse",
+    "SentenceFvgDetectedListRequest",
+    "SentenceFvgItem",
+    "SentenceFvgListItem",
+    "SentenceFvgListRequest",
     "SentenceItem",
     "SentenceSegmentationProcessRequest",
 ]

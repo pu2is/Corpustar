@@ -39,7 +39,13 @@ def lemmatize_sentences_for_fvg_candidates(
         raise ValueError(f"No sentences found for segmentation_id={segmentation_id}")
 
     def _worker(sentence_row: Mapping[str, int | str]) -> object:
-        return lemmatize_sentence_to_tokens(sentence_row, version_id=lemma_version_id)
+        # Enforce lemmatization input to corrected_text so token indexes are
+        # computed from corrected sentence content in FVG flow.
+        lemma_input_row: dict[str, str] = {
+            "id": str(sentence_row["id"]),
+            "corrected_text": str(sentence_row["corrected_text"]),
+        }
+        return lemmatize_sentence_to_tokens(lemma_input_row, version_id=lemma_version_id)
 
     token_groups = accelerate_io(_worker, sentence_rows)
     token_rows: list[dict[str, int | str]] = []
@@ -124,13 +130,21 @@ def run_fvg_candidate_matching(*, segmentation_id: str, rule_id: str) -> dict[st
             map_process_row_to_item(lemma_succeeded),
         )
 
-        candidates = predict_fvg_candidates(fvg_entries, lemma_token_rows)
+        predicted_candidates = predict_fvg_candidates(fvg_entries, lemma_token_rows)
+        candidates = [
+            {
+                **candidate,
+                "process_id": fvg_process_id,
+            }
+            for candidate in predicted_candidates
+        ]
         sentence_ids = list(
             dict.fromkeys(str(token_row["sentence_id"]) for token_row in lemma_token_rows)
         )
         write_fvg_candidate_items(
             candidates,
             clear_sentence_ids=sentence_ids,
+            clear_process_id=fvg_process_id,
         )
 
         fvg_succeeded = change_process_item_state(fvg_process_id, "succeed")

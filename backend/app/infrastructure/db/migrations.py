@@ -331,6 +331,7 @@ def _migrate_fvg_candidates_table(connection: Connection) -> None:
             CREATE TABLE {FVG_CANDIDATES_TABLE_NAME} (
                 id TEXT PRIMARY KEY,
                 sentence_id TEXT NOT NULL,
+                process_id TEXT NOT NULL DEFAULT '',
                 algo_fvg_entry_id TEXT NOT NULL DEFAULT '',
                 corrected_fvg_entry_id TEXT NOT NULL DEFAULT '',
                 algo_verb_token TEXT NOT NULL DEFAULT '',
@@ -361,6 +362,7 @@ def _migrate_fvg_candidates_table(connection: Connection) -> None:
         return
 
     for column_name, definition in (
+        ("process_id", "TEXT NOT NULL DEFAULT ''"),
         ("algo_fvg_entry_id", "TEXT NOT NULL DEFAULT ''"),
         ("corrected_fvg_entry_id", "TEXT NOT NULL DEFAULT ''"),
         ("algo_verb_token", "TEXT NOT NULL DEFAULT ''"),
@@ -383,6 +385,21 @@ def _migrate_fvg_candidates_table(connection: Connection) -> None:
             connection.execute(
                 f"ALTER TABLE {FVG_CANDIDATES_TABLE_NAME} ADD COLUMN {column_name} {definition}"
             )
+
+    # keep corrected string fields normalized to empty string by default
+    connection.execute(
+        f"""
+        UPDATE {FVG_CANDIDATES_TABLE_NAME}
+        SET corrected_fvg_entry_id = COALESCE(corrected_fvg_entry_id, ''),
+            corrected_verb_token = COALESCE(corrected_verb_token, ''),
+            corrected_verb_index = COALESCE(corrected_verb_index, -1),
+            corrected_noun_token = COALESCE(corrected_noun_token, ''),
+            corrected_noun_index = COALESCE(corrected_noun_index, -1),
+            corrected_prep_token = COALESCE(corrected_prep_token, ''),
+            corrected_prep_index = COALESCE(corrected_prep_index, -1),
+            process_id = COALESCE(process_id, '')
+        """
+    )
 
     connection.execute(
         f"""

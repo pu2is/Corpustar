@@ -93,6 +93,7 @@ fvg_candidates_table = Table(
     metadata,
     Column("id", String, primary_key=True),
     Column("sentence_id", String),
+    Column("process_id", String),
     Column("algo_fvg_entry_id", String),
     Column("corrected_fvg_entry_id", String),
     Column("algo_verb_token", String),

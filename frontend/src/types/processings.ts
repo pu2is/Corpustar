@@ -27,3 +27,8 @@ export interface SentenceSegmentationRequest extends Record<string, unknown> {
 export interface LemmatizeRequest extends Record<string, unknown> {
   segmentation_id: string
 }
+
+export interface FvgMatchRequest extends Record<string, unknown> {
+  segmentation_id: string
+  rule_id: string
+}
