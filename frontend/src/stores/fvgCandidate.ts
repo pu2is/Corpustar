@@ -9,12 +9,13 @@ import type {
   SentenceFvgItem,
 } from '@/types/fvg'
 
-const DEFAULT_LIMIT = 20
+const DEFAULT_LIMIT = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
 
 export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
   state: () => ({
     sentenceFvgList: [] as SentenceFvgItem[],
     cursor: null as FvgCursorItem | null,
+    display: 'detected' as 'detected' | 'undetected' | 'all',
     connected: false as boolean,
   }),
   actions: {
@@ -37,6 +38,11 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
       const response = await post<{ sentences: SentenceFvgItem[]; cursor: FvgCursorItem }>('/api/fvg_candidates/undetected', payload)
       this.sentenceFvgList = response.sentences
       this.cursor = response.cursor
+    },
+
+    // helper
+    changeDisplay(display: 'detected' | 'undetected' | 'all'): void {
+      this.display = display
     },
   },
 })

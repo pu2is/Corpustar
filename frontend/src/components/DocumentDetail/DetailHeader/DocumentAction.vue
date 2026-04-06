@@ -4,6 +4,9 @@ import {computed} from 'vue';
 import type { DocItem, ProcessingItem } from '@/types';
 // stores
 import { useProcessStore } from '@/stores/processStore';
+// components
+import FvgDisplayFilter from '../FvgSentenceTable/FvgDisplayFilter.vue';
+
 
 const props = defineProps<{
   document: DocItem;
@@ -13,12 +16,14 @@ const props = defineProps<{
 const processStore = useProcessStore(); 
 
 const hasSegmentation = computed(() => props.processes.some(p => p.type === 'sentence_segmentation'));
-// const hasLemmatize = computed(() => props.processes.some(p => p.type === 'lemma'));
+const hasFvgSearch = computed(() => props.processes.some(p => p.type === 'fvg'));
 
 // Actions
 function startSentenceSegmentation(): void {
   processStore.segmentDocument(props.document.id);
 }
+
+
 </script>
 
 <template>
@@ -31,6 +36,6 @@ function startSentenceSegmentation(): void {
         Start segmentation
       </button>
     </article>
+    <FvgDisplayFilter v-else-if="hasSegmentation && hasFvgSearch" />
   </div>
-
 </template>

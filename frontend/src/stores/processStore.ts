@@ -35,6 +35,13 @@ export const useProcessStore = defineStore('process-store', {
         && String(item.meta?.segmentation_id ?? '') === segmentationId
       )) ?? null
     ),
+    getFvgProcessByDocId: (state) => (docId: string): ProcessingItem | null => (
+      state.processing.find((item) => (
+        item.doc_id === docId
+        && item.type === 'fvg'
+        && item.state === 'succeed'
+      )) ?? null
+    ),
   },
   actions: {
     // 1. Socket binding

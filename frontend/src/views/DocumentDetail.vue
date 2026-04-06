@@ -14,6 +14,7 @@ import DocumentInfo from '@/components/DocumentDetail/DetailHeader/DocumentInfo.
 import DocumentAction from '@/components/DocumentDetail/DetailHeader/DocumentAction.vue';
 import SourceText from '@/components/DocumentDetail/SourceText.vue';  
 import SentenceTable from '@/components/DocumentDetail/SentenceTable.vue';
+import FvgSentenceTable from '@/components/DocumentDetail/FvgSentenceTable.vue';
 
 const docId = getIdFromUrl();
 const documentStore = useDocumentStore();
@@ -24,6 +25,7 @@ const paginationStore = usePaginationStore();
 const document = computed(() => documentStore.getDocumentById(docId.value));
 const processesOfDoc = computed(() => processStore.getProcessByDocId(docId.value));
 const hasSegmentation = computed(() => processesOfDoc.value.some(p => p.type === 'sentence_segmentation'));
+const hasFvgSearch = computed(() => processesOfDoc.value.some(p => p.type === 'fvg'));
 const segmentationId = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value)?.id ?? '');
 
 watch(
@@ -52,7 +54,8 @@ watch(
         <DocumentAction :document=document :processes=processesOfDoc />
       </div>
       <SourceText v-if="!hasSegmentation && document" :documents="document" />
-      <SentenceTable v-else-if="hasSegmentation && document" />
+      <SentenceTable v-else-if="hasSegmentation && document && !hasFvgSearch" />
+      <FvgSentenceTable v-else-if="hasSegmentation && document && hasFvgSearch" />
     </section>
   </main>  
 </template>
