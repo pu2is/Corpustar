@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { useFvgCandidateStore } from '@/stores/fvgCandidate'
 import type { SentenceFvgItem } from '@/types/fvg'
+import FvgCandidateBadge from './FvgCandidateBadge.vue'
 
 const fvgCandidateStore = useFvgCandidateStore()
 const sentenceList = computed(() => fvgCandidateStore.sentenceFvgList)
@@ -42,37 +43,24 @@ function candidateTokenIndices(item: SentenceFvgItem): Set<number> {
 <template>
   <article v-for="item in sentenceList"
     :key="item.id"
-    class="mb-2 border border-border p-2">
-    <p class="mb-1.5 text-xs text-muted">
-      {{ item.start_offset }} – {{ item.end_offset }}
+    class="mb-2 border border-border p-2 space-y-2">
+    <p class="text-xs text-text-muted">
+      <span class="font-medium small-caps">Span</span> {{ item.start_offset }} – {{ item.end_offset }}
     </p>
 
-    <div class="flex flex-wrap gap-1 text-sm">
-      <span
-        v-for="(token, tokenIndex) in tokens.get(item.id) ?? []"
-        :key="`${item.id}-${tokenIndex}`"
-        :class="[
-          token.isSymbol ? 'px-0.5' : 'px-1',
-          candidateTokenIndices(item).has(tokenIndex)
-            ? 'bg-violet-100 text-violet-700 font-medium'
-            : 'text-contrast-strong',
-        ]">
-        {{ token.text }}
-      </span>
+    <div v-if="item.fvg_candidates.length > 0" class="flex flex-wrap gap-1">
+      <FvgCandidateBadge v-for="candidate in item.fvg_candidates"
+        :key="candidate.id" :fvg-candidate-item="candidate" />
     </div>
 
-    <div v-if="item.fvg_candidates.length > 0" class="mt-2 flex flex-wrap gap-1.5">
-      <span
-        v-for="candidate in item.fvg_candidates"
-        :key="candidate.id"
-        class="inline-flex items-center gap-1 border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs text-violet-700">
-        {{ candidate.algo_verb_token }}
-        <span class="text-violet-300">·</span>
-        {{ candidate.algo_noun_token }}
-        <template v-if="candidate.algo_prep_token">
-          <span class="text-violet-300">·</span>
-          {{ candidate.algo_prep_token }}
-        </template>
+    <div class="cursor-default flex flex-wrap gap-1 text-sm">
+      <span v-for="(token, tokenIndex) in tokens.get(item.id) ?? []"
+        :key="`${item.id}-${tokenIndex}`"
+        :class="[token.isSymbol ? 'px-0.5' : 'px-1',
+          candidateTokenIndices(item).has(tokenIndex)
+            ? 'bg-yellow-300 text-violet-700 font-medium'
+            : 'text-contrast-strong']">
+        {{ token.text }}
       </span>
     </div>
   </article>
