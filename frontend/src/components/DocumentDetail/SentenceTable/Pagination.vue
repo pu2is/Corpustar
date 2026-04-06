@@ -15,7 +15,7 @@ const page = computed(() => savedCursor.value?.page ?? 1)
 
 const segmentationId = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value)?.id ?? '')
 const savedCursor = computed(() => paginationStore.paginationInfo.sentenceTable[segmentationId.value])
-const prevCursor = computed(() => savedCursor.value?.prevCursor ?? sentenceStore.sentenceList.cursor.prevCursor)
+const prevCursor = computed(() => sentenceStore.sentenceList.cursor.prevCursor)
 const nextCursor = computed(() => savedCursor.value?.nextCursor ?? sentenceStore.sentenceList.cursor.nextCursor)
 
 const allowPrev = computed(() => !loading.value && Boolean(prevCursor.value))
@@ -40,7 +40,6 @@ function saveCursor(page: number): void {
       ...paginationStore.paginationInfo.sentenceTable,
       [segmentationId.value]: {
         currentCursor: sentenceStore.sentenceList.cursor.currentCursor,
-        prevCursor: sentenceStore.sentenceList.cursor.prevCursor,
         nextCursor: sentenceStore.sentenceList.cursor.nextCursor,
         page,
       },

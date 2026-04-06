@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 
 export interface CursorItem {
   currentCursor: string | null
-  prevCursor: string | null
   nextCursor: string | null
   page: number
 }
