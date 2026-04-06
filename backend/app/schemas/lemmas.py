@@ -1,6 +1,11 @@
 from pydantic import BaseModel
 
 
+class MorphAttr(BaseModel):
+    key: str
+    value: str
+
+
 class LemmaTokenItem(BaseModel):
     id: str
     version_id: str
@@ -11,7 +16,7 @@ class LemmaTokenItem(BaseModel):
     head_index: int
     pos_tag: str
     fine_pos_tag: str
-    morph: str
+    morph: list[MorphAttr]
     dependency_relationship: str
 
 

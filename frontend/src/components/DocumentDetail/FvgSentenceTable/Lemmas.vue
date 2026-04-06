@@ -1,20 +1,26 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { Pin, X } from 'lucide-vue-next'
 import { CollapsibleRoot, CollapsibleTrigger, CollapsibleContent } from 'reka-ui'
 import type { LemmaItem } from '@/types/lemmatize'
 
-defineProps<{
+const props = defineProps<{
   lemmaTokens: LemmaItem[]
+  isActive: boolean
 }>()
 
 const emit = defineEmits<{
   hoverLemma: [wordIndex: number | null]
+  pinned: []
 }>()
 
 const hoverId = ref<string | null>(null)
 // ordered array of pinned ids — last entry has highest z-index
 const pinnedOrder = ref<string[]>([])
+
+watch(() => props.isActive, (active) => {
+  if (!active) pinnedOrder.value = []
+})
 
 function isPinned(id: string): boolean {
   return pinnedOrder.value.includes(id)
@@ -29,6 +35,7 @@ function togglePin(id: string): void {
     pinnedOrder.value = pinnedOrder.value.filter((i) => i !== id)
   } else {
     pinnedOrder.value = [...pinnedOrder.value, id]
+    emit('pinned')
   }
 }
 
@@ -55,7 +62,7 @@ function panelZIndex(id: string): number {
       <span class="cursor-pointer inline-flex items-center gap-0.5 px-1 py-0.5 bg-background-elevated">
         <span>{{ lemma.lemma_word }}</span>
         <CollapsibleTrigger as-child>
-          <button :class="['cursor-pointer transition-colors', isPinned(lemma.id) ? 'text-violet-600' : 'text-gray-300 hover:text-gray-500']"
+          <button :class="['cursor-pointer transition-colors', isPinned(lemma.id) ? 'text-yellow-500' : 'text-gray-300 hover:text-gray-500']"
             @click="togglePin(lemma.id)">
             <Pin :size="8" fill="currentColor" />
           </button>
@@ -64,21 +71,26 @@ function panelZIndex(id: string): number {
 
       <CollapsibleContent
         :style="{ zIndex: panelZIndex(lemma.id) }"
-        class="absolute top-full left-0 mt-px min-w-max bg-gray-50 border border-border shadow-sm"
+        class="absolute top-full left-0 mt-px min-w-max overflow-hidden bg-gray-50 border border-border shadow-sm"
         @mousedown="bringToFront(lemma.id)">
         <div class="flex items-center justify-between gap-2 px-1.5 pt-1">
           <span class="text-[8px] text-text-muted uppercase font-bold tracking-wide">{{ lemma.source_word }}</span>
           <button v-if="isPinned(lemma.id)"
-            class="cursor-pointer text-text-muted hover:text-contrast-strong transition-colors"
+            class="cursor-pointer text-red-500 hover:text-red-600 transition-colors"
             @click="togglePin(lemma.id)">
             <X :size="8" />
           </button>
         </div>
         <dl class="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0 p-1.5 text-[8px]">
-          <dt class="text-text-muted uppercase font-bold">pos</dt><dd>{{ lemma.pos_tag }}</dd>
-          <dt class="text-text-muted uppercase font-bold">fine</dt><dd>{{ lemma.fine_pos_tag }}</dd>
-          <dt class="text-text-muted uppercase font-bold">morph</dt><dd>{{ lemma.morph }}</dd>
-          <dt class="text-text-muted uppercase font-bold">dep</dt><dd>{{ lemma.dependency_relationship }}</dd>
+          <dt class="text-text-muted uppercase font-bold">pos</dt><dd class="min-w-0 break-words">{{ lemma.pos_tag }}</dd>
+          <dt class="text-text-muted uppercase font-bold">fine</dt><dd class="min-w-0 break-words">{{ lemma.fine_pos_tag }}</dd>
+          <dt class="text-text-muted uppercase font-bold">dep</dt><dd class="min-w-0 break-words">{{ lemma.dependency_relationship }}</dd>
+          <template v-if="lemma.morph.length > 0">
+            <dt class="col-span-2 border-t border-border my-0.5" />
+            <template v-for="attr in lemma.morph" :key="attr.key">
+              <dt class="text-text-muted uppercase font-bold">{{ attr.key }}</dt><dd class="min-w-0 break-words">{{ attr.value }}</dd>
+            </template>
+          </template>
         </dl>
       </CollapsibleContent>
     </CollapsibleRoot>

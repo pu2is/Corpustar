@@ -57,6 +57,7 @@ function removedCandidateTokenIndices(item: SentenceFvgItem): Set<number> {
 
 // hover lemma highlight source text
 const hoveredLemmaIndex = ref<Record<string, number | null>>({})
+const activePinnedSentenceId = ref<string | null>(null)
 
 function onLemmaHover(sentenceId: string, wordIndex: number | null): void {
   hoveredLemmaIndex.value[sentenceId] = wordIndex
@@ -97,6 +98,8 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
 
     <Lemmas v-if="item.fvg_candidates.length === 0 && item.lemma_tokens.length > 0"
       :lemma-tokens="item.lemma_tokens"
+      :is-active="activePinnedSentenceId === null || activePinnedSentenceId === item.id"
+      @pinned="activePinnedSentenceId = item.id"
       @hover-lemma="(idx) => onLemmaHover(item.id, idx)" />
 
   </article>

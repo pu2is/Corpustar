@@ -2,7 +2,20 @@ from collections.abc import Mapping
 
 
 LemmaTokenRow = Mapping[str, int | str]
-LemmaTokenItem = dict[str, int | str]
+LemmaTokenItem = dict[str, int | str | list]
+
+
+def _parse_morph(morph: str) -> list[dict[str, str]]:
+    if not morph:
+        return []
+    result = []
+    for part in morph.split("|"):
+        eq = part.find("=")
+        if eq == -1:
+            result.append({"key": part, "value": ""})
+        else:
+            result.append({"key": part[:eq], "value": part[eq + 1:]})
+    return result
 
 
 def build_lemma_token_item(
@@ -29,7 +42,7 @@ def build_lemma_token_item(
         "head_index": head_index,
         "pos_tag": pos_tag,
         "fine_pos_tag": fine_pos_tag,
-        "morph": morph,
+        "morph": _parse_morph(morph),
         "dependency_relationship": dependency_relationship,
     }
 

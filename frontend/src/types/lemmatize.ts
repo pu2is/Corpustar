@@ -1,3 +1,8 @@
+export interface MorphAttr {
+  key: string
+  value: string
+}
+
 export interface LemmaItem {
   id: string
   version_id: string
@@ -8,7 +13,7 @@ export interface LemmaItem {
   head_index: number
   pos_tag: string
   fine_pos_tag: string
-  morph: string
+  morph: MorphAttr[]
   dependency_relationship: string
 }
 
