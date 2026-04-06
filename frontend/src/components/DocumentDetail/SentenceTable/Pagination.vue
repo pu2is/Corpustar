@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { getIdFromUrl } from '@/composables/useRouteId'
 import { usePaginationStore } from '@/stores/local/paginationStore'
 import { useProcessStore } from '@/stores/processStore'
@@ -16,7 +16,7 @@ const page = computed(() => savedCursor.value?.page ?? 1)
 const segmentationId = computed(() => processStore.getSentenceSegmentationProcessByDocId(docId.value)?.id ?? '')
 const savedCursor = computed(() => paginationStore.paginationInfo.sentenceTable[segmentationId.value])
 const prevCursor = computed(() => sentenceStore.sentenceList.cursor.prevCursor)
-const nextCursor = computed(() => savedCursor.value?.nextCursor ?? sentenceStore.sentenceList.cursor.nextCursor)
+const nextCursor = computed(() => sentenceStore.sentenceList.cursor.nextCursor ?? savedCursor.value?.nextCursor ?? null)
 
 const allowPrev = computed(() => !loading.value && Boolean(prevCursor.value))
 const allowNext = computed(() => !loading.value && Boolean(nextCursor.value))
@@ -116,6 +116,14 @@ watch([prevCursor, page], ([nextPrevCursor, nextPage]) => {
     saveCursor(1)
   }
 }, { immediate: true })
+
+function onKeyDown(e: KeyboardEvent): void {
+  if (e.key === 'ArrowLeft') void goPrev()
+  else if (e.key === 'ArrowRight') void goNext()
+}
+
+onMounted(() => window.addEventListener('keydown', onKeyDown))
+onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 </script>
 
 <template>

@@ -220,3 +220,17 @@ def rm_process_item(process_id: str, connection: Connection | None = None) -> bo
         delete(processings_table).where(processings_table.c.id == process_id),
     )
     return cursor.rowcount > 0
+
+
+def rm_processes_by_doc_id(doc_id: str, connection: Connection | None = None) -> int:
+    if connection is None:
+        with connection_scope() as scoped_connection:
+            removed = rm_processes_by_doc_id(doc_id, connection=scoped_connection)
+            scoped_connection.commit()
+            return removed
+
+    cursor = execute(
+        connection,
+        delete(processings_table).where(processings_table.c.doc_id == doc_id),
+    )
+    return cursor.rowcount

@@ -5,7 +5,8 @@ import type { DocItem, ProcessingItem } from '@/types';
 // stores
 import { useProcessStore } from '@/stores/processStore';
 // components
-import FvgDisplayFilter from '../FvgSentenceTable/FvgDisplayFilter.vue';
+import FvgDisplayFilter from '@/components/DocumentDetail/FvgSentenceTable/FvgDisplayFilter.vue';
+import FvgSearchModal from '@/components/DocumentDetail/DetailHeader/FvgSearchModal.vue';
 
 
 const props = defineProps<{
@@ -15,20 +16,22 @@ const props = defineProps<{
 
 const processStore = useProcessStore(); 
 
-const hasSegmentation = computed(() => props.processes.some(p => p.type === 'sentence_segmentation'));
 const hasFvgSearch = computed(() => props.processes.some(p => p.type === 'fvg'));
+
+const segmentationId = computed(() => {
+  const segmentationProcess = props.processes.find(p => p.type === 'sentence_segmentation');
+  return segmentationProcess ? segmentationProcess.id : null;
+});
 
 // Actions
 function startSentenceSegmentation(): void {
   processStore.segmentDocument(props.document.id);
 }
-
-
 </script>
 
 <template>
   <div class="absolute right-0 top-1/2 -translate-y-1/2">
-    <article v-if="!hasSegmentation">
+    <article v-if="!segmentationId">
       <button type="button"
         class="cursor-pointer bg-violet-300 text-violet-800 px-3 py-1.5 text-sm font-medium transition hover:opacity-80 
           disabled:cursor-not-allowed disabled:opacity-60"
@@ -36,6 +39,7 @@ function startSentenceSegmentation(): void {
         Start segmentation
       </button>
     </article>
-    <FvgDisplayFilter v-else-if="hasSegmentation && hasFvgSearch" />
+    <FvgSearchModal v-else-if="segmentationId && !hasFvgSearch" :segmentation-id="segmentationId" />
+    <FvgDisplayFilter v-else-if="segmentationId && hasFvgSearch" />
   </div>
 </template>

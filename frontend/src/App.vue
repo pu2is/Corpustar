@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import SideNav from '@/components/Nav/SideNav.vue'
+import FvgSearchRunning from '@/components/Widget/FvgSearchRunning.vue'
 </script>
 
 <template>
   <div class="relative h-screen w-screen bg-surface text-contrast-strong">
     <SideNav />
+    <FvgSearchRunning />
     <main class="h-full w-full overflow-auto px-16">
       <RouterView v-slot="{ Component, route }">
         <Transition mode="out-in"

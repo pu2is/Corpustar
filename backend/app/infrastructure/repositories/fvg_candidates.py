@@ -436,3 +436,25 @@ def _rm_fvg_candidate_items_by_sentence_ids(
 
     cursor = execute(connection, delete(fvg_candidates_table).where(where_clause))
     return cursor.rowcount
+
+
+def rm_fvg_candidate_items_by_sentence_ids(
+    sentence_ids: list[str],
+    *,
+    process_id: str | None = None,
+    connection: Connection | None = None,
+) -> int:
+    if not sentence_ids:
+        return 0
+
+    if connection is None:
+        with connection_scope() as scoped_connection:
+            removed = _rm_fvg_candidate_items_by_sentence_ids(
+                sentence_ids, process_id=process_id, connection=scoped_connection
+            )
+            scoped_connection.commit()
+            return removed
+
+    return _rm_fvg_candidate_items_by_sentence_ids(
+        sentence_ids, process_id=process_id, connection=connection
+    )

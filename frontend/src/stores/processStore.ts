@@ -13,6 +13,7 @@ export const useProcessStore = defineStore('process-store', {
     processing: [] as ProcessingItem[],
     connected: false as boolean,
     running: false as boolean,
+    fvgSearchRunning: false as boolean,
   }),
   getters: {
     getProcessByDocId: (state) => (docId: string): ProcessingItem[] => (
@@ -118,6 +119,7 @@ export const useProcessStore = defineStore('process-store', {
         const payload = socketMsg as ProcessingItem
         this.processing.unshift(payload)
         this.running = true
+        this.fvgSearchRunning = true
       })
       on('fvgMatch:lemmatizeStart', (socketMsg) => {
         const payload = socketMsg as ProcessingItem
@@ -142,6 +144,7 @@ export const useProcessStore = defineStore('process-store', {
           this.processing.unshift(payload)
         }
         this.running = false
+        this.fvgSearchRunning = false
       })
     },
 

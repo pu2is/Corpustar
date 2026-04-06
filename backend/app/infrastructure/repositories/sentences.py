@@ -399,6 +399,36 @@ def rm_sentences_by_version_id(version_id: str, connection: Connection | None = 
     return cursor.rowcount
 
 
+def get_sentence_ids_by_doc_id(doc_id: str, connection: Connection | None = None) -> list[str]:
+    statement = (
+        select(sentences_table.c.id)
+        .select_from(sentences_table)
+        .where(sentences_table.c.doc_id == doc_id)
+    )
+
+    if connection is None:
+        with connection_scope() as scoped_connection:
+            rows = execute(scoped_connection, statement).fetchall()
+    else:
+        rows = execute(connection, statement).fetchall()
+
+    return [str(row["id"]) for row in rows]
+
+
+def rm_sentences_by_doc_id(doc_id: str, connection: Connection | None = None) -> int:
+    if connection is None:
+        with connection_scope() as scoped_connection:
+            removed = rm_sentences_by_doc_id(doc_id, connection=scoped_connection)
+            scoped_connection.commit()
+            return removed
+
+    cursor = execute(
+        connection,
+        delete(sentences_table).where(sentences_table.c.doc_id == doc_id),
+    )
+    return cursor.rowcount
+
+
 def _normalize_sentence_row(row: Mapping[str, int | str]) -> SentenceRow:
     return {
         "id": str(row["id"]),

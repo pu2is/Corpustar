@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from sqlite3 import Connection
 
 from sqlalchemy import delete, insert, select
 
@@ -77,13 +78,20 @@ def read_document_by_id(document_id: str) -> DocumentRow | None:
     return _map_document_row(row)
 
 
-def rm_document(document_id: str) -> bool:
-    with connection_scope() as connection:
-        cursor = execute(
-            connection,
-            delete(documents_table).where(documents_table.c.id == document_id),
-        )
-        connection.commit()
+def rm_document(document_id: str, connection: Connection | None = None) -> bool:
+    if connection is None:
+        with connection_scope() as scoped_connection:
+            cursor = execute(
+                scoped_connection,
+                delete(documents_table).where(documents_table.c.id == document_id),
+            )
+            scoped_connection.commit()
+        return cursor.rowcount > 0
+
+    cursor = execute(
+        connection,
+        delete(documents_table).where(documents_table.c.id == document_id),
+    )
     return cursor.rowcount > 0
 
 
