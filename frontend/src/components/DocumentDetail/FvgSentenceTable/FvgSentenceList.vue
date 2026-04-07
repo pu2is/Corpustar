@@ -24,29 +24,6 @@ const segmentationId = computed(() => sentenceList.value[0]?.version_id ?? '')
 const ruleId = computed(() => processStore.getRuleIdBySegmentationId(segmentationId.value ?? ''))
 const fvgProcessId = computed(() => processStore.getFvgProcessByDocId(docId.value)?.id ?? null)
 
-// Tokens
-interface TokenItem {
-  text: string
-  lemma: string
-}
-
-function sentenceToTokens(sentence: string): string[] {
-  if (sentence.length === 0) return []
-  const tokenPattern = /[\p{P}\p{S}]|[^\s\p{P}\p{S}]+/gu
-  return Array.from(sentence.matchAll(tokenPattern), (match) => match[0])
-}
-
-const tokens = computed(() => new Map(
-  sentenceList.value.map((item) => {
-    const lemmaByIndex = new Map(item.lemma_tokens.map((l) => [l.word_index, l.lemma_word]))
-    return [ item.id,
-      sentenceToTokens(item.corrected_text || item.source_text).map((text, i): TokenItem => ({
-        text,
-        lemma: lemmaByIndex.get(i) ?? '',
-      })),
-    ]
-  }),
-))
 
 function candidateTokenIndices(item: SentenceFvgItem): Set<number> {
   const indices = new Set<number>()
@@ -151,11 +128,11 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
     </div>
 
     <div class="cursor-default flex flex-wrap gap-1 text-sm">
-      <span v-for="(token, tokenIndex) in tokens.get(item.id) ?? []"
-        :key="`${item.id}-${tokenIndex}`"
-        :title="token.lemma || undefined"
-        :class="tokenClass(item, tokenIndex)">
-        {{ token.text }}
+      <span v-for="lemmaToken in item.lemma_tokens"
+        :key="`${item.id}-${lemmaToken.word_index}`"
+        :title="lemmaToken.lemma_word || undefined"
+        :class="tokenClass(item, lemmaToken.word_index)">
+        {{ lemmaToken.source_word }}
       </span>
     </div>
 
