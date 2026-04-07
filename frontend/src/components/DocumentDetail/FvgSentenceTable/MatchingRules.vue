@@ -1,14 +1,44 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { Plus } from 'lucide-vue-next'
 import type { FvgItem } from '@/types/fvg'
+import { useRuleFvgStore } from '@/stores/ruleFvgStore'
 
 const props = defineProps<{
   entries: FvgItem[]
   loading: boolean
   modelValue: string | null
+  ruleId: string | null
+  verbLemma: string
 }>()
 
-const emit = defineEmits<{ 'update:modelValue': [id: string | null] }>()
+const emit = defineEmits<{
+  'update:modelValue': [id: string | null]
+  'added': []
+}>()
+
+const ruleFvgStore = useRuleFvgStore()
+
+const phrase = ref('')
+const submitting = ref(false)
+
+const canSubmit = computed(() => Boolean(props.ruleId && props.verbLemma && phrase.value.trim() && !submitting.value))
+
+async function addRule(): Promise<void> {
+  if (!canSubmit.value || !props.ruleId) return
+  submitting.value = true
+  try {
+    await ruleFvgStore.addFvgRule({
+      ruleId: props.ruleId,
+      verb: props.verbLemma,
+      phrase: phrase.value.trim(),
+    })
+    phrase.value = ''
+    emit('added')
+  } finally {
+    submitting.value = false
+  }
+}
 
 const sortedEntries = computed(() =>
   [...props.entries].sort((a, b) => a.noun.localeCompare(b.noun)),
@@ -55,5 +85,23 @@ const sortedEntries = computed(() =>
         </table>
       </div>
     </template>
+
+    <!-- add rule footer -->
+    <div class="mt-2 pt-2 border-t border-violet-600 flex items-center gap-1">
+      <input
+        v-model="phrase"
+        type="text"
+        :placeholder="`phrase for ${verbLemma}…`"
+        class="flex-1 min-w-0 h-7 bg-violet-700/50 border border-violet-500 px-2 text-[10px] text-yellow-200 placeholder:text-violet-400 outline-none focus:border-violet-300"
+        @keydown.enter.prevent="void addRule()">
+      <button
+        type="button"
+        class="shrink-0 inline-flex items-center justify-center h-7 px-2 bg-yellow-400/20 text-yellow-300 transition-colors"
+        :class="canSubmit ? 'hover:bg-yellow-400/40 cursor-pointer' : 'opacity-40 cursor-not-allowed'"
+        :disabled="!canSubmit"
+        @click="void addRule()">
+        <Plus class="h-3 w-3" />
+      </button>
+    </div>
   </div>
 </template>

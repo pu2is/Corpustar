@@ -88,7 +88,14 @@ watch(() => props.isOpen, async (open) => {
 
             <!-- matching fvg entries -->
             <MatchingRules :entries="matchingEntries"
-              :loading="loading" v-model="selectedEntryId" />
+              :loading="loading"
+              :rule-id="ruleId"
+              :verb-lemma="pair?.verb.lemma_word ?? ''"
+              v-model="selectedEntryId"
+              @added="async () => {
+                if (!ruleId || !pair) return
+                matchingEntries = await ruleFvgStore.getFvgByVerb(ruleId, pair.verb.lemma_word)
+              }" />
           </div>
 
           <!-- footer -->
