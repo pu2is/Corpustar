@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
 
-import { get, post } from '@/stores/fetchWrapper'
+import { del, get, post } from '@/stores/fetchWrapper'
 import { on } from '@/socket/socket'
 // types
+import { SOCKET_EVENT } from '@/socket/events'
 import type { ProcessResponse, ProcessResponseWithId } from '@/types/general'
 import type { FvgMatchRequest, ImportRuleProcessRequest, LemmatizeRequest, ProcessingItem, SentenceSegmentationRequest} from '@/types/processings'
 
@@ -156,6 +157,12 @@ export const useProcessStore = defineStore('process-store', {
         this.running = false
         this.fvgSearchRunning = false
       })
+      on(SOCKET_EVENT.FVG_RESULTS_REMOVED, (socketMsg) => {
+        const payload = socketMsg as { fvg_process_id: string; lemma_process_id: string }
+        this.processing = this.processing.filter(
+          (item) => item.id !== payload.fvg_process_id && item.id !== payload.lemma_process_id,
+        )
+      })
     },
 
     // 2. API requests
@@ -186,6 +193,10 @@ export const useProcessStore = defineStore('process-store', {
     async fvgMatch(segmentationId: string, ruleId: string): Promise<ProcessResponseWithId> {
       const payload: FvgMatchRequest = { segmentation_id: segmentationId, rule_id: ruleId }
       return post<ProcessResponseWithId>('/api/process/fvg_candidate', payload)
+    },
+
+    async deleteFvgResults(fvgProcessId: string): Promise<{ ok: boolean; err_msg: string }> {
+      return del<{ ok: boolean; err_msg: string }>(`/api/process/fvg_candidate/${fvgProcessId}`)
     },
 
     // 3. Helpers

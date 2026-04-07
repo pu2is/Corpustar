@@ -29,6 +29,16 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
       on(SOCKET_EVENT.FVG_CANDIDATE_RESTORE_FAILED, (_socketMsg) => { /* no-op */ })
       on(SOCKET_EVENT.FVG_CANDIDATE_ADD_SUCCEED, (_socketMsg) => { /* no-op */ })
       on(SOCKET_EVENT.FVG_CANDIDATE_ADD_FAILED, (_socketMsg) => { /* no-op */ })
+      on(SOCKET_EVENT.FVG_RESULTS_REMOVED, (socketMsg) => {
+        const payload = socketMsg as { fvg_process_id: string; lemma_process_id: string }
+        const isAffected = this.sentenceFvgList.some((s) =>
+          s.lemma_tokens?.some((t) => String(t.version_id) === payload.lemma_process_id),
+        )
+        if (isAffected) {
+          this.sentenceFvgList = []
+          this.cursor = null
+        }
+      })
       this.connected = true
     },
 

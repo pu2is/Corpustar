@@ -12,6 +12,7 @@ from app.schemas.processings import (
     SentenceSegmentationProcessRequest,
 )
 from app.services.process.process_query_service import list_processing_items
+from app.services.process.remove import remove_results_by_fvg_process_id
 from app.services.process.rule.main import import_rule as import_rule_process
 from app.services.process.fvg_candidates import run_fvg_candidate_matching
 from app.services.process.sentence_lemmatization import lemmatize_sentences
@@ -129,4 +130,26 @@ def fvg_candidate_route(
         return JSONResponse(
             status_code=500,
             content={"id": "", "state": "failed", "error_msg": "Internal server error"},
+        )
+
+
+@router.delete("/process/fvg_candidate/{process_id}", response_model=None)
+def delete_fvg_candidate_results_route(process_id: str) -> dict[str, object] | JSONResponse:
+    try:
+        remove_results_by_fvg_process_id(process_id)
+        return {"ok": True, "err_msg": ""}
+    except FileNotFoundError as error:
+        return JSONResponse(
+            status_code=404,
+            content={"ok": False, "err_msg": str(error)},
+        )
+    except ValueError as error:
+        return JSONResponse(
+            status_code=400,
+            content={"ok": False, "err_msg": str(error)},
+        )
+    except Exception:
+        return JSONResponse(
+            status_code=500,
+            content={"ok": False, "err_msg": "Internal server error"},
         )

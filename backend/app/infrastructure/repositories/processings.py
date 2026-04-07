@@ -158,6 +158,31 @@ def _change_process_item_state_with_connection(
     return process
 
 
+def read_process_items_by_parent_id(parent_id: str, connection: Connection | None = None) -> list[ProcessRow]:
+    statement = (
+        select(
+            processings_table.c.id,
+            processings_table.c.parent_id,
+            processings_table.c.doc_id,
+            processings_table.c.type,
+            processings_table.c.state,
+            processings_table.c.created_at,
+            processings_table.c.updated_at,
+            processings_table.c.error_message,
+            processings_table.c.meta_json,
+        )
+        .select_from(processings_table)
+        .where(processings_table.c.parent_id == parent_id)
+    )
+
+    if connection is None:
+        with connection_scope() as scoped_connection:
+            return read_process_items_by_parent_id(parent_id, connection=scoped_connection)
+
+    rows = execute(connection, statement).fetchall()
+    return [_map_process_row(row) for row in rows]
+
+
 def read_process_item_by_id(process_id: str, connection: Connection | None = None) -> ProcessRow | None:
     statement = (
         select(

@@ -34,6 +34,8 @@ export const SOCKET_EVENT = {
   FVG_CANDIDATE_RESTORE_FAILED: 'fvgCandidate:restoreFailed',
   FVG_CANDIDATE_ADD_SUCCEED: 'fvgCandidate:addSucceed',
   FVG_CANDIDATE_ADD_FAILED: 'fvgCandidate:addFailed',
+
+  FVG_RESULTS_REMOVED: 'fvgResults:removed',
 } as const
 
 export type BackendSocketEventName = (typeof SOCKET_EVENT)[keyof typeof SOCKET_EVENT]

@@ -7,7 +7,7 @@ import { useProcessStore } from '@/stores/processStore';
 // components
 import FvgDisplayFilter from '@/components/DocumentDetail/FvgSentenceTable/FvgDisplayFilter.vue';
 import FvgSearchModal from '@/components/DocumentDetail/DetailHeader/FvgSearchModal.vue';
-
+import Options from '@/components/DocumentDetail/FvgCandidatsOptions/Options.vue';
 
 const props = defineProps<{
   document: DocItem;
@@ -21,6 +21,11 @@ const hasFvgSearch = computed(() => props.processes.some(p => p.type === 'fvg'))
 const segmentationId = computed(() => {
   const segmentationProcess = props.processes.find(p => p.type === 'sentence_segmentation');
   return segmentationProcess ? segmentationProcess.id : null;
+});
+
+const fvgSearchId = computed(() => {
+  const fvgSearchProcess = props.processes.find(p => p.type === 'fvg');
+  return fvgSearchProcess ? fvgSearchProcess.id : null;
 });
 
 // Actions
@@ -40,6 +45,10 @@ function startSentenceSegmentation(): void {
       </button>
     </article>
     <FvgSearchModal v-else-if="segmentationId && !hasFvgSearch" :segmentation-id="segmentationId" />
-    <FvgDisplayFilter v-else-if="segmentationId && hasFvgSearch" />
+    <div v-else-if="segmentationId && hasFvgSearch" 
+      class="flex items-center justify-center gap-1">
+      <FvgDisplayFilter />
+      <Options :fvg-id="fvgSearchId" />
+    </div>
   </div>
 </template>
