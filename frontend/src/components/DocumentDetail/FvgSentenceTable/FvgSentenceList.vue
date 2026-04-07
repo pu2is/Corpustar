@@ -91,6 +91,18 @@ function onChosenIndices(sentenceId: string, wordIndices: number[], lemmaTokens:
   chosenLemmaItems.value[sentenceId] = lemmaTokens.filter((l) => indexSet.has(l.word_index))
 }
 
+function toggleShowLemma(item: SentenceFvgItem): void {
+  const isShowing = showLemmas.value[item.id]
+  showLemmas.value[item.id] = !isShowing
+  if (isShowing) {
+    chosenLemmaIndices.value[item.id] = new Set()
+    chosenLemmaItems.value[item.id] = []
+    hoveredLemmaIndex.value[item.id] = null
+    clearSignals.value[item.id] = (clearSignals.value[item.id] ?? 0) + 1
+    if (activeChoosingId.value === item.id) activeChoosingId.value = null
+  }
+}
+
 function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
   if (candidateTokenIndices(item).has(tokenIndex))
     return 'px-1 bg-yellow-300 text-violet-700 font-medium'
@@ -119,7 +131,7 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
       <button v-if="item.lemma_tokens.length > 0"
         class="cursor-pointer inline-flex items-center justify-center w-5 h-5 bg-gray-300/50 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors"
         :title="showLemmas[item.id] ? 'Hide lemma badges' : 'Show lemma badges'"
-        @click="showLemmas[item.id] = !showLemmas[item.id]">
+        @click="toggleShowLemma(item)">
         <Plus :size="10" />
       </button>
     </div>
