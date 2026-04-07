@@ -103,9 +103,7 @@ def import_rule_route(payload: ImportRuleProcessRequest) -> ImportRuleActionResp
 
 
 @router.post("/process/fvg_candidate", response_model=FvgCandidateProcessActionResponse)
-def fvg_candidate_route(
-    payload: FvgCandidateProcessRequest,
-) -> FvgCandidateProcessActionResponse | JSONResponse:
+def fvg_candidate_route(payload: FvgCandidateProcessRequest) -> FvgCandidateProcessActionResponse | JSONResponse:
     try:
         process_item = run_fvg_candidate_matching(
             segmentation_id=payload.segmentation_id,

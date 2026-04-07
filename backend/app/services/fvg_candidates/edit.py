@@ -45,14 +45,8 @@ def restore_fvg_candidate(fvg_candidate_id: str, sentence_id: str) -> dict:
         raise
 
 
-def add_fvg_candidate(
-    sentence_id: str,
-    process_id: str,
-    fvg_entry_id: str,
-    verb_id: str,
-    noun_id: str,
-    prep_id: str,
-) -> dict:
+def add_fvg_candidate(sentence_id: str, process_id: str, fvg_entry_id: str,
+    verb_id: str, noun_id: str, prep_id: str) -> dict:
     ids_to_fetch = [verb_id, noun_id] + ([prep_id] if prep_id else [])
     lemma_map = get_lemma_tokens_by_ids(ids_to_fetch)
 

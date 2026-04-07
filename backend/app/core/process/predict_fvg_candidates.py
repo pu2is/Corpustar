@@ -53,10 +53,7 @@ def _build_candidate(
     }
 
 
-def predict_fvg_candidates(
-    fvg_entries: Sequence[FvgEntry],
-    lemma_tokens: Sequence[LemmaToken],
-) -> list[FvgCandidate]:
+def predict_fvg_candidates(fvg_entries: Sequence[FvgEntry], lemma_tokens: Sequence[LemmaToken]) -> list[FvgCandidate]:
     if not fvg_entries or not lemma_tokens:
         return []
 
@@ -73,7 +70,7 @@ def predict_fvg_candidates(
         ordered_tokens = sorted(sentence_tokens, key=lambda token: _to_int(token.get("word_index"), 0))
 
         for verb_token in ordered_tokens:
-            if _to_str(verb_token.get("pos_tag", "")).upper() != "VERB":
+            if _to_str(verb_token.get("pos_tag", "")).upper() not in ("VERB", "AUX"):
                 continue
 
             verb_lemma = _to_str(verb_token.get("lemma_word", "")).lower()

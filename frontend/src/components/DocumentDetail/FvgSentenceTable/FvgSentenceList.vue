@@ -63,15 +63,12 @@ const modalOpen = ref(false)
 const activePair = computed((): { verb: LemmaItem; noun: LemmaItem; adp?: LemmaItem } | null => {
   if (!activeChoosingId.value) return null
   const items = chosenLemmaItems.value[activeChoosingId.value] ?? []
-  if (items.length < 2 || items.length > 3) return null
-  const verbs = items.filter((l) => l.pos_tag === 'VERB')
+  if (items.length < 2) return null
+  const verbs = items.filter((l) => l.pos_tag === 'VERB' || l.pos_tag === 'AUX')
   const nouns = items.filter((l) => l.pos_tag === 'NOUN')
   const adps  = items.filter((l) => l.pos_tag === 'ADP')
-  const [verb] = verbs
-  const [noun] = nouns
-  if (!verb || !noun) return null
-  if (items.length === 3 && adps.length !== 1) return null
-  return { verb, noun, ...(adps[0] ? { adp: adps[0] } : {}) }
+  if (verbs.length !== 1 || nouns.length !== 1 || adps.length > 1) return null
+  return { verb: verbs[0]!, noun: nouns[0]!, ...(adps[0] ? { adp: adps[0] } : {}) }
 })
 
 watch(activePair, (pair) => { if (!pair) modalOpen.value = false })
