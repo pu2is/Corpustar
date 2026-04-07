@@ -59,7 +59,15 @@ function panelZIndex(id: string): number {
       class="relative"
       @mouseenter="hoverId = lemma.id; emit('hoverLemma', lemma.word_index)"
       @mouseleave="hoverId = null; emit('hoverLemma', null)">
-      <span class="cursor-pointer inline-flex items-center gap-0.5 px-1 py-0.5 bg-background-elevated">
+      <span :class="[
+          'cursor-pointer inline-flex items-center gap-0.5 px-1 py-0.5',
+          lemma.pos_tag === 'VERB' ? 'bg-background-elevated text-violet-700' :
+          lemma.pos_tag === 'NOUN' ? 'bg-amber-50 text-amber-700' :
+          lemma.pos_tag === 'ADP'  ? 'bg-blue-50 text-blue-600' :
+          ['PRON', 'PROPN', 'DET', 'PUNCT', 'SPACE', 'SYM', 'X', 'ADV'].includes(lemma.pos_tag)
+            ? 'bg-background-elevated text-gray-300' :
+          'bg-background-elevated text-gray-500'
+        ]">
         <span>{{ lemma.lemma_word }}</span>
         <CollapsibleTrigger as-child>
           <button :class="['cursor-pointer transition-colors', isPinned(lemma.id) ? 'text-yellow-500' : 'text-gray-300 hover:text-gray-500']"
