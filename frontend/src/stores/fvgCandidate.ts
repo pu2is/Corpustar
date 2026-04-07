@@ -27,6 +27,8 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
       if (this.connected) return
       on(SOCKET_EVENT.FVG_CANDIDATE_REMOVE_FAILED, (_socketMsg) => { /* no-op */ })
       on(SOCKET_EVENT.FVG_CANDIDATE_RESTORE_FAILED, (_socketMsg) => { /* no-op */ })
+      on(SOCKET_EVENT.FVG_CANDIDATE_ADD_SUCCEED, (_socketMsg) => { /* no-op */ })
+      on(SOCKET_EVENT.FVG_CANDIDATE_ADD_FAILED, (_socketMsg) => { /* no-op */ })
       this.connected = true
     },
 
@@ -78,6 +80,24 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
       if (!sentence) return
       const idx = sentence.fvg_candidates.findIndex((c) => c.id === response.fvg_candidate.id)
       if (idx !== -1) sentence.fvg_candidates[idx] = response.fvg_candidate
+    },
+
+    async addFvgCandidate(
+      sentenceId: string,
+      processId: string,
+      fvgEntryId: string,
+      verbId: string,
+      nounId: string,
+      prepId: string = '',
+    ): Promise<void> {
+      const response = await post<{ sentence_id: string; fvg_candidate: FvgCandidateItem } | null>(
+        '/api/fvg_candidates/add',
+        { sentence_id: sentenceId, process_id: processId, fvg_entry_id: fvgEntryId, verb_id: verbId, noun_id: nounId, prep_id: prepId },
+      )
+      if (!response) return
+      const sentence = this.sentenceFvgList.find((s) => s.id === response.sentence_id)
+      if (!sentence) return
+      sentence.fvg_candidates.push(response.fvg_candidate)
     },
 
     // helper

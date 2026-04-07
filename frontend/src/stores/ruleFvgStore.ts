@@ -8,6 +8,7 @@ import type { ProcessResponseWithId } from '@/types/general'
 export const useRuleFvgStore = defineStore('rule-fvg-store', {
   state: () => ({
     fvg: [] as FvgItem[],
+    fvgDict: {} as Record<string, FvgItem[]>,
     connected: false as boolean,
   }),
   getters: {},
@@ -64,6 +65,12 @@ export const useRuleFvgStore = defineStore('rule-fvg-store', {
       return items
     },
 
+    async getFvgByVerb(ruleId: string, verb: string): Promise<FvgItem[]> {
+      const items = await post<FvgItem[]>('/api/fvg/by_verb', { rule_id: ruleId, verb })
+      this.fvgDict[verb] = items
+      return items
+    },
+
     async appendFvg(payload: FvgAppendRequest): Promise<ProcessResponseWithId> {
       return post<ProcessResponseWithId>('/api/fvg/append', payload)
     },
@@ -89,6 +96,10 @@ export const useRuleFvgStore = defineStore('rule-fvg-store', {
 
     findFvgById(fvgId: string): FvgItem | null {
       return this.fvg.find((item) => item.id === fvgId) ?? null
+    },
+
+    clearFvgDict(): void {
+      this.fvgDict = {}
     },
 
     // Backward-compatible aliases

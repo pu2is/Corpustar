@@ -11,8 +11,10 @@ from app.schemas.rules import (
     AppendFvgEntryRequest,
     CorrectFvgEntryRequest,
     FvgActionResponse,
+    FvgByVerbRequest,
     FvgEntryItem,
 )
+from app.services.rules.fvg.rule_query import get_fvg_entry_by_rule_id_and_verb
 
 router = APIRouter()
 
@@ -21,6 +23,18 @@ router = APIRouter()
 def list_fvg_rules_route(rule_id: str) -> list[FvgEntryItem]:
     try:
         return list_fvg_entry_items(rule_id=rule_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=500, detail="Internal server error") from error
+
+
+@router.post("/fvg/by_verb", response_model=list[FvgEntryItem])
+def list_fvg_by_verb_route(payload: FvgByVerbRequest) -> list[FvgEntryItem]:
+    try:
+        return get_fvg_entry_by_rule_id_and_verb(rule_id=payload.rule_id, verb=payload.verb)
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:

@@ -32,6 +32,15 @@ class FvgCandidateToggleRequest(BaseModel):
     fvg_candidate_id: str
 
 
+class FvgCandidateAddRequest(BaseModel):
+    sentence_id: str
+    process_id: str
+    fvg_entry_id: str
+    verb_id: str
+    noun_id: str
+    prep_id: str = ""
+
+
 class FvgCandidateToggleResponse(BaseModel):
     sentence_id: str
     fvg_candidate: FvgCandidateItem

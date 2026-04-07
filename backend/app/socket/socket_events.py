@@ -36,6 +36,8 @@ FVG_UPDATED = "fvg:updated"
 
 FVG_CANDIDATE_REMOVE_FAILED = "fvgCandidate:removeFailed"
 FVG_CANDIDATE_RESTORE_FAILED = "fvgCandidate:restoreFailed"
+FVG_CANDIDATE_ADD_SUCCEED = "fvgCandidate:addSucceed"
+FVG_CANDIDATE_ADD_FAILED = "fvgCandidate:addFailed"
 
 
 SocketPayload: TypeAlias = dict[str, Any]

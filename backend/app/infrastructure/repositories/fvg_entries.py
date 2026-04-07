@@ -213,6 +213,35 @@ def rm_fvg_entry_by_id(
             raise
 
 
+def filter_fvg_entry_by_rule_and_verb(
+    rule_id: str,
+    verb: str,
+    connection: Connection | None = None,
+) -> list[FvgEntryRow]:
+    statement = (
+        select(
+            fvg_entries_table.c.id,
+            fvg_entries_table.c.rule_id,
+            fvg_entries_table.c.verb,
+            fvg_entries_table.c.phrase,
+            fvg_entries_table.c.noun,
+            fvg_entries_table.c.prep,
+            fvg_entries_table.c.structure_type,
+            fvg_entries_table.c.semantic_type,
+        )
+        .select_from(fvg_entries_table)
+        .where(
+            fvg_entries_table.c.rule_id == rule_id,
+            fvg_entries_table.c.verb == verb,
+        )
+        .order_by(fvg_entries_table.c.id.asc())
+    )
+    with _use_connection(connection) as active_connection:
+        rows = execute(active_connection, statement).fetchall()
+
+    return [_map_fvg_entry_row(row) for row in rows]
+
+
 def rm_fvg_entries_by_rule_id(
     rule_id: str,
     connection: Connection | None = None,
