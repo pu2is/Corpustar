@@ -43,6 +43,16 @@ export const useProcessStore = defineStore('process-store', {
         && item.state === 'succeed'
       )) ?? null
     ),
+    getRuleIdBySegmentationId: (state) => (segmentationId: string): string | null => {
+      const item = state.processing.find((p) => p.parent_id === segmentationId)
+      if (!item?.meta_json) return null
+      try {
+        const meta = JSON.parse(item.meta_json) as Record<string, unknown>
+        return typeof meta.rule_id === 'string' ? meta.rule_id : null
+      } catch {
+        return null
+      }
+    },
   },
   actions: {
     // 1. Socket binding

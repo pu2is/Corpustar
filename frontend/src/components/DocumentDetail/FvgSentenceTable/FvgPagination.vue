@@ -89,6 +89,10 @@ async function goNext(): Promise<void> {
   }
 }
 
+watch(prevCursor, (prev) => {
+  if (!prev && page.value !== 1) saveCursor(1)
+})
+
 // When display mode changes, restore the last saved cursor for that mode
 watch(display, async () => {
   const saved = paginationStore.paginationInfo.fvgSentenceTable[currentMode.value]

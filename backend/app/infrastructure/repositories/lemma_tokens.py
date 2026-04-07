@@ -86,6 +86,35 @@ def save_lemma_token_in_batch(
     execute_many(connection, statement, normalized_rows)
 
 
+def get_lemma_tokens_by_ids(lemma_ids: list[str]) -> dict[str, LemmaTokenRow]:
+    if not lemma_ids:
+        return {}
+
+    unique_ids = list(dict.fromkeys(lemma_ids))
+    statement = (
+        select(
+            lemma_tokens_table.c.id,
+            lemma_tokens_table.c.version_id,
+            lemma_tokens_table.c.sentence_id,
+            lemma_tokens_table.c.source_word,
+            lemma_tokens_table.c.lemma_word,
+            lemma_tokens_table.c.word_index,
+            lemma_tokens_table.c.head_index,
+            lemma_tokens_table.c.pos_tag,
+            lemma_tokens_table.c.fine_pos_tag,
+            lemma_tokens_table.c.morph,
+            lemma_tokens_table.c.dependency_relationship,
+        )
+        .select_from(lemma_tokens_table)
+        .where(lemma_tokens_table.c.id.in_(unique_ids))
+    )
+
+    with connection_scope() as connection:
+        rows = execute(connection, statement).fetchall()
+
+    return {str(row["id"]): _map_lemma_token_row(row) for row in rows}
+
+
 def read_lemma_tokens_by_sentence_ids(sentence_ids: list[str]) -> dict[str, list[LemmaTokenRow]]:
     if not sentence_ids:
         return {}
