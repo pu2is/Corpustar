@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 // icons
-import { CirclePlus } from 'lucide-vue-next'
+import { CirclePlus, Plus } from 'lucide-vue-next'
 // stores
 import { useFvgCandidateStore } from '@/stores/fvgCandidate'
 import { useProcessStore } from '@/stores/processStore'
@@ -70,6 +70,9 @@ function removedCandidateTokenIndices(item: SentenceFvgItem): Set<number> {
   return indices
 }
 
+// toggle lemma badges visibility per sentence (hidden by default when candidates exist)
+const showLemmas = ref<Record<string, boolean>>({})
+
 // hover lemma highlight source text
 const hoveredLemmaIndex = ref<Record<string, number | null>>({})
 const chosenLemmaIndices = ref<Record<string, Set<number>>>({})
@@ -134,10 +137,17 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
     <p class="text-xs text-text-muted">
       <span class="font-medium small-caps">Span</span> {{ item.start_offset }} – {{ item.end_offset }}
     </p>
-    <div v-if="item.fvg_candidates.length > 0" class="flex flex-wrap gap-1">
+
+    <div v-if="item.fvg_candidates.length > 0" class="flex flex-wrap gap-1 items-center">
       <FvgCandidateBadge v-for="candidate in item.fvg_candidates"
-        :key="candidate.id" 
+        :key="candidate.id"
         :sentence-id="item.id" :fvg-candidate-item="candidate" />
+      <button v-if="item.lemma_tokens.length > 0"
+        class="cursor-pointer inline-flex items-center justify-center w-5 h-5 bg-gray-300/50 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors"
+        :title="showLemmas[item.id] ? 'Hide lemma badges' : 'Show lemma badges'"
+        @click="showLemmas[item.id] = !showLemmas[item.id]">
+        <Plus :size="10" />
+      </button>
     </div>
 
     <div class="cursor-default flex flex-wrap gap-1 text-sm">
@@ -149,7 +159,7 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
       </span>
     </div>
 
-    <SentenceLemmaBadges v-if="item.fvg_candidates.length === 0 && item.lemma_tokens.length > 0"
+    <SentenceLemmaBadges v-if="item.lemma_tokens.length > 0 && (item.fvg_candidates.length === 0 || showLemmas[item.id])"
       :lemma-tokens="item.lemma_tokens"
       :is-active="activePinnedSentenceId === null || activePinnedSentenceId === item.id"
       :clear-signal="clearSignals[item.id]"
@@ -159,8 +169,8 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
 
     <div v-if="item.id === activeChoosingId && activePair"
       class="absolute right-0 top-0 bottom-0 flex items-center">
-      <button
-        class="h-full px-2 flex items-center justify-center bg-violet-400/40 text-violet-700 hover:bg-violet-500/50 transition-colors"
+      <button class="h-full px-2 flex items-center justify-center 
+        bg-violet-400/40 text-violet-700 hover:bg-violet-500/50 transition-colors"
         @click="modalOpen = true">
         <CirclePlus :size="13" />
       </button>
