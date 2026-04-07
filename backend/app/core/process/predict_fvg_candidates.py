@@ -101,6 +101,17 @@ def predict_fvg_candidates(fvg_entries: Sequence[FvgEntry], lemma_tokens: Sequen
     return candidates
 
 
+def _find_noun_entry(noun_lemma: str, entry_map: dict[str, FvgEntry]) -> FvgEntry | None:
+    """Exact match first; then compound-noun fallback (entry noun contained in token lemma)."""
+    entry = entry_map.get(noun_lemma)
+    if entry is not None:
+        return entry
+    for entry_noun, candidate in entry_map.items():
+        if entry_noun and entry_noun in noun_lemma:
+            return candidate
+    return None
+
+
 def _find_akku_candidate(
     sentence_id: str,
     verb_token: LemmaToken,
@@ -120,7 +131,7 @@ def _find_akku_candidate(
             continue
 
         noun_lemma = _to_str(child.get("lemma_word", "")).lower()
-        matched_entry = akku_entries_by_noun.get(noun_lemma)
+        matched_entry = _find_noun_entry(noun_lemma, akku_entries_by_noun)
         if matched_entry is None:
             continue
 
@@ -177,7 +188,7 @@ def _find_prep_candidate(
                 continue
 
             noun_lemma = _to_str(noun_token.get("lemma_word", "")).lower()
-            matched_entry = noun_entry_map.get(noun_lemma)
+            matched_entry = _find_noun_entry(noun_lemma, noun_entry_map)
             if matched_entry is None:
                 continue
 
