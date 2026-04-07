@@ -2,7 +2,7 @@ from collections.abc import Iterable, Iterator, Mapping
 from sqlite3 import Connection
 from uuid import uuid4
 
-from sqlalchemy import and_, bindparam, delete, insert, or_, select, update
+from sqlalchemy import and_, bindparam, delete, func, insert, or_, select, update
 
 from app.infrastructure.db.connection import connection_scope, open_connection
 from app.infrastructure.repositories._sqlalchemy import (
@@ -427,6 +427,22 @@ def rm_sentences_by_doc_id(doc_id: str, connection: Connection | None = None) ->
         delete(sentences_table).where(sentences_table.c.doc_id == doc_id),
     )
     return cursor.rowcount
+
+
+def get_sentences_number_by_segmentation_id(
+    segmentation_id: str,
+    connection: Connection | None = None,
+) -> int:
+    statement = (
+        select(func.count())
+        .select_from(sentences_table)
+        .where(sentences_table.c.version_id == segmentation_id)
+    )
+    if connection is None:
+        with connection_scope() as scoped_connection:
+            return get_sentences_number_by_segmentation_id(segmentation_id, connection=scoped_connection)
+    row = execute(connection, statement).fetchone()
+    return int(row[0]) if row else 0
 
 
 def _normalize_sentence_row(row: Mapping[str, int | str]) -> SentenceRow:

@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from sqlite3 import Connection
 from typing import Any
 
-from sqlalchemy import bindparam, delete, insert, select, update
+from sqlalchemy import bindparam, delete, func, insert, select, update
 
 from app.infrastructure.db.connection import connection_scope
 from app.infrastructure.repositories._sqlalchemy import (
@@ -458,6 +458,20 @@ def rm_fvg_candidate_items_by_sentence_ids(
     return _rm_fvg_candidate_items_by_sentence_ids(
         sentence_ids, process_id=process_id, connection=connection
     )
+
+
+def get_fvg_length_by_process_id(
+    process_id: str,
+    connection: Connection | None = None,
+) -> int:
+    statement = (
+        select(func.count())
+        .select_from(fvg_candidates_table)
+        .where(fvg_candidates_table.c.process_id == process_id)
+    )
+    with _use_connection(connection) as active_connection:
+        row = execute(active_connection, statement).fetchone()
+    return int(row[0]) if row else 0
 
 
 def rm_fvg_candidates_by_process_id(

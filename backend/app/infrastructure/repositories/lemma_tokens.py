@@ -180,6 +180,26 @@ def count_lemma_tokens_by_version_id(version_id: str, connection: Connection | N
     return int(row[0])
 
 
+def get_num_lemma_by_id_and_pos(
+    version_id: str,
+    pos: str,
+    connection: Connection | None = None,
+) -> int:
+    statement = (
+        select(func.count())
+        .select_from(lemma_tokens_table)
+        .where(
+            (lemma_tokens_table.c.version_id == version_id)
+            & (lemma_tokens_table.c.pos_tag == pos)
+        )
+    )
+    if connection is None:
+        with connection_scope() as scoped_connection:
+            return get_num_lemma_by_id_and_pos(version_id, pos, connection=scoped_connection)
+    row = execute(connection, statement).fetchone()
+    return int(row[0]) if row else 0
+
+
 def _normalize_lemma_token_row(row: Mapping[str, int | str]) -> LemmaTokenRow:
     return {
         "id": str(row["id"]),

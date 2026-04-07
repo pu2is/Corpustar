@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 // stores
 import { useDocumentStore } from '@/stores/documentStore';
 import { useProcessStore } from '@/stores/processStore';
 import { useSentenceStore } from '@/stores/sentenceStore';
 import { usePaginationStore } from '@/stores/local/paginationStore';
+import { useFvgCandidateStore } from '@/stores/fvgCandidate';
 // icons
 // composables
 import { getIdFromUrl } from '@/composables/useRouteId'
@@ -21,6 +23,9 @@ const documentStore = useDocumentStore();
 const processStore = useProcessStore();
 const sentenceStore = useSentenceStore();
 const paginationStore = usePaginationStore();
+const fvgCandidateStore = useFvgCandidateStore();
+
+onBeforeRouteLeave(() => { fvgCandidateStore.resetStatistics() })
 
 const document = computed(() => documentStore.getDocumentById(docId.value));
 const processesOfDoc = computed(() => processStore.getProcessByDocId(docId.value));

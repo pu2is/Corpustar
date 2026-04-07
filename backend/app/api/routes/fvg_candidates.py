@@ -14,8 +14,19 @@ from app.services.fvg_candidates.load import (
     collect_fvg_candidates_and_sentence_by_cursor,
     collect_undetected_fvg_candidates_by_cursor,
 )
+from app.services.fvg_candidates.statistics import get_simple_statistics
 
 router = APIRouter()
+
+
+@router.get("/fvg_candidates/statistics/{process_id}")
+def get_fvg_statistics_route(process_id: str) -> dict[str, int]:
+    try:
+        return get_simple_statistics(fvg_process_id=process_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=500, detail="Internal server error") from error
 
 
 @router.post("/fvg_candidates", response_model=SentenceFvgListItem)

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-import { post } from '@/stores/fetchWrapper'
+import { post, get } from '@/stores/fetchWrapper'
 import { on } from '@/socket/socket'
 import { SOCKET_EVENT } from '@/socket/events'
 // types
@@ -20,6 +20,7 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
     cursor: null as FvgCursorItem | null,
     display: 'detected' as 'detected' | 'undetected' | 'all',
     connected: false as boolean,
+    simpleStatistics: null as { num_verb: number; num_aux: number; num_fvg: number; num_sentences: number } | null,
   }),
   actions: {
     
@@ -113,6 +114,17 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
     // helper
     changeDisplay(display: 'detected' | 'undetected' | 'all'): void {
       this.display = display
+    },
+
+    async getSimpleStatistics(fvgProcessId: string): Promise<void> {
+      const response = await get<{ num_verb: number; num_aux: number; num_fvg: number; num_sentences: number }>(
+        `/api/fvg_candidates/statistics/${fvgProcessId}`,
+      )
+      this.simpleStatistics = response
+    },
+
+    resetStatistics(): void {
+      this.simpleStatistics = null
     },
   },
 })
