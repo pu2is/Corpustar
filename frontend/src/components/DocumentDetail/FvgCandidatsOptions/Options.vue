@@ -1,14 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import {
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuPortal,
-  DropdownMenuRoot,
-  DropdownMenuTrigger,
-} from 'reka-ui'
+import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal,
+  DropdownMenuRoot, DropdownMenuTrigger} from 'reka-ui'
 import { BarChart2, EllipsisVertical, Trash2 } from 'lucide-vue-next'
-import RemoveFvgResultsModal from '@/components/DocumentDetail/FvgCandidatsOptions/RemoveFvgResultsModal.vue'
+import RemoveFvgResultsModal from '@/components/DocumentDetail/Modals/RemoveFvgResultsModal.vue'
 import { useFvgCandidateStore } from '@/stores/fvgCandidate'
 
 const props = defineProps<{

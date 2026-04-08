@@ -13,7 +13,7 @@ import type { LemmaItem } from '@/types/lemmatize'
 // components
 import FvgCandidateBadge from '@/components/DocumentDetail/FvgSentenceTable/FvgCandidateBadge.vue'
 import SentenceLemmaBadges from '@/components/DocumentDetail/FvgSentenceTable/SentenceLemmaBadges.vue'
-import AddUndetectedFvg from '@/components/DocumentDetail/FvgSentenceTable/AddUndetectedFvg.vue'
+import AddUndetectedFvg from '@/components/DocumentDetail/Modals/AddUndetectedFvg.vue'
 
 const docId = getIdFromUrl()
 const fvgCandidateStore = useFvgCandidateStore()
@@ -54,7 +54,6 @@ const showLemmas = ref<Record<string, boolean>>({})
 const hoveredLemmaIndex = ref<Record<string, number | null>>({})
 const chosenLemmaIndices = ref<Record<string, Set<number>>>({})
 const chosenLemmaItems = ref<Record<string, LemmaItem[]>>({})
-const activePinnedSentenceId = ref<string | null>(null)
 // choosing
 const activeChoosingId = ref<string | null>(null)
 const clearSignals = ref<Record<string, number>>({})
@@ -153,9 +152,7 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
 
     <SentenceLemmaBadges v-if="item.lemma_tokens.length > 0 && (item.fvg_candidates.length === 0 || showLemmas[item.id])"
       :lemma-tokens="item.lemma_tokens"
-      :is-active="activePinnedSentenceId === null || activePinnedSentenceId === item.id"
       :clear-signal="clearSignals[item.id]"
-      @pinned="activePinnedSentenceId = item.id"
       @hover-lemma="(idx) => onLemmaHover(item.id, idx)"
       @chosen-indices="(indices) => onChosenIndices(item.id, indices, item.lemma_tokens)" />
 
@@ -169,6 +166,7 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
     </div>
   </article>
 
+  <!-- Modals -->
   <AddUndetectedFvg :pair="activePair" :is-open="modalOpen" :rule-id="ruleId"
     :sentence-id="activeChoosingId" :process-id="fvgProcessId"
     @close="modalOpen = false" />

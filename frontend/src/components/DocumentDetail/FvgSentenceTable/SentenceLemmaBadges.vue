@@ -1,60 +1,30 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { Pin, X, CirclePlus, CircleCheck } from 'lucide-vue-next'
-import { CollapsibleRoot, CollapsibleTrigger, CollapsibleContent } from 'reka-ui'
+import { Circle, CircleDot, Pencil } from 'lucide-vue-next'
+import { CollapsibleRoot, CollapsibleContent } from 'reka-ui'
 import type { LemmaItem } from '@/types/lemmatize'
+import EditLemmaModal from '@/components/DocumentDetail/Modals/EditLemmaModal.vue'
 
 const props = defineProps<{
   lemmaTokens: LemmaItem[]
-  isActive: boolean
   clearSignal?: number
 }>()
 
 const emit = defineEmits<{
   hoverLemma: [wordIndex: number | null]
-  pinned: []
   chosenIndices: [wordIndices: number[]]
 }>()
 
 const hoverId = ref<string | null>(null)
+const editingLemma = ref<LemmaItem | null>(null)
 
 // Lemma info details panel
-watch(() => props.isActive, (active) => {
-  if (!active) pinnedOrder.value = []
-})
-
 watch(() => props.clearSignal, () => {
   chosenIds.value = new Set()
 })
 
-function isPinned(id: string): boolean {
-  return pinnedOrder.value.includes(id)
-}
-
 function isDetailOpen(id: string): boolean {
-  return hoverId.value === id || isPinned(id)
-}
-
-function togglePin(id: string): void {
-  if (isPinned(id)) {
-    pinnedOrder.value = pinnedOrder.value.filter((i) => i !== id)
-  } else {
-    pinnedOrder.value = [...pinnedOrder.value, id]
-    emit('pinned')
-  }
-}
-
-function bringToFront(id: string): void {
-  if (!isPinned(id)) return
-  pinnedOrder.value = [...pinnedOrder.value.filter((i) => i !== id), id]
-}
-
-const pinnedOrder = ref<string[]>([])
-
-function panelZIndex(id: string): number {
-  if (hoverId.value === id && !isPinned(id)) return 20
-  const idx = pinnedOrder.value.indexOf(id)
-  return idx !== -1 ? 10 + idx : 10
+  return hoverId.value === id
 }
 
 // Choose lemma tokens
@@ -74,53 +44,63 @@ function toggleChosen(id: string): void {
     .map((l) => l.word_index)
   emit('chosenIndices', wordIndices)
 }
+
+const MUTED_POS_TAGS = ['PRON', 'PROPN', 'DET', 'PUNCT', 'SPACE', 'SYM', 'X', 'ADV']
+
+function badgeClass(posTag: string): string {
+  if (posTag === 'ADP') return 'bg-purple-200/50 text-violet-700'
+  if (posTag === 'VERB') return 'bg-amber-50 text-amber-700'
+  if (posTag === 'NOUN') return 'bg-blue-50 text-blue-600'
+  if (MUTED_POS_TAGS.includes(posTag)) return 'bg-background-elevated text-gray-300'
+  return 'bg-background-elevated text-gray-500'
+}
+
+function badgeTextClass(posTag: string): string {
+  if (posTag === 'ADP') return 'text-violet-700'
+  if (posTag === 'VERB') return 'text-amber-700'
+  if (posTag === 'NOUN') return 'text-blue-600'
+  if (MUTED_POS_TAGS.includes(posTag)) return 'text-gray-300'
+  return 'text-gray-500'
+}
 </script>
 
 <template>
-  <div class="flex flex-wrap gap-1 text-xs text-text-muted">
+  <div class="flex flex-wrap gap-2 text-xs text-text-muted">
     <CollapsibleRoot v-for="lemma in lemmaTokens"
       :key="lemma.id"
       :open="isDetailOpen(lemma.id)"
       class="relative"
       @mouseenter="hoverId = lemma.id; emit('hoverLemma', lemma.word_index)"
       @mouseleave="hoverId = null; emit('hoverLemma', null)">
-      <span :class="[
-          'cursor-pointer inline-flex items-center gap-0.5 px-1 py-0.5',
-          lemma.pos_tag === 'ADP' ? 'bg-background-elevated text-violet-700' :
-          lemma.pos_tag === 'VERB' ? 'bg-amber-50 text-amber-700' :
-          lemma.pos_tag === 'NOUN'  ? 'bg-blue-50 text-blue-600' :
-          ['PRON', 'PROPN', 'DET', 'PUNCT', 'SPACE', 'SYM', 'X', 'ADV'].includes(lemma.pos_tag)
-            ? 'bg-background-elevated text-gray-300' :
-          'bg-background-elevated text-gray-500'
-        ]"
+      <div class="flex gap-1 cursor-pointer inline-flex items-center gap-0.5 px-1 py-0.5"
+        :class="badgeClass(lemma.pos_tag)"
         @click="toggleChosen(lemma.id)">
+        
         <span class="flex-shrink-0 transition-colors"
-          :class="isChosen(lemma.id) ? 'text-green-500' : 'text-gray-300'">
-          <CircleCheck v-if="isChosen(lemma.id)" :size="9" />
-          <CirclePlus v-else :size="9" />
+          :class="isChosen(lemma.id) ? badgeTextClass(lemma.pos_tag) : 'text-gray-300'">
+          <CircleDot v-if="isChosen(lemma.id)" :size="9" />
+          <Circle v-else :size="9" />
         </span>
-        <span :class="isChosen(lemma.id) ? 'font-bold' : ''">{{ lemma.lemma_word }}</span>
-        <CollapsibleTrigger as-child>
-          <button :class="['cursor-pointer transition-colors', isPinned(lemma.id) ? 'text-yellow-500' : 'text-gray-300 hover:text-gray-500']"
-            @click.stop="togglePin(lemma.id)">
-            <Pin :size="8" fill="currentColor" />
-          </button>
-        </CollapsibleTrigger>
-      </span>
+        
+        <span :class="isChosen(lemma.id) ? 'font-bold select-none' : 'select-none'">
+          {{ lemma.lemma_word }}
+        </span>
+
+        <button class="ms-1 flex-shrink-0 transition-colors cursor-pointer"
+          :class="badgeTextClass(lemma.pos_tag)"
+          @click.stop="editingLemma = lemma">
+          <Pencil :size="10" />
+        </button>
+        
+      </div>
 
       <CollapsibleContent
-        :style="{ zIndex: panelZIndex(lemma.id) }"
-        class="absolute top-full left-0 mt-px min-w-max overflow-hidden bg-gray-50 border border-border shadow-sm"
-        @mousedown="bringToFront(lemma.id)">
-        <div class="flex items-center justify-between gap-2 px-1.5 pt-1">
-          <span :class="['text-[8px] uppercase font-bold tracking-wide', isChosen(lemma.id) ? 'bg-yellow-200 text-yellow-900 px-0.5 rounded' : 'text-text-muted']">{{ lemma.source_word }}</span>
-          <button v-if="isPinned(lemma.id)"
-            class="cursor-pointer text-red-500 hover:text-red-600 transition-colors"
-            @click="togglePin(lemma.id)">
-            <X :size="8" />
-          </button>
+        class="absolute top-full left-0 mt-px min-w-max w-full overflow-hidden bg-gray-50 border border-border shadow-sm"
+        style="z-index: 20">
+        <div class="px-1.5 pt-1">
+          <span :class="['text-[10px] uppercase font-bold tracking-wide', isChosen(lemma.id) ? 'bg-yellow-200 text-yellow-900 px-0.5 rounded' : 'text-text-muted']">{{ lemma.source_word }}</span>
         </div>
-        <dl class="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0 p-1.5 text-[8px]">
+        <dl class="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0 p-1.5 text-[10px]">
           <dt class="text-text-muted uppercase font-bold">pos</dt><dd class="min-w-0 break-words">{{ lemma.pos_tag }}</dd>
           <dt class="text-text-muted uppercase font-bold">fine</dt><dd class="min-w-0 break-words">{{ lemma.fine_pos_tag }}</dd>
           <dt class="text-text-muted uppercase font-bold">dep</dt><dd class="min-w-0 break-words">{{ lemma.dependency_relationship }}</dd>
@@ -134,4 +114,8 @@ function toggleChosen(id: string): void {
       </CollapsibleContent>
     </CollapsibleRoot>
   </div>
+
+  <EditLemmaModal :lemma="editingLemma"
+    :is-open="editingLemma !== null"
+    @close="editingLemma = null" />
 </template>

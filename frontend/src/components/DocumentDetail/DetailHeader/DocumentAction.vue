@@ -6,7 +6,7 @@ import type { DocItem, ProcessingItem } from '@/types';
 import { useProcessStore } from '@/stores/processStore';
 // components
 import FvgDisplayFilter from '@/components/DocumentDetail/FvgSentenceTable/FvgDisplayFilter.vue';
-import FvgSearchModal from '@/components/DocumentDetail/DetailHeader/FvgSearchModal.vue';
+import FvgSearchModal from "@/components/DocumentDetail/Modals/FvgSearchModal.vue";
 import Options from '@/components/DocumentDetail/FvgCandidatsOptions/Options.vue';
 
 const props = defineProps<{
