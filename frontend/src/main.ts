@@ -10,6 +10,7 @@ import { useRuleStore } from './stores/ruleStore'
 import { useRuleFvgStore } from './stores/ruleFvgStore'
 import { useSentenceStore } from './stores/sentenceStore'
 import { usePaginationStore } from './stores/local/paginationStore'
+import { useFvgCandidateStore } from './stores/fvgCandidate'
 
 const pinia = createPinia()
 const documentStore = useDocumentStore(pinia)
@@ -18,11 +19,13 @@ const ruleStore = useRuleStore(pinia)
 const ruleFvgStore = useRuleFvgStore(pinia)
 const sentenceStore = useSentenceStore(pinia)
 const paginationStore = usePaginationStore(pinia)
+const fvgCandidateStore = useFvgCandidateStore(pinia)
 documentStore.bindSocketEvents()
 processStore.bindSocketEvents()
 ruleStore.bindSocketEvents()
 ruleFvgStore.bindSocketEvents()
 sentenceStore.bindSocketEvents()
+fvgCandidateStore.bindSocketEvents()
 paginationStore.loadPagination()
 connect()
 
