@@ -104,7 +104,11 @@ function toggleShowLemma(item: SentenceFvgItem): void {
 }
 
 function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
-  if (candidateTokenIndices(item).has(tokenIndex))
+  const isCandidate = candidateTokenIndices(item).has(tokenIndex)
+  const isHighlight = item.highlight_lemma.some((l) => l.word_index === tokenIndex)
+  if (isCandidate && isHighlight)
+    return 'px-1 bg-yellow-300 text-red-600 font-medium underline decoration-red-600'
+  if (isCandidate)
     return 'px-1 bg-yellow-300 text-violet-700 font-medium'
   if (removedCandidateTokenIndices(item).has(tokenIndex))
     return 'px-1'
@@ -112,6 +116,8 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
     return 'px-1 bg-green-100 text-green-800 font-medium'
   if (hoveredLemmaIndex.value[item.id] === tokenIndex)
     return 'px-1 bg-violet-100 text-violet-700 font-medium'
+  if (isHighlight)
+    return 'px-1 text-red-500 font-medium underline decoration-red-500'
   return 'px-1 text-contrast-strong'
 }
 </script>

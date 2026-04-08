@@ -56,12 +56,13 @@ function saveCursor(page: number): void {
 
 async function fetchPage(cursor: string | null): Promise<void> {
   if (!segmentationId.value) return
+  const verbFilter = fvgCandidateStore.verbFilter
   if (display.value === 'all') {
-    await fvgCandidateStore.getSentences(segmentationId.value, cursor)
+    await fvgCandidateStore.getSentences(segmentationId.value, cursor, undefined, verbFilter)
   } else if (display.value === 'detected' && fvgProcessId.value) {
-    await fvgCandidateStore.getDetectedFvgCandidates(fvgProcessId.value, cursor)
+    await fvgCandidateStore.getDetectedFvgCandidates(fvgProcessId.value, cursor, undefined, verbFilter)
   } else if (display.value === 'undetected' && fvgProcessId.value) {
-    await fvgCandidateStore.getUndetectedFvgCandidates(fvgProcessId.value, cursor)
+    await fvgCandidateStore.getUndetectedFvgCandidates(fvgProcessId.value, cursor, undefined, verbFilter)
   }
 }
 

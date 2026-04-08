@@ -19,6 +19,7 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
     sentenceFvgList: [] as SentenceFvgItem[],
     cursor: null as FvgCursorItem | null,
     display: 'detected' as 'detected' | 'undetected' | 'all',
+    verbFilter: null as string | null,
     connected: false as boolean,
     simpleStatistics: null as { num_verb: number; num_aux: number; num_fvg: number; num_sentences: number } | null,
   }),
@@ -43,22 +44,22 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
       this.connected = true
     },
 
-    async getSentences(segmentationId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT): Promise<void> {
-      const payload: FvgCandidateListRequest = { segmentation_id: segmentationId, cursor, limit }
+    async getSentences(segmentationId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT, verbFilter: string | null = null): Promise<void> {
+      const payload: FvgCandidateListRequest = { segmentation_id: segmentationId, cursor, limit, verb_filter: verbFilter }
       const response = await post<{ sentences: SentenceFvgItem[]; cursor: FvgCursorItem }>('/api/fvg_candidates', payload)
       this.sentenceFvgList = response.sentences
       this.cursor = response.cursor
     },
 
-    async getDetectedFvgCandidates(fvgProcessId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT): Promise<void> {
-      const payload: FvgCandidateFilteredListRequest = { fvg_process_id: fvgProcessId, cursor, limit }
+    async getDetectedFvgCandidates(fvgProcessId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT, verbFilter: string | null = null): Promise<void> {
+      const payload: FvgCandidateFilteredListRequest = { fvg_process_id: fvgProcessId, cursor, limit, verb_filter: verbFilter }
       const response = await post<{ sentences: SentenceFvgItem[]; cursor: FvgCursorItem }>('/api/fvg_candidates/detected', payload)
       this.sentenceFvgList = response.sentences
       this.cursor = response.cursor
     },
 
-    async getUndetectedFvgCandidates(fvgProcessId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT): Promise<void> {
-      const payload: FvgCandidateFilteredListRequest = { fvg_process_id: fvgProcessId, cursor, limit }
+    async getUndetectedFvgCandidates(fvgProcessId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT, verbFilter: string | null = null): Promise<void> {
+      const payload: FvgCandidateFilteredListRequest = { fvg_process_id: fvgProcessId, cursor, limit, verb_filter: verbFilter }
       const response = await post<{ sentences: SentenceFvgItem[]; cursor: FvgCursorItem }>('/api/fvg_candidates/undetected', payload)
       this.sentenceFvgList = response.sentences
       this.cursor = response.cursor
@@ -114,6 +115,10 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
     // helper
     changeDisplay(display: 'detected' | 'undetected' | 'all'): void {
       this.display = display
+    },
+
+    setVerbFilter(value: string | null): void {
+      this.verbFilter = value
     },
 
     async getSimpleStatistics(fvgProcessId: string): Promise<void> {

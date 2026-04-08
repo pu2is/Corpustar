@@ -36,6 +36,7 @@ def get_fvg_candidates_by_cursor(payload: SentenceFvgListRequest) -> SentenceFvg
             segmentation_id=payload.segmentation_id,
             cursor=payload.cursor,
             limit=payload.limit,
+            verb_filter=payload.verb_filter,
         )
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
@@ -54,6 +55,7 @@ def get_detected_fvg_candidates_by_cursor(
             fvg_process_id=payload.fvg_process_id,
             cursor=payload.cursor,
             limit=payload.limit,
+            verb_filter=payload.verb_filter,
         )
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
@@ -72,6 +74,7 @@ def get_undetected_fvg_candidates_by_cursor(
             fvg_process_id=payload.fvg_process_id,
             cursor=payload.cursor,
             limit=payload.limit,
+            verb_filter=payload.verb_filter,
         )
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error

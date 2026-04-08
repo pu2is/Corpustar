@@ -151,6 +151,50 @@ def read_lemma_tokens_by_sentence_ids(sentence_ids: list[str]) -> dict[str, list
     return result
 
 
+def find_lemma_tokens_by_sentence_ids_and_word(
+    sentence_ids: list[str],
+    lemma_word: str,
+    pos_tags: list[str],
+) -> dict[str, list[LemmaTokenRow]]:
+    if not sentence_ids or not lemma_word or not pos_tags:
+        return {}
+
+    unique_sentence_ids = list(dict.fromkeys(sentence_ids))
+    statement = (
+        select(
+            lemma_tokens_table.c.id,
+            lemma_tokens_table.c.version_id,
+            lemma_tokens_table.c.sentence_id,
+            lemma_tokens_table.c.source_word,
+            lemma_tokens_table.c.lemma_word,
+            lemma_tokens_table.c.word_index,
+            lemma_tokens_table.c.head_index,
+            lemma_tokens_table.c.pos_tag,
+            lemma_tokens_table.c.fine_pos_tag,
+            lemma_tokens_table.c.morph,
+            lemma_tokens_table.c.dependency_relationship,
+        )
+        .select_from(lemma_tokens_table)
+        .where(
+            lemma_tokens_table.c.sentence_id.in_(unique_sentence_ids)
+            & (lemma_tokens_table.c.lemma_word == lemma_word)
+            & lemma_tokens_table.c.pos_tag.in_(pos_tags)
+        )
+        .order_by(lemma_tokens_table.c.sentence_id.asc(), lemma_tokens_table.c.word_index.asc())
+    )
+
+    with connection_scope() as connection:
+        rows = execute(connection, statement).fetchall()
+
+    result: dict[str, list[LemmaTokenRow]] = {}
+    for row in rows:
+        mapped_row = _map_lemma_token_row(row)
+        sentence_id = str(mapped_row["sentence_id"])
+        result.setdefault(sentence_id, []).append(mapped_row)
+
+    return result
+
+
 def rm_lemma_tokens_by_version_id(version_id: str, connection: Connection | None = None) -> int:
     if connection is None:
         with connection_scope() as scoped_connection:

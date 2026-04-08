@@ -60,6 +60,7 @@ export interface FvgCandidateItem {
 export interface SentenceFvgItem extends SentenceItem {
   fvg_candidates: FvgCandidateItem[]
   lemma_tokens: LemmaItem[]
+  highlight_lemma: LemmaItem[]
 }
 
 export interface FvgCursorItem {
@@ -77,10 +78,12 @@ export interface FvgCandidateListRequest extends Record<string, unknown> {
   segmentation_id: string
   cursor: string | null
   limit: number
+  verb_filter?: string | null
 }
 
 export interface FvgCandidateFilteredListRequest extends Record<string, unknown> {
   fvg_process_id: string
   cursor: string | null
   limit: number
+  verb_filter?: string | null
 }

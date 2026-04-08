@@ -49,6 +49,7 @@ class FvgCandidateToggleResponse(BaseModel):
 class SentenceFvgItem(SentenceItem):
     fvg_candidates: list[FvgCandidateItem] = Field(default_factory=list)
     lemma_tokens: list[LemmaTokenItem] = Field(default_factory=list)
+    highlight_lemma: list[LemmaTokenItem] = Field(default_factory=list)
 
 
 class SentenceFvgCursorSchema(BaseModel):
@@ -61,12 +62,14 @@ class SentenceFvgListRequest(BaseModel):
     segmentation_id: str
     cursor: str | None = None
     limit: int = Field(ge=1, default=20)
+    verb_filter: str | None = None
 
 
 class SentenceFvgDetectedListRequest(BaseModel):
     fvg_process_id: str
     cursor: str | None = None
-    limit: int = Field(ge=1, default=20)
+    limit: int
+    verb_filter: str | None = None
 
 
 class SentenceFvgListItem(BaseModel):

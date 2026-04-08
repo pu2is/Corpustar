@@ -12,47 +12,57 @@ from app.infrastructure.repositories.fvg_candidates import (
 from app.infrastructure.repositories.lemma_tokens import read_lemma_tokens_by_sentence_ids
 from app.infrastructure.repositories.processings import map_process_row_to_item, read_process_item_by_id
 from app.infrastructure.repositories.sentences import get_all_sentences_by_version_id, get_sentences_by_ids
+from app.services.fvg_candidates.search import filter_sentences_by_verb_lemma
 from app.services.sentence.pagination import get_sentence_cursor_page
 
 SentenceRow = Mapping[str, int | str]
 FvgCandidateRow = Mapping[str, int | str | bool]
 
-def collect_fvg_candidates_and_sentence_by_cursor(
-    *,
-    segmentation_id: str,
-    cursor: str | None,
-    limit: int,
-) -> dict[str, object]:
+def collect_fvg_candidates_and_sentence_by_cursor(*,
+    segmentation_id: str, cursor: str | None, limit: int,
+    verb_filter: str | None = None) -> dict[str, object]:
     doc_id = _resolve_doc_id(segmentation_id)
-    sentence_page = get_sentence_cursor_page(
-        doc_id=doc_id,
-        segmentation_id=segmentation_id,
-        cursor=cursor,
-        limit=limit,
-        highlight=[],
-    )
 
-    page_sentence_rows = sentence_page["sentences"]
-    page_sentence_ids = [str(sentence_row["id"]) for sentence_row in page_sentence_rows]
-    lemma_items_by_sentence_id = _build_lemma_items_by_sentence_ids(page_sentence_ids)
-    fvg_candidates_by_sentence_id = _build_fvg_candidates_by_sentence_ids(page_sentence_ids)
+    if verb_filter is None:
+        sentence_page = get_sentence_cursor_page(doc_id=doc_id, segmentation_id=segmentation_id,
+            cursor=cursor, limit=limit, highlight=[])
+        page_sentence_rows = sentence_page["sentences"]
+        page_sentence_ids = [str(sentence_row["id"]) for sentence_row in page_sentence_rows]
+        lemma_items_by_sentence_id = _build_lemma_items_by_sentence_ids(page_sentence_ids)
+        fvg_candidates_by_sentence_id = _build_fvg_candidates_by_sentence_ids(page_sentence_ids)
+        sentences = [
+            _build_sentence_item(sentence_row,
+                fvg_candidates=fvg_candidates_by_sentence_id.get(str(sentence_row["id"]), []),
+                lemma_tokens=lemma_items_by_sentence_id.get(str(sentence_row["id"]), []))
+            for sentence_row in page_sentence_rows
+        ]
+        return {
+            "sentences": sentences,
+            "cursor": {
+                "currentCursor": sentence_page["cursor"]["currentCursor"],
+                "nextCursor": sentence_page["cursor"]["nextCursor"],
+                "previousCursor": sentence_page["cursor"]["prevCursor"],
+            },
+        }
 
+    all_sentence_rows = list(get_all_sentences_by_version_id(segmentation_id))
+    all_sentence_ids = [str(row["id"]) for row in all_sentence_rows]
+    matched_ids, highlight_by_sentence_id = filter_sentences_by_verb_lemma(all_sentence_ids, verb_filter)
+    filtered_rows = [row for row in all_sentence_rows if str(row["id"]) in matched_ids]
+    ordered_rows = _sort_sentence_rows(filtered_rows)
+    paged_rows, cursor_payload = _slice_sentence_rows(rows=ordered_rows, cursor=cursor, limit=limit, mode="all")
+
+    paged_sentence_ids = [str(row["id"]) for row in paged_rows]
+    lemma_items_by_sentence_id = _build_lemma_items_by_sentence_ids(paged_sentence_ids)
+    fvg_candidates_by_sentence_id = _build_fvg_candidates_by_sentence_ids(paged_sentence_ids)
     sentences = [
-        _build_sentence_item(
-            sentence_row,
+        _build_sentence_item(sentence_row,
             fvg_candidates=fvg_candidates_by_sentence_id.get(str(sentence_row["id"]), []),
             lemma_tokens=lemma_items_by_sentence_id.get(str(sentence_row["id"]), []),
-        )
-        for sentence_row in page_sentence_rows
+            highlight_lemma=highlight_by_sentence_id.get(str(sentence_row["id"]), []))
+        for sentence_row in paged_rows
     ]
-    return {
-        "sentences": sentences,
-        "cursor": {
-            "currentCursor": sentence_page["cursor"]["currentCursor"],
-            "nextCursor": sentence_page["cursor"]["nextCursor"],
-            "previousCursor": sentence_page["cursor"]["prevCursor"],
-        },
-    }
+    return {"sentences": sentences, "cursor": cursor_payload}
 
 
 def collect_detected_fvg_candidates_by_cursor(
@@ -60,6 +70,7 @@ def collect_detected_fvg_candidates_by_cursor(
     fvg_process_id: str,
     cursor: str | None,
     limit: int,
+    verb_filter: str | None = None,
 ) -> dict[str, object]:
     _, segmentation_id = _resolve_fvg_process_scope(fvg_process_id)
 
@@ -78,6 +89,13 @@ def collect_detected_fvg_candidates_by_cursor(
         for row in get_sentences_by_ids(sentence_ids)
         if str(row["version_id"]) == segmentation_id
     ]
+
+    highlight_by_sentence_id: dict[str, list] = {}
+    if verb_filter is not None:
+        all_ids = [str(row["id"]) for row in sentence_rows]
+        matched_ids, highlight_by_sentence_id = filter_sentences_by_verb_lemma(all_ids, verb_filter)
+        sentence_rows = [row for row in sentence_rows if str(row["id"]) in matched_ids]
+
     ordered_rows = _sort_sentence_rows(sentence_rows)
     paged_rows, cursor_payload = _slice_sentence_rows(
         rows=ordered_rows,
@@ -97,6 +115,7 @@ def collect_detected_fvg_candidates_by_cursor(
                 for candidate_row in candidate_by_sentence.get(str(sentence_row["id"]), [])
             ],
             lemma_tokens=lemma_items_by_sentence_id.get(str(sentence_row["id"]), []),
+            highlight_lemma=highlight_by_sentence_id.get(str(sentence_row["id"]), []),
         )
         for sentence_row in paged_rows
     ]
@@ -108,6 +127,7 @@ def collect_undetected_fvg_candidates_by_cursor(
     fvg_process_id: str,
     cursor: str | None,
     limit: int,
+    verb_filter: str | None = None,
 ) -> dict[str, object]:
     _, segmentation_id = _resolve_fvg_process_scope(fvg_process_id)
 
@@ -121,6 +141,13 @@ def collect_undetected_fvg_candidates_by_cursor(
     undetected_rows = [
         row for row in all_sentence_rows if str(row["id"]) not in detected_sentence_ids
     ]
+
+    highlight_by_sentence_id: dict[str, list] = {}
+    if verb_filter is not None:
+        all_ids = [str(row["id"]) for row in undetected_rows]
+        matched_ids, highlight_by_sentence_id = filter_sentences_by_verb_lemma(all_ids, verb_filter)
+        undetected_rows = [row for row in undetected_rows if str(row["id"]) in matched_ids]
+
     ordered_rows = _sort_sentence_rows(undetected_rows)
     paged_rows, cursor_payload = _slice_sentence_rows(
         rows=ordered_rows,
@@ -137,6 +164,7 @@ def collect_undetected_fvg_candidates_by_cursor(
             sentence_row,
             fvg_candidates=[],
             lemma_tokens=lemma_items_by_sentence_id.get(str(sentence_row["id"]), []),
+            highlight_lemma=highlight_by_sentence_id.get(str(sentence_row["id"]), []),
         )
         for sentence_row in paged_rows
     ]
@@ -305,6 +333,7 @@ def _build_sentence_item(
     *,
     fvg_candidates: list[dict[str, int | str | bool]],
     lemma_tokens: list[dict[str, int | str]],
+    highlight_lemma: list | None = None,
 ) -> dict[str, object]:
     return {
         "id": str(sentence_row["id"]),
@@ -316,6 +345,7 @@ def _build_sentence_item(
         "corrected_text": str(sentence_row["corrected_text"]),
         "fvg_candidates": fvg_candidates,
         "lemma_tokens": lemma_tokens,
+        "highlight_lemma": highlight_lemma if highlight_lemma is not None else [],
     }
 
 
