@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { X } from 'lucide-vue-next'
+import { X, ChevronDown, Check } from 'lucide-vue-next'
+import { DropdownMenuContent, DropdownMenuItem, DropdownMenuPortal,
+  DropdownMenuRoot, DropdownMenuTrigger } from 'reka-ui'
 import { useLemmaStore } from '@/stores/lemmaStore'
 import { useFvgCandidateStore } from '@/stores/fvgCandidate'
 
@@ -29,6 +31,7 @@ const lemmaWord = ref('')
 const posTag = ref('')
 const saving = ref(false)
 const error = ref('')
+const dropdownOpen = ref(false)
 
 watch(() => props.lemmaId, (id) => {
   if (!id || !lemma.value) return
@@ -48,6 +51,26 @@ function onLemmaWordInput(event: Event) {
   const normalized = el.value.replace(/[^a-zA-ZäöüÄÖÜß]/g, '')
   lemmaWord.value = normalized
   el.value = normalized
+}
+
+function onTriggerKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    save()
+  } else if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    const idx = lemmaStore.pos_options.indexOf(posTag.value)
+    const prev = idx > 0 ? lemmaStore.pos_options[idx - 1] : undefined
+    if (prev !== undefined) posTag.value = prev
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    const idx = lemmaStore.pos_options.indexOf(posTag.value)
+    const next = idx < lemmaStore.pos_options.length - 1 ? lemmaStore.pos_options[idx + 1] : undefined
+    if (next !== undefined) posTag.value = next
+  } else if (event.key === 'ArrowDown') {
+    event.preventDefault()
+    dropdownOpen.value = true
+  }
 }
 
 async function save() {
@@ -94,24 +117,34 @@ async function save() {
             <!-- lemma word -->
             <div class="space-y-1">
               <label class="text-[9px] uppercase font-bold tracking-widest text-violet-300">Lemma Word</label>
-              <input
-                type="text"
+              <input type="text"
                 class="w-full bg-violet-900 border border-violet-600 text-yellow-200 px-2 py-1.5 text-xs focus:outline-none focus:border-yellow-400"
                 :value="lemmaWord"
-                @input="onLemmaWordInput"
-                @keydown.esc="emit('close')" />
+                @input="onLemmaWordInput" @keydown.esc="emit('close')" />
             </div>
 
             <!-- pos tag -->
             <div class="space-y-1">
               <label class="text-[9px] uppercase font-bold tracking-widest text-violet-300">POS Tag</label>
-              <select
-                v-model="posTag"
-                class="w-full bg-violet-900 border border-violet-600 text-yellow-200 px-2 py-1.5 text-xs focus:outline-none focus:border-yellow-400 cursor-pointer"
-                @keydown.esc="emit('close')">
-                <option v-for="opt in lemmaStore.pos_options" :key="opt" :value="opt"
-                  class="bg-violet-900 text-yellow-200">{{ opt }}</option>
-              </select>
+              <DropdownMenuRoot v-model:open="dropdownOpen">
+                <DropdownMenuTrigger class="inline-flex w-full items-center justify-between border border-violet-600 bg-violet-900 px-2 py-1.5 text-xs text-yellow-200 outline-none focus:border-yellow-400 cursor-pointer"
+                  @keydown="onTriggerKeydown" @keydown.esc.stop="emit('close')">
+                  {{ posTag }}
+                  <ChevronDown :size="10" class="shrink-0 text-violet-400" />
+                </DropdownMenuTrigger>
+                <DropdownMenuPortal>
+                  <DropdownMenuContent :side-offset="2"
+                    class="z-[60] w-[var(--reka-dropdown-menu-trigger-width)] overflow-y-auto border border-violet-600 bg-violet-900 shadow-lg max-h-[145px]">
+                    <DropdownMenuItem v-for="opt in lemmaStore.pos_options"
+                      :key="opt"
+                      class="flex cursor-pointer items-center justify-between px-2 py-1.5 text-xs text-yellow-200 outline-none data-[highlighted]:bg-violet-700"
+                      @select="posTag = opt">
+                      {{ opt }}
+                      <Check v-if="posTag === opt" :size="10" class="shrink-0" />
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenuPortal>
+              </DropdownMenuRoot>
             </div>
 
             <!-- current values -->
