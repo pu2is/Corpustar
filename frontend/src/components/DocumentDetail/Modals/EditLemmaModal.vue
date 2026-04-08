@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { X } from 'lucide-vue-next'
 import { useLemmaStore } from '@/stores/lemmaStore'
-import type { LemmaItem } from '@/types/lemmatize'
+import { useFvgCandidateStore } from '@/stores/fvgCandidate'
 
 const props = defineProps<{
-  lemma: LemmaItem | null
-  isOpen: boolean
+  lemmaId: string | null
 }>()
 
 const emit = defineEmits<{
@@ -14,21 +13,65 @@ const emit = defineEmits<{
 }>()
 
 const lemmaStore = useLemmaStore()
+const fvgStore = useFvgCandidateStore()
+
+const lemma = computed(() => {
+  if (!props.lemmaId) return undefined
+  for (const s of fvgStore.sentenceFvgList) {
+    const found = s.lemma_tokens.find((t) => t.id === props.lemmaId)
+    if (found) return found
+  }
+  return undefined
+})
+const isOpen = computed(() => props.lemmaId !== null)
 
 const lemmaWord = ref('')
 const posTag = ref('')
+const saving = ref(false)
+const error = ref('')
 
-watch(() => props.isOpen, (open) => {
-  if (!open || !props.lemma) return
-  lemmaWord.value = props.lemma.lemma_word
-  posTag.value = props.lemma.pos_tag
+watch(() => props.lemmaId, (id) => {
+  if (!id || !lemma.value) return
+  lemmaWord.value = lemma.value.lemma_word
+  posTag.value = lemma.value.pos_tag
+  saving.value = false
+  error.value = ''
 })
+
+const isChanged = computed(() => {
+  if (!lemma.value) return false
+  return lemmaWord.value !== lemma.value.lemma_word || posTag.value !== lemma.value.pos_tag
+})
+
+function onLemmaWordInput(event: Event) {
+  const el = event.target as HTMLInputElement
+  const normalized = el.value.replace(/[^a-zA-ZäöüÄÖÜß]/g, '')
+  lemmaWord.value = normalized
+  el.value = normalized
+}
+
+async function save() {
+  if (!props.lemmaId || !isChanged.value) {
+    emit('close')
+    return
+  }
+  saving.value = true
+  error.value = ''
+  try {
+    await lemmaStore.editLemmaToken(props.lemmaId!, lemmaWord.value, posTag.value)
+    emit('close')
+  } catch {
+    error.value = 'Save failed. Please try again.'
+  } finally {
+    saving.value = false
+  }
+}
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="isOpen && lemma"
+      <div v-if="isOpen && lemma !== undefined"
         class="fixed inset-0 z-50 flex items-center justify-center bg-violet-300/40">
         <div class="bg-violet-800 text-yellow-300 shadow-2xl w-[400px] overflow-hidden">
 
@@ -52,9 +95,10 @@ watch(() => props.isOpen, (open) => {
             <div class="space-y-1">
               <label class="text-[9px] uppercase font-bold tracking-widest text-violet-300">Lemma Word</label>
               <input
-                v-model="lemmaWord"
                 type="text"
                 class="w-full bg-violet-900 border border-violet-600 text-yellow-200 px-2 py-1.5 text-xs focus:outline-none focus:border-yellow-400"
+                :value="lemmaWord"
+                @input="onLemmaWordInput"
                 @keydown.esc="emit('close')" />
             </div>
 
@@ -79,6 +123,7 @@ watch(() => props.isOpen, (open) => {
             </div>
 
             <!-- error -->
+            <p v-if="error" class="text-[10px] text-red-400">{{ error }}</p>
           </div>
 
           <!-- footer -->
@@ -87,9 +132,10 @@ watch(() => props.isOpen, (open) => {
               class="text-[10px] px-3 py-1.5 text-yellow-400 hover:text-yellow-200 transition-colors"
               @click="emit('close')">Cancel</button>
             <button
-              class="text-[10px] px-3 py-1.5 bg-yellow-400 text-violet-900 font-bold hover:bg-yellow-300 cursor-pointer transition-colors"
-              @click="emit('close')">
-              Save
+              class="text-[10px] px-3 py-1.5 bg-yellow-400 text-violet-900 font-bold hover:bg-yellow-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+              :disabled="saving"
+              @click="save">
+              {{ saving ? 'Saving…' : 'Save' }}
             </button>
           </div>
 

@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { Circle, CircleDot, Pencil } from 'lucide-vue-next'
 import { CollapsibleRoot, CollapsibleContent } from 'reka-ui'
-import type { LemmaItem } from '@/types/lemmatize'
+import { useFvgCandidateStore } from '@/stores/fvgCandidate'
 import EditLemmaModal from '@/components/DocumentDetail/Modals/EditLemmaModal.vue'
 
 const props = defineProps<{
-  lemmaTokens: LemmaItem[]
+  sentenceId: string
   clearSignal?: number
 }>()
 
@@ -15,8 +15,13 @@ const emit = defineEmits<{
   chosenIndices: [wordIndices: number[]]
 }>()
 
+const fvgStore = useFvgCandidateStore()
+const lemmaTokens = computed(() =>
+  fvgStore.sentenceFvgList.find((s) => s.id === props.sentenceId)?.lemma_tokens ?? []
+)
+
 const hoverId = ref<string | null>(null)
-const editingLemma = ref<LemmaItem | null>(null)
+const editingLemmaId = ref<string | null>(null)
 
 // Lemma info details panel
 watch(() => props.clearSignal, () => {
@@ -39,7 +44,7 @@ function toggleChosen(id: string): void {
   if (next.has(id)) next.delete(id)
   else next.add(id)
   chosenIds.value = next
-  const wordIndices = props.lemmaTokens
+  const wordIndices = lemmaTokens.value
     .filter((l) => next.has(l.id))
     .map((l) => l.word_index)
   emit('chosenIndices', wordIndices)
@@ -88,7 +93,7 @@ function badgeTextClass(posTag: string): string {
 
         <button class="ms-1 flex-shrink-0 transition-colors cursor-pointer"
           :class="badgeTextClass(lemma.pos_tag)"
-          @click.stop="editingLemma = lemma">
+          @click.stop="editingLemmaId = lemma.id">
           <Pencil :size="10" />
         </button>
         
@@ -115,7 +120,6 @@ function badgeTextClass(posTag: string): string {
     </CollapsibleRoot>
   </div>
 
-  <EditLemmaModal :lemma="editingLemma"
-    :is-open="editingLemma !== null"
-    @close="editingLemma = null" />
+  <EditLemmaModal :lemma-id="editingLemmaId"
+    @close="editingLemmaId = null" />
 </template>

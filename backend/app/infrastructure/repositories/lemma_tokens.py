@@ -2,7 +2,7 @@ from collections.abc import Iterable, Mapping
 from sqlite3 import Connection
 from typing import Any
 
-from sqlalchemy import bindparam, delete, func, insert, select
+from sqlalchemy import bindparam, delete, func, insert, select, update
 
 from app.infrastructure.db.connection import connection_scope
 from app.infrastructure.repositories._sqlalchemy import (
@@ -242,6 +242,35 @@ def get_num_lemma_by_id_and_pos(
             return get_num_lemma_by_id_and_pos(version_id, pos, connection=scoped_connection)
     row = execute(connection, statement).fetchone()
     return int(row[0]) if row else 0
+
+
+def get_lemma_by_id(lemma_id: str) -> LemmaTokenRow | None:
+    statement = (
+        select(
+            lemma_tokens_table.c.id,
+            lemma_tokens_table.c.version_id,
+            lemma_tokens_table.c.sentence_id,
+            lemma_tokens_table.c.source_word,
+            lemma_tokens_table.c.lemma_word,
+            lemma_tokens_table.c.word_index,
+            lemma_tokens_table.c.head_index,
+            lemma_tokens_table.c.pos_tag,
+            lemma_tokens_table.c.fine_pos_tag,
+            lemma_tokens_table.c.morph,
+            lemma_tokens_table.c.dependency_relationship,
+        )
+        .select_from(lemma_tokens_table)
+        .where(lemma_tokens_table.c.id == lemma_id)
+    )
+    with connection_scope() as connection:
+        row = execute(connection, statement).fetchone()
+    if row is None:
+        return None
+    return _map_lemma_token_row(row)
+
+
+def save_lemma_token_single(token: LemmaTokenRow) -> None:
+    save_lemma_token_in_batch([token])
 
 
 def _normalize_lemma_token_row(row: Mapping[str, int | str]) -> LemmaTokenRow:

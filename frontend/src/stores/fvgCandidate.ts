@@ -11,6 +11,7 @@ import type {
   FvgCursorItem,
   SentenceFvgItem,
 } from '@/types/fvg'
+import type { LemmaItem } from '@/types/lemmatize'
 
 const DEFAULT_LIMIT = Number.parseInt(import.meta.env.VITE_SENTENCE_ITEM_PER_PAGE ?? '10', 10)
 
@@ -31,6 +32,17 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
       on(SOCKET_EVENT.FVG_CANDIDATE_RESTORE_FAILED, (_socketMsg) => { /* no-op */ })
       on(SOCKET_EVENT.FVG_CANDIDATE_ADD_SUCCEED, (_socketMsg) => { /* no-op */ })
       on(SOCKET_EVENT.FVG_CANDIDATE_ADD_FAILED, (_socketMsg) => { /* no-op */ })
+      on(SOCKET_EVENT.LEMMA_EDIT_SUCCEED, (socketMsg) => {
+        const updated = socketMsg as LemmaItem
+        const sentence = this.sentenceFvgList.find((s) => s.id === updated.sentence_id)
+        if (!sentence) return
+        const replaceIn = (list: LemmaItem[]) => {
+          const idx = list.findIndex((t) => t.id === updated.id)
+          if (idx !== -1) list[idx] = updated
+        }
+        replaceIn(sentence.lemma_tokens)
+        replaceIn(sentence.highlight_lemma)
+      })
       on(SOCKET_EVENT.FVG_RESULTS_REMOVED, (socketMsg) => {
         const payload = socketMsg as { fvg_process_id: string; lemma_process_id: string }
         const isAffected = this.sentenceFvgList.some((s) =>
@@ -130,6 +142,18 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
 
     resetStatistics(): void {
       this.simpleStatistics = null
+    },
+  },
+  getters: {
+    getLemmaTokensFromSentenceId: (state) => (sentenceId: string): LemmaItem[] => {
+      return state.sentenceFvgList.find((s) => s.id === sentenceId)?.lemma_tokens ?? []
+    },
+    getLemmaById: (state) => (lemmaId: string): LemmaItem | undefined => {
+      for (const s of state.sentenceFvgList) {
+        const found = s.lemma_tokens.find((t) => t.id === lemmaId)
+        if (found) return found
+      }
+      return undefined
     },
   },
 })

@@ -41,6 +41,9 @@ FVG_CANDIDATE_ADD_FAILED = "fvgCandidate:addFailed"
 
 FVG_RESULTS_REMOVED = "fvgResults:removed"
 
+LEMMA_EDIT_SUCCEED = "lemmaEdit:succeed"
+LEMMA_EDIT_FAILED = "lemmaEdit:failed"
+
 
 SocketPayload: TypeAlias = dict[str, Any]
 

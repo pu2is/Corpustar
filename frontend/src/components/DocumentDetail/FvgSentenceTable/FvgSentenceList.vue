@@ -76,7 +76,8 @@ function onLemmaHover(sentenceId: string, wordIndex: number | null): void {
   hoveredLemmaIndex.value[sentenceId] = wordIndex
 }
 
-function onChosenIndices(sentenceId: string, wordIndices: number[], lemmaTokens: LemmaItem[]): void {
+function onChosenIndices(sentenceId: string, wordIndices: number[]): void {
+  const lemmaTokens = fvgCandidateStore.getLemmaTokensFromSentenceId(sentenceId)
   // Clear previous sentence when switching
   if (wordIndices.length > 0 && activeChoosingId.value !== null && activeChoosingId.value !== sentenceId) {
     clearSignals.value[activeChoosingId.value] = (clearSignals.value[activeChoosingId.value] ?? 0) + 1
@@ -151,10 +152,10 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
     </div>
 
     <SentenceLemmaBadges v-if="item.lemma_tokens.length > 0 && (item.fvg_candidates.length === 0 || showLemmas[item.id])"
-      :lemma-tokens="item.lemma_tokens"
+      :sentence-id="item.id"
       :clear-signal="clearSignals[item.id]"
       @hover-lemma="(idx) => onLemmaHover(item.id, idx)"
-      @chosen-indices="(indices) => onChosenIndices(item.id, indices, item.lemma_tokens)" />
+      @chosen-indices="(indices) => onChosenIndices(item.id, indices)" />
 
     <div v-if="item.id === activeChoosingId && activePair"
       class="absolute right-0 top-0 bottom-0 flex items-center">

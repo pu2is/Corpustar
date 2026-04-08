@@ -44,7 +44,7 @@ function onViewStatistics(): void {
         <DropdownMenuItem class="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-red-500 outline-none data-[highlighted]:bg-secondary-soft"
           @select="removeModalOpen = true">
           <Trash2 class="h-4 w-4 shrink-0" />
-          Clear FVG Results
+          Remove FVG Results
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenuPortal>

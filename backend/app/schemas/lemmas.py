@@ -22,3 +22,8 @@ class LemmaTokenItem(BaseModel):
 
 class LemmaTokensBySentenceRequest(BaseModel):
     sentence_ids: list[str]
+
+
+class UpdateLemmaTokenRequest(BaseModel):
+    lemma_word: str
+    pos_tag: str
