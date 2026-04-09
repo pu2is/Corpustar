@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { ChevronFirst, ChevronLeft, ChevronRight } from 'lucide-vue-next'
 import { useProcessStore } from '@/stores/processStore'
 import { useFvgCandidateStore } from '@/stores/fvgCandidate'
 import { usePaginationStore } from '@/stores/local/paginationStore'
@@ -31,6 +32,7 @@ const page = computed(() => savedCursor.value?.page ?? 1)
 const prevCursor = computed(() => cursor.value?.previousCursor ?? null)
 const nextCursor = computed(() => cursor.value?.nextCursor ?? null)
 
+const allowFirst = computed(() => !loading.value && page.value > 1)
 const allowPrev = computed(() => !loading.value && Boolean(prevCursor.value))
 const allowNext = computed(() => !loading.value && Boolean(nextCursor.value))
 
@@ -66,6 +68,18 @@ async function fetchPage(cursor: string | null): Promise<void> {
   }
 }
 
+async function goFirst(): Promise<void> {
+  if (!allowFirst.value) return
+  loading.value = true
+  try {
+    await fetchPage(null)
+    saveCursor(1)
+    await scrollToTop()
+  } finally {
+    loading.value = false
+  }
+}
+
 async function goPrev(): Promise<void> {
   if (!allowPrev.value || !prevCursor.value) return
   loading.value = true
@@ -94,6 +108,14 @@ watch(prevCursor, (prev) => {
   if (!prev && page.value !== 1) saveCursor(1)
 })
 
+function onKeydown(e: KeyboardEvent): void {
+  if (e.key === 'ArrowLeft') void goPrev()
+  else if (e.key === 'ArrowRight') void goNext()
+}
+
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+
 // When display mode changes, restore the last saved cursor for that mode
 watch(display, async () => {
   const saved = paginationStore.paginationInfo.fvgSentenceTable[currentMode.value]
@@ -116,16 +138,22 @@ watch(display, async () => {
       <p class="text-sm font-medium">Page {{ page }}</p>
       <div class="flex items-center gap-2">
         <button type="button"
+          :disabled="!allowFirst"
+          class="cursor-pointer bg-white/45 p-1.5 text-violet-900 transition hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-40"
+          @click="void goFirst()">
+          <ChevronFirst class="h-4 w-4" />
+        </button>
+        <button type="button"
           :disabled="!allowPrev"
-          class="cursor-pointer bg-white/45 px-3 py-1.5 text-xs font-semibold text-violet-900 transition hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-40"
+          class="cursor-pointer bg-white/45 p-1.5 text-violet-900 transition hover:bg-white/70 disabled:cursor-not-allowed disabled:opacity-40"
           @click="void goPrev()">
-          Prev
+          <ChevronLeft class="h-4 w-4" />
         </button>
         <button type="button"
           :disabled="!allowNext"
-          class="cursor-pointer bg-violet-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-violet-600/85 disabled:cursor-not-allowed disabled:opacity-40"
+          class="cursor-pointer bg-violet-500 p-1.5 text-white transition hover:bg-violet-600/85 disabled:cursor-not-allowed disabled:opacity-40"
           @click="void goNext()">
-          Next
+          <ChevronRight class="h-4 w-4" />
         </button>
       </div>
     </div>
