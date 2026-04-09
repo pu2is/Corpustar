@@ -27,3 +27,5 @@ postman/*
 # Windows reserved device names accidentally created from non-Windows tools
 CON
 **/CON
+
+backend/openapi.json

@@ -24,6 +24,14 @@ const matchingEntries = ref<FvgItem[]>([])
 const selectedEntryId = ref<string | null>(null)
 const loading = ref(false)
 
+async function addFvg(): Promise<void> {
+  if (!selectedEntryId.value || !props.sentenceId || !props.processId || !props.pair) return
+  await fvgCandidateStore.addFvgCandidate( props.sentenceId, props.processId, selectedEntryId.value,
+    props.pair.verb.id, props.pair.noun.id, props.pair.adp?.id ?? '',
+  )
+  emit('close')
+}
+
 watch(() => props.isOpen, async (open) => {
   if (!open) {
     selectedEntryId.value = null
@@ -106,19 +114,8 @@ watch(() => props.isOpen, async (open) => {
               class="text-[10px] px-3 py-1.5 bg-yellow-400 text-violet-900 font-bold transition-colors"
               :class="selectedEntryId ? 'hover:bg-yellow-300 cursor-pointer' : 'opacity-40 cursor-not-allowed'"
               :disabled="!selectedEntryId"
-              @click="async () => {
-                if (!selectedEntryId || !sentenceId || !processId || !pair) return
-                await fvgCandidateStore.addFvgCandidate(
-                  sentenceId,
-                  processId,
-                  selectedEntryId,
-                  pair.verb.id,
-                  pair.noun.id,
-                  pair.adp?.id ?? '',
-                )
-                emit('close')
-              }">
-              Add Entry
+              @click="void addFvg()">
+              Add FVG
             </button>
           </div>
 
