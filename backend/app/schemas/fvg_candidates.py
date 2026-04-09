@@ -75,3 +75,4 @@ class SentenceFvgDetectedListRequest(BaseModel):
 class SentenceFvgListItem(BaseModel):
     sentences: list[SentenceFvgItem]
     cursor: SentenceFvgCursorSchema
+    num_results: int | None = None

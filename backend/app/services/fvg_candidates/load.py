@@ -43,6 +43,7 @@ def collect_fvg_candidates_and_sentence_by_cursor(*,
                 "nextCursor": sentence_page["cursor"]["nextCursor"],
                 "previousCursor": sentence_page["cursor"]["prevCursor"],
             },
+            "num_results": None,
         }
 
     all_sentence_rows = list(get_all_sentences_by_version_id(segmentation_id))
@@ -50,6 +51,7 @@ def collect_fvg_candidates_and_sentence_by_cursor(*,
     matched_ids, highlight_by_sentence_id = filter_sentences_by_verb_lemma(all_sentence_ids, verb_filter)
     filtered_rows = [row for row in all_sentence_rows if str(row["id"]) in matched_ids]
     ordered_rows = _sort_sentence_rows(filtered_rows)
+    num_results = len(ordered_rows)
     paged_rows, cursor_payload = _slice_sentence_rows(rows=ordered_rows, cursor=cursor, limit=limit, mode="all")
 
     paged_sentence_ids = [str(row["id"]) for row in paged_rows]
@@ -62,7 +64,7 @@ def collect_fvg_candidates_and_sentence_by_cursor(*,
             highlight_lemma=highlight_by_sentence_id.get(str(sentence_row["id"]), []))
         for sentence_row in paged_rows
     ]
-    return {"sentences": sentences, "cursor": cursor_payload}
+    return {"sentences": sentences, "cursor": cursor_payload, "num_results": num_results}
 
 
 def collect_detected_fvg_candidates_by_cursor(
@@ -97,6 +99,7 @@ def collect_detected_fvg_candidates_by_cursor(
         sentence_rows = [row for row in sentence_rows if str(row["id"]) in matched_ids]
 
     ordered_rows = _sort_sentence_rows(sentence_rows)
+    num_results = len(ordered_rows) if verb_filter is not None else None
     paged_rows, cursor_payload = _slice_sentence_rows(
         rows=ordered_rows,
         cursor=cursor,
@@ -119,7 +122,7 @@ def collect_detected_fvg_candidates_by_cursor(
         )
         for sentence_row in paged_rows
     ]
-    return {"sentences": sentences, "cursor": cursor_payload}
+    return {"sentences": sentences, "cursor": cursor_payload, "num_results": num_results}
 
 
 def collect_undetected_fvg_candidates_by_cursor(
@@ -149,6 +152,7 @@ def collect_undetected_fvg_candidates_by_cursor(
         undetected_rows = [row for row in undetected_rows if str(row["id"]) in matched_ids]
 
     ordered_rows = _sort_sentence_rows(undetected_rows)
+    num_results = len(ordered_rows) if verb_filter is not None else None
     paged_rows, cursor_payload = _slice_sentence_rows(
         rows=ordered_rows,
         cursor=cursor,
@@ -168,7 +172,7 @@ def collect_undetected_fvg_candidates_by_cursor(
         )
         for sentence_row in paged_rows
     ]
-    return {"sentences": sentences, "cursor": cursor_payload}
+    return {"sentences": sentences, "cursor": cursor_payload, "num_results": num_results}
 
 
 def _resolve_doc_id(segmentation_id: str) -> str:

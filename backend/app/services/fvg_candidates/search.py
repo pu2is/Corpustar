@@ -1,7 +1,5 @@
 from app.core.sentence.build_lemma_items import build_lemma_token_item_from_row
-from app.infrastructure.repositories.lemma_tokens import find_lemma_tokens_by_sentence_ids_and_word
-
-_VERB_POS_TAGS = ["VERB", "AUX"]
+from app.infrastructure.repositories.lemma_tokens import find_lemma_tokens_by_sentence_ids_fuzzy
 
 
 def filter_sentences_by_verb_lemma(
@@ -10,13 +8,12 @@ def filter_sentences_by_verb_lemma(
 ) -> tuple[set[str], dict[str, list[dict]]]:
     """Return (matching_sentence_id_set, highlight_tokens_by_sentence_id).
 
-    Only sentences that contain at least one lemma token with the given
-    lemma_word and pos_tag VERB or AUX are included in the result.
+    Performs a case-insensitive substring search across all POS tags on both
+    lemma_word and source_word fields.
     """
-    rows_by_sentence_id = find_lemma_tokens_by_sentence_ids_and_word(
+    rows_by_sentence_id = find_lemma_tokens_by_sentence_ids_fuzzy(
         sentence_ids=sentence_ids,
-        lemma_word=lemma_word,
-        pos_tags=_VERB_POS_TAGS,
+        search_term=lemma_word,
     )
     highlight_by_sentence_id: dict[str, list[dict]] = {
         sentence_id: [build_lemma_token_item_from_row(row) for row in rows]

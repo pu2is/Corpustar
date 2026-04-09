@@ -10,6 +10,7 @@ import type {
   FvgCandidateFilteredListRequest,
   FvgCursorItem,
   SentenceFvgItem,
+  SentenceFvgListResponse,
 } from '@/types/fvg'
 import type { LemmaItem } from '@/types/lemmatize'
 
@@ -19,6 +20,7 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
   state: () => ({
     sentenceFvgList: [] as SentenceFvgItem[],
     cursor: null as FvgCursorItem | null,
+    numResults: null as number | null,
     display: 'detected' as 'detected' | 'undetected' | 'all',
     verbFilter: null as string | null,
     connected: false as boolean,
@@ -58,23 +60,26 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
 
     async getSentences(segmentationId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT, verbFilter: string | null = null): Promise<void> {
       const payload: FvgCandidateListRequest = { segmentation_id: segmentationId, cursor, limit, verb_filter: verbFilter }
-      const response = await post<{ sentences: SentenceFvgItem[]; cursor: FvgCursorItem }>('/api/fvg_candidates', payload)
+      const response = await post<SentenceFvgListResponse>('/api/fvg_candidates', payload)
       this.sentenceFvgList = response.sentences
       this.cursor = response.cursor
+      this.numResults = response.num_results ?? null
     },
 
     async getDetectedFvgCandidates(fvgProcessId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT, verbFilter: string | null = null): Promise<void> {
       const payload: FvgCandidateFilteredListRequest = { fvg_process_id: fvgProcessId, cursor, limit, verb_filter: verbFilter }
-      const response = await post<{ sentences: SentenceFvgItem[]; cursor: FvgCursorItem }>('/api/fvg_candidates/detected', payload)
+      const response = await post<SentenceFvgListResponse>('/api/fvg_candidates/detected', payload)
       this.sentenceFvgList = response.sentences
       this.cursor = response.cursor
+      this.numResults = response.num_results ?? null
     },
 
     async getUndetectedFvgCandidates(fvgProcessId: string, cursor: string | null = null, limit: number = DEFAULT_LIMIT, verbFilter: string | null = null): Promise<void> {
       const payload: FvgCandidateFilteredListRequest = { fvg_process_id: fvgProcessId, cursor, limit, verb_filter: verbFilter }
-      const response = await post<{ sentences: SentenceFvgItem[]; cursor: FvgCursorItem }>('/api/fvg_candidates/undetected', payload)
+      const response = await post<SentenceFvgListResponse>('/api/fvg_candidates/undetected', payload)
       this.sentenceFvgList = response.sentences
       this.cursor = response.cursor
+      this.numResults = response.num_results ?? null
     },
 
     toggleCandidateRemoved(candidateId: string): void {
@@ -131,6 +136,7 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
 
     setVerbFilter(value: string | null): void {
       this.verbFilter = value
+      if (value === null) this.numResults = null
     },
 
     async getSimpleStatistics(fvgProcessId: string): Promise<void> {

@@ -72,6 +72,7 @@ export interface FvgCursorItem {
 export interface SentenceFvgListResponse {
   sentences: SentenceFvgItem[]
   cursor: FvgCursorItem
+  num_results: number | null
 }
 
 export interface FvgCandidateListRequest extends Record<string, unknown> {
