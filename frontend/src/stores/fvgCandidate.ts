@@ -149,6 +149,14 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
     resetStatistics(): void {
       this.simpleStatistics = null
     },
+
+    async exportResult(processId: string, path: string, filename: string): Promise<Blob> {
+      const response = await post<Blob>(
+        `/api/fvg_candidates/export_result/${processId}`,
+        { path, filename },
+      )
+      return response
+    },
   },
   getters: {
     getLemmaTokensFromSentenceId: (state) => (sentenceId: string): LemmaItem[] => {

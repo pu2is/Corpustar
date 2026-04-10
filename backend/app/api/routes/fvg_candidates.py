@@ -1,14 +1,17 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import FileResponse
 
 from app.schemas.fvg_candidates import (
     FvgCandidateAddRequest,
     FvgCandidateToggleRequest,
     FvgCandidateToggleResponse,
+    FvgExportRequest,
     SentenceFvgDetectedListRequest,
     SentenceFvgListItem,
     SentenceFvgListRequest,
 )
 from app.services.fvg_candidates.edit import add_fvg_candidate, remove_fvg_candidate, restore_fvg_candidate
+from app.services.fvg_candidates.export_result import get_fvg_result
 from app.services.fvg_candidates.load import (
     collect_detected_fvg_candidates_by_cursor,
     collect_fvg_candidates_and_sentence_by_cursor,
@@ -123,5 +126,18 @@ def add_fvg_candidate_route(payload: FvgCandidateAddRequest) -> FvgCandidateTogg
         )
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(status_code=500, detail="Internal server error") from error
+
+
+@router.post("/fvg_candidates/export_result/{process_id}")
+def export_fvg_result_route(process_id: str, payload: FvgExportRequest) -> FileResponse:
+    try:
+        file_path = get_fvg_result(process_id=process_id, path=payload.path, filename=payload.filename)
+        return FileResponse(path=file_path, media_type="text/csv", filename=payload.filename)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except OSError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     except Exception as error:
         raise HTTPException(status_code=500, detail="Internal server error") from error

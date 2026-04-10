@@ -48,7 +48,7 @@ function startSentenceSegmentation(): void {
     <div v-else-if="segmentationId && hasFvgSearch" 
       class="flex items-center justify-center gap-1">
       <FvgDisplayFilter />
-      <Options :fvg-id="fvgSearchId" />
+      <Options :fvg-id="fvgSearchId" :doc-filename="document.filename" />
     </div>
   </div>
 </template>

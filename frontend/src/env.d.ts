@@ -20,5 +20,4 @@ interface Window {
     selectDocumentFile(): Promise<string | null>
     selectRuleFile(): Promise<string | null>
     readDocumentText(filePath: string): Promise<string>
-  }
-}
+      selectSavePath(defaultFilename: string): Promise<{ dir: string; filename: string } | null>

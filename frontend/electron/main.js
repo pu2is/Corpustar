@@ -78,6 +78,21 @@ async function handleReadDocumentText(_event, filePath) {
 }
 
 ipcMain.handle('read-document-text', handleReadDocumentText)
+
+ipcMain.handle('select-save-path', async (event, defaultFilename) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const result = await dialog.showSaveDialog(win, {
+    defaultPath: defaultFilename,
+    filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+  })
+
+  if (result.canceled || !result.filePath) {
+    return null
+  }
+
+  const fullPath = path.resolve(result.filePath)
+  return { dir: path.dirname(fullPath), filename: path.basename(fullPath) }
+})
 ipcMain.handle('red-document-text', handleReadDocumentText)
 
 app.whenReady().then(() => {
