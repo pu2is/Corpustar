@@ -5,7 +5,7 @@ import { getIdFromUrl } from '@/composables/useRouteId'
 // components
 import FvgSentenceList from '@/components/DocumentDetail/FvgSentenceTable/FvgSentenceList.vue'
 import FvgPagination from '@/components/DocumentDetail/FvgSentenceTable/FvgPagination.vue'
-import SearchByVerb from '@/components/DocumentDetail/FvgSentenceTable/SearchByVerb.vue'
+import FuzzySearch from '@/components/DocumentDetail/FvgSentenceTable/FuzzySearch.vue'
 // stores
 import { useProcessStore } from '@/stores/processStore'
 import { useFvgCandidateStore } from '@/stores/fvgCandidate'
@@ -53,7 +53,7 @@ watch(
 
 <template>
   <section class="min-h-0 flex flex-1 flex-col overflow-hidden bg-background-elevated/15">
-    <SearchByVerb />
+    <FuzzySearch />
     <main data-fvg-sentence-scroll-area
       class="min-h-0 flex-1 overflow-y-auto p-2">
       <FvgSentenceList />
