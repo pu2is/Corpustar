@@ -1,6 +1,8 @@
-import csv
 import os
 from collections import defaultdict
+
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from app.core.log import get_logger, log_event
 from app.infrastructure.repositories.fvg_candidates import get_fvg_candidate_items_by_process_id
@@ -40,32 +42,40 @@ def get_fvg_result(process_id: str, path: str, filename: str) -> str:
     os.makedirs(path, exist_ok=True)
     file_path = os.path.join(path, filename)
 
-    with open(file_path, "w", newline="", encoding="utf-8") as csv_file:
-        writer = csv.writer(csv_file, delimiter=";")
-        writer.writerow(["fvg_verb", "fvg_phrase", "count", "matched_verb", "matched_phrase", "sentence", "lemma"])
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "FVG Result"
 
-        for candidate in sorted_candidates:
-            entry_id = str(candidate["algo_fvg_entry_id"])
-            entry = _get_entry(entry_id)
+    headers = ["fvg_verb", "fvg_phrase", "count", "matched_verb", "matched_phrase", "sentence", "lemma"]
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
 
-            fvg_verb = str(entry["verb"]) if entry else ""
-            fvg_phrase = str(entry["phrase"]) if entry else ""
-            count = entry_counts[entry_id]
+    for candidate in sorted_candidates:
+        entry_id = str(candidate["algo_fvg_entry_id"])
+        entry = _get_entry(entry_id)
 
-            matched_verb = str(candidate["algo_verb_token"])
-            prep_token = str(candidate["algo_prep_token"])
-            noun_token = str(candidate["algo_noun_token"])
-            matched_phrase = f"{prep_token} {noun_token}".strip() if prep_token else noun_token
+        fvg_verb = str(entry["verb"]) if entry else ""
+        fvg_phrase = str(entry["phrase"]) if entry else ""
+        count = entry_counts[entry_id]
 
-            sentence_id = str(candidate["sentence_id"])
-            sentence_row = sentences_by_id.get(sentence_id)
-            sentence_text = str(sentence_row["corrected_text"]) if sentence_row else ""
+        matched_verb = str(candidate["algo_verb_token"])
+        prep_token = str(candidate["algo_prep_token"])
+        noun_token = str(candidate["algo_noun_token"])
+        matched_phrase = f"{prep_token} {noun_token}".strip() if prep_token else noun_token
 
-            lemma_tokens = lemma_tokens_by_sentence_id.get(sentence_id, [])
-            sorted_lemma = sorted(lemma_tokens, key=lambda t: int(t["word_index"]))
-            lemma_text = " ".join(str(t["lemma_word"]) for t in sorted_lemma)
+        sentence_id = str(candidate["sentence_id"])
+        sentence_row = sentences_by_id.get(sentence_id)
+        sentence_text = str(sentence_row["corrected_text"]) if sentence_row else ""
 
-            writer.writerow([fvg_verb, fvg_phrase, count, matched_verb, matched_phrase, sentence_text, lemma_text])
+        lemma_tokens = lemma_tokens_by_sentence_id.get(sentence_id, [])
+        sorted_lemma = sorted(lemma_tokens, key=lambda t: int(t["word_index"]))
+        lemma_text = " ".join(str(t["lemma_word"]) for t in sorted_lemma)
+
+        ws.append([fvg_verb, fvg_phrase, count, matched_verb, matched_phrase, sentence_text, lemma_text])
+
+    wb.save(file_path)
 
     log_event(LOGGER, stage="OK", module_file=MODULE_FILE, function_name="get_fvg_result", file_path=file_path)
+    return file_path
     return file_path

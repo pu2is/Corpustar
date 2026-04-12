@@ -23,7 +23,7 @@ async function onExportFvgResult(): Promise<void> {
   if (!props.fvgId) return
 
   const baseName = props.docFilename.replace(/\.[^.]+$/, '')
-  const defaultFilename = `corpustar_fvg-${baseName}.csv`
+  const defaultFilename = `corpustar_fvg-${baseName}.xlsx`
 
   const savePath = await window.electronAPI?.selectSavePath(defaultFilename)
   if (!savePath) return

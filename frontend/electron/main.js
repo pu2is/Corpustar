@@ -83,7 +83,7 @@ ipcMain.handle('select-save-path', async (event, defaultFilename) => {
   const win = BrowserWindow.fromWebContents(event.sender)
   const result = await dialog.showSaveDialog(win, {
     defaultPath: defaultFilename,
-    filters: [{ name: 'CSV Files', extensions: ['csv'] }],
+    filters: [{ name: 'Excel Files', extensions: ['xlsx'] }],
   })
 
   if (result.canceled || !result.filePath) {

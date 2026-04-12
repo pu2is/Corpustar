@@ -134,7 +134,7 @@ def add_fvg_candidate_route(payload: FvgCandidateAddRequest) -> FvgCandidateTogg
 def export_fvg_result_route(process_id: str, payload: FvgExportRequest) -> FileResponse:
     try:
         file_path = get_fvg_result(process_id=process_id, path=payload.path, filename=payload.filename)
-        return FileResponse(path=file_path, media_type="text/csv", filename=payload.filename)
+        return FileResponse(path=file_path, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", filename=payload.filename)
     except FileNotFoundError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except OSError as error:
