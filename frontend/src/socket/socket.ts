@@ -21,7 +21,7 @@ const LEGACY_EVENT_ALIASES: Readonly<Record<string, readonly string[]>> = {
   [SOCKET_EVENT.SEGMENTATION_SUCCEED]: ['process:updated'],
   [SOCKET_EVENT.SEGMENTATION_FAILED]: ['process:updated'],
   [SOCKET_EVENT.IMPORT_RULE_SUCCEED]: ['rule:created'],
-  [SOCKET_EVENT.RULE_ITEM_REMOVED]: ['rule:removed'],
+  [SOCKET_EVENT.RULE_REMOVED]: ['ruleItem:removed'],
   [SOCKET_EVENT.IMPORT_FVG_ENTRIES_SUCCEED]: ['fvgRules:created'],
   [SOCKET_EVENT.FVG_APPENDED]: ['fvgRule:appended'],
   [SOCKET_EVENT.FVG_REMOVED]: ['fvgRule:removed'],

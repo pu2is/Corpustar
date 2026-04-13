@@ -79,7 +79,7 @@ async def remove_rule_route(rule_id: str) -> RuleActionResponse | JSONResponse:
         response = remove_rule(rule_id=rule_id)
 
         try:
-            await publish(RULE_REMOVED, existing)
+            await publish(RULE_REMOVED, {"id": str(response["id"])})
         except Exception:
             pass
 

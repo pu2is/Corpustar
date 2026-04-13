@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { del, get, post } from '@/stores/fetchWrapper'
+import { SOCKET_EVENT } from '@/socket/events'
 import { on } from '@/socket/socket'
 import type { ProcessResponse, ProcessResponseWithId } from '@/types/general'
 import type { ImportRuleProcessRequest } from '@/types/processings'
@@ -45,7 +46,7 @@ export const useRuleStore = defineStore('rule-store', {
         this.connected = false
         this.rules = []
       })
-      on('importRule:succeed', (socketMsg) => {
+      on(SOCKET_EVENT.IMPORT_RULE_SUCCEED, (socketMsg) => {
         const payload = socketMsg as { rule?: RuleItem }
         const rule = payload?.rule
         if (!rule) {
@@ -60,7 +61,7 @@ export const useRuleStore = defineStore('rule-store', {
 
         this.rules.unshift(rule)
       })
-      on('rule:removed', (socketMsg) => {
+      on(SOCKET_EVENT.RULE_REMOVED, (socketMsg) => {
         const removedId = (socketMsg as { id?: string })?.id
         if (!removedId) {
           return
@@ -71,7 +72,7 @@ export const useRuleStore = defineStore('rule-store', {
           this.rules.splice(removeIndex, 1)
         }
       })
-      on('ruleCopy:finished', (socketMsg) => {
+      on(SOCKET_EVENT.RULE_COPY_FINISHED, (socketMsg) => {
         const payload = socketMsg as { ok?: boolean; item?: RuleItem }
         if (!payload.ok || !payload.item) {
           return
@@ -89,7 +90,14 @@ export const useRuleStore = defineStore('rule-store', {
     },
 
     async removeRuleById(ruleId: string): Promise<ProcessResponseWithId> {
-      return del<ProcessResponseWithId>(`/api/rule/${encodeURIComponent(ruleId)}`)
+      const response = await del<ProcessResponseWithId>(`/api/rule/${encodeURIComponent(ruleId)}`)
+      if (response.ok) {
+        const removeIndex = this.rules.findIndex((rule) => rule.id === response.id)
+        if (removeIndex >= 0) {
+          this.rules.splice(removeIndex, 1)
+        }
+      }
+      return response
     },
 
     async cloneRule(ruleId: string): Promise<{ ok: boolean; err_msg: string }> {

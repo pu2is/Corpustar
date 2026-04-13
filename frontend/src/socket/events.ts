@@ -24,7 +24,9 @@ export const SOCKET_EVENT = {
   SENTENCE_CLIPPED: 'sentence:clipped',
   SENTENCE_CORRECTED: 'sentence:corrected',
 
-  RULE_ITEM_REMOVED: 'ruleItem:removed',
+  RULE_REMOVED: 'rule:removed',
+  RULE_ITEM_REMOVED: 'rule:removed',
+  RULE_COPY_FINISHED: 'ruleCopy:finished',
 
   FVG_APPENDED: 'fvg:appended',
   FVG_REMOVED: 'fvg:removed',
