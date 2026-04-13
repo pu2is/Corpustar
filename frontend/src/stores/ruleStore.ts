@@ -10,14 +10,33 @@ export const useRuleStore = defineStore('rule-store', {
   state: () => ({
     rules: [] as RuleItem[],
     connected: false as boolean,
+    socketBound: false as boolean,
   }),
-  getters: {},
+  getters: {
+    findRuleById: (state) => (ruleId: string) => {
+      return state.rules.find((item) => item.id === ruleId) ?? null
+    },
+    getRuleNameById: (state) => (ruleId: string) => {
+      const rule = state.rules.find((item) => item.id === ruleId) ?? null
+      if (!rule?.path) {
+        return ''
+      }
+
+      const fileNameWithExtension = rule.path.split(/[\\/]/).pop() ?? ''
+      const extensionIndex = fileNameWithExtension.lastIndexOf('.')
+      return extensionIndex > 0
+        ? fileNameWithExtension.slice(0, extensionIndex)
+        : fileNameWithExtension
+    },
+  },
   actions: {
     // 1. Socket binding
     bindSocketEvents(): void {
-      if (this.connected) {
+      if (this.socketBound) {
         return
       }
+      this.socketBound = true
+
       on('socket:connected', async () => {
         this.connected = true
         this.rules = await this.getAllRules()
@@ -52,6 +71,14 @@ export const useRuleStore = defineStore('rule-store', {
           this.rules.splice(removeIndex, 1)
         }
       })
+      on('ruleCopy:finished', (socketMsg) => {
+        const payload = socketMsg as { ok?: boolean; item?: RuleItem }
+        if (!payload.ok || !payload.item) {
+          return
+        }
+
+        this.rules.unshift(payload.item)
+      })
     },
 
     // 2. API requests
@@ -63,6 +90,15 @@ export const useRuleStore = defineStore('rule-store', {
 
     async removeRuleById(ruleId: string): Promise<ProcessResponseWithId> {
       return del<ProcessResponseWithId>(`/api/rule/${encodeURIComponent(ruleId)}`)
+    },
+
+    async cloneRule(ruleId: string): Promise<{ ok: boolean; err_msg: string }> {
+      const result = await post<{ ok: boolean; err_msg: string }>(`/api/rule/clone/${encodeURIComponent(ruleId)}`)
+      if (result.ok) {
+        // Reload rules to show the cloned rule immediately
+        this.rules = await this.getAllRules()
+      }
+      return result
     },
 
     async importRule(payload: ImportRuleProcessRequest): Promise<ProcessResponse> {
@@ -78,28 +114,6 @@ export const useRuleStore = defineStore('rule-store', {
       }
 
       this.rules.unshift(rule)
-    },
-
-    findRuleById(ruleId: string): RuleItem | null {
-      return this.rules.find((item) => item.id === ruleId) ?? null
-    },
-
-    getRuleNameById(ruleId: string): string {
-      const rule = this.findRuleById(ruleId)
-      if (!rule?.path) {
-        return ''
-      }
-
-      const fileNameWithExtension = rule.path.split(/[\\/]/).pop() ?? ''
-      const extensionIndex = fileNameWithExtension.lastIndexOf('.')
-      return extensionIndex > 0
-        ? fileNameWithExtension.slice(0, extensionIndex)
-        : fileNameWithExtension
-    },
-
-    // Backward-compatible alias
-    getRuleByStoreId(ruleId: string): RuleItem | null {
-      return this.findRuleById(ruleId)
     },
   },
 })

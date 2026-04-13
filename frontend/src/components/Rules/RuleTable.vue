@@ -1,23 +1,27 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 // icons
-import { ChevronRight, Trash2 } from 'lucide-vue-next'
+import { ChevronRight, Copy, Trash2 } from 'lucide-vue-next'
 // stores
 import { useRuleStore } from '@/stores/ruleStore'
 // types
 import type { RuleItem } from '@/types/rules'
 import { APP_ROUTES } from '@/config/routes'
 
-const props = defineProps<{
-  ruleItems: RuleItem[]
-}>()
-
 const ruleStore = useRuleStore()
 const router = useRouter()
+
+const ruleItems = computed(() => ruleStore.rules as RuleItem[])
 
 async function removeRuleItem(event: MouseEvent, ruleId: string): Promise<void> {
   event.stopPropagation()
   await ruleStore.removeRuleById(ruleId)
+}
+
+async function cloneRuleItem(event: MouseEvent, ruleId: string): Promise<void> {
+  event.stopPropagation()
+  await ruleStore.cloneRule(ruleId)
 }
 
 function openRuleDetail(event: MouseEvent, ruleId: string): void {
@@ -40,6 +44,12 @@ function openRuleDetail(event: MouseEvent, ruleId: string): void {
         </div>
       </div>
       <div class="flex items-center gap-2">
+        <button type="button"
+          class="inline-flex items-center cursor-pointer justify-center rounded p-1 text-text-muted/70 transition-colors hover:text-violet-950"
+          aria-label="Clone rule"
+          @click="(event) => void cloneRuleItem(event, rule.id)">
+          <Copy class="h-4 w-4 shrink-0" />
+        </button>
         <button type="button"
           class="inline-flex items-center cursor-pointer justify-center rounded p-1 text-text-muted/70 transition-colors hover:text-error"
           aria-label="Delete rule"

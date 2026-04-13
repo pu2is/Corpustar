@@ -30,8 +30,7 @@ const hasRuleItems = computed(() => ruleItems.value.length > 0)
         No rule items found.
       </p>
 
-      <RuleTable v-else
-        :rule-items="ruleItems" />
+      <RuleTable v-else />
     </div>
   </section>
 </template>

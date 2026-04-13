@@ -29,6 +29,7 @@ SENTENCE_CLIPPED = "sentence:clipped"
 SENTENCE_CORRECTED = "sentence:corrected"
 
 RULE_REMOVED = "rule:removed"
+RULE_COPY_FINISHED = "ruleCopy:finished"
 
 FVG_APPENDED = "fvg:appended"
 FVG_REMOVED = "fvg:removed"
