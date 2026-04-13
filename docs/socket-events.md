@@ -29,6 +29,7 @@ Payloads are broadcast by backend services and are currently mostly `snake_case`
 | `sentence:clipped` | sentence item[] |
 | `sentence:corrected` | sentence item object |
 | `rule:removed` | rule item object |
+| `ruleCopy:finished` | `{ "ok": boolean, "err_msg": string, "item": rule item \| null }` |
 | `fvg:appended` | fvg entry item object |
 | `fvg:removed` | `{ "id": string, "rule_id": string }` |
 | `fvg:updated` | fvg entry item object |

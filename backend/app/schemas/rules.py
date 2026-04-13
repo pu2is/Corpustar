@@ -51,6 +51,11 @@ class RuleActionResponse(BaseModel):
     err_msg: str = ""
 
 
+class RuleCloneResponse(BaseModel):
+    ok: bool
+    err_msg: str = ""
+
+
 class FvgByVerbRequest(BaseModel):
     rule_id: str
     verb: str
