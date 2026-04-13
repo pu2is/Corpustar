@@ -7,7 +7,6 @@ from openpyxl.styles import Font
 from app.core.log import get_logger, log_event
 from app.infrastructure.repositories.fvg_candidates import get_fvg_candidate_items_by_process_id
 from app.infrastructure.repositories.fvg_entries import get_fvg_entry_by_id
-from app.infrastructure.repositories.lemma_tokens import read_lemma_tokens_by_sentence_ids
 from app.infrastructure.repositories.sentences import get_sentences_by_ids
 
 LOGGER = get_logger(__name__)
@@ -17,17 +16,16 @@ MODULE_FILE = __file__
 def get_fvg_result(process_id: str, path: str, filename: str) -> str:
     log_event(LOGGER, stage="CALL", module_file=MODULE_FILE, function_name="get_fvg_result", process_id=process_id)
 
-    candidates = get_fvg_candidate_items_by_process_id(process_id)
+    candidates = [candidate for candidate in get_fvg_candidate_items_by_process_id(process_id) if not bool(candidate.get("removed"))]
 
     # count occurrences per fvg entry
     entry_counts: dict[str, int] = defaultdict(int)
     for candidate in candidates:
         entry_counts[str(candidate["algo_fvg_entry_id"])] += 1
 
-    # batch-fetch sentences and lemma tokens
+    # batch-fetch sentences
     sentence_ids = list({str(c["sentence_id"]) for c in candidates})
     sentences_by_id = {str(row["id"]): row for row in get_sentences_by_ids(sentence_ids)}
-    lemma_tokens_by_sentence_id = read_lemma_tokens_by_sentence_ids(sentence_ids)
 
     # cache fvg entries to avoid redundant DB lookups
     fvg_entry_cache: dict[str, object] = {}
@@ -46,7 +44,7 @@ def get_fvg_result(process_id: str, path: str, filename: str) -> str:
     ws = wb.active
     ws.title = "FVG Result"
 
-    headers = ["fvg_verb", "fvg_phrase", "count", "matched_verb", "matched_phrase", "sentence", "lemma"]
+    headers = ["fvg_verb", "fvg_phrase", "count", "matched_verb", "matched_phrase", "sentence", "offset range"]
     ws.append(headers)
     for cell in ws[1]:
         cell.font = Font(bold=True)
@@ -67,15 +65,13 @@ def get_fvg_result(process_id: str, path: str, filename: str) -> str:
         sentence_id = str(candidate["sentence_id"])
         sentence_row = sentences_by_id.get(sentence_id)
         sentence_text = str(sentence_row["corrected_text"]) if sentence_row else ""
+        start_offset = int(sentence_row["start_offset"]) if sentence_row else 0
+        end_offset = int(sentence_row["end_offset"]) if sentence_row else 0
+        offset_range = f"{start_offset} - {end_offset}"
 
-        lemma_tokens = lemma_tokens_by_sentence_id.get(sentence_id, [])
-        sorted_lemma = sorted(lemma_tokens, key=lambda t: int(t["word_index"]))
-        lemma_text = " ".join(str(t["lemma_word"]) for t in sorted_lemma)
-
-        ws.append([fvg_verb, fvg_phrase, count, matched_verb, matched_phrase, sentence_text, lemma_text])
+        ws.append([fvg_verb, fvg_phrase, count, matched_verb, matched_phrase, sentence_text, offset_range])
 
     wb.save(file_path)
 
     log_event(LOGGER, stage="OK", module_file=MODULE_FILE, function_name="get_fvg_result", file_path=file_path)
-    return file_path
     return file_path
