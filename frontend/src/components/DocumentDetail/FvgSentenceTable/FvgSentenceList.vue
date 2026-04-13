@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 // icons
-import { CirclePlus, Plus } from 'lucide-vue-next'
+import { CirclePlus, Eye, EyeOff, Plus } from 'lucide-vue-next'
 // stores
 import { useFvgCandidateStore } from '@/stores/fvgCandidate'
 import { useProcessStore } from '@/stores/processStore'
@@ -23,6 +23,25 @@ const sentenceList = computed(() => fvgCandidateStore.sentenceFvgList)
 const segmentationId = computed(() => sentenceList.value[0]?.version_id ?? '')
 const ruleId = computed(() => processStore.getRuleIdBySegmentationId(segmentationId.value ?? ''))
 const fvgProcessId = computed(() => processStore.getFvgProcessByDocId(docId.value)?.id ?? null)
+const hideRemovedFvgBySentence = ref<Record<string, boolean>>({})
+
+function isHideRemovedFvg(sentenceId: string): boolean {
+  return hideRemovedFvgBySentence.value[sentenceId] ?? true
+}
+
+function toggleHideRemovedFvg(sentenceId: string): void {
+  hideRemovedFvgBySentence.value[sentenceId] = !isHideRemovedFvg(sentenceId)
+}
+
+const fvgCandidates = computed(() => {
+  const bySentenceId: Record<string, SentenceFvgItem['fvg_candidates']> = {}
+  for (const item of sentenceList.value) {
+    bySentenceId[item.id] = isHideRemovedFvg(item.id)
+      ? item.fvg_candidates.filter((candidate) => !candidate.removed)
+      : item.fvg_candidates
+  }
+  return bySentenceId
+})
 
 
 function candidateTokenIndices(item: SentenceFvgItem): Set<number> {
@@ -45,6 +64,10 @@ function removedCandidateTokenIndices(item: SentenceFvgItem): Set<number> {
     if (c.algo_prep_index >= 0) indices.add(c.algo_prep_index)
   }
   return indices
+}
+
+function hasRemovedCandidates(item: SentenceFvgItem): boolean {
+  return item.fvg_candidates.some((candidate) => candidate.removed)
 }
 
 // toggle lemma badges visibility per sentence (hidden by default when candidates exist)
@@ -103,6 +126,18 @@ function toggleShowLemma(item: SentenceFvgItem): void {
   }
 }
 
+function removedToggleClass(sentenceId: string): string {
+  return isHideRemovedFvg(sentenceId)
+    ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 hover:text-gray-800'
+    : 'bg-gray-300 text-gray-700 hover:bg-gray-400 hover:text-gray-900'
+}
+
+function lemmaToggleClass(item: SentenceFvgItem): string {
+  return showLemmas.value[item.id]
+    ? 'bg-violet-600 text-violet-50 hover:bg-violet-700'
+    : 'bg-violet-100 text-violet-700 hover:bg-violet-200 hover:text-violet-800'
+}
+
 function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
   const isCandidate = candidateTokenIndices(item).has(tokenIndex)
   const isHighlight = item.highlight_lemma.some((l) => l.word_index === tokenIndex)
@@ -131,11 +166,22 @@ function tokenClass(item: SentenceFvgItem, tokenIndex: number): string {
     </p>
 
     <div v-if="item.fvg_candidates.length > 0" class="flex flex-wrap gap-1 items-center">
-      <FvgCandidateBadge v-for="candidate in item.fvg_candidates"
+      <FvgCandidateBadge v-for="candidate in fvgCandidates[item.id]"
         :key="candidate.id"
         :sentence-id="item.id" :fvg-candidate-item="candidate" />
+
+      <button v-if="hasRemovedCandidates(item)" type="button"
+        class="cursor-pointer inline-flex items-center justify-center w-5 h-5 rounded-0 transition-colors"
+        :class="removedToggleClass(item.id)"
+        :title="isHideRemovedFvg(item.id) ? 'Show removed FVG' : 'Hide removed FVG'"
+        @click="toggleHideRemovedFvg(item.id)">
+        <EyeOff v-if="isHideRemovedFvg(item.id)" :size="10" />
+        <Eye v-else :size="10" />
+      </button>
+      
       <button v-if="item.lemma_tokens.length > 0"
-        class="cursor-pointer inline-flex items-center justify-center w-5 h-5 bg-gray-300/50 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors"
+        class="cursor-pointer inline-flex items-center justify-center w-5 h-5 transition-colors"
+        :class="lemmaToggleClass(item)"
         :title="showLemmas[item.id] ? 'Hide lemma badges' : 'Show lemma badges'"
         @click="toggleShowLemma(item)">
         <Plus :size="10" />

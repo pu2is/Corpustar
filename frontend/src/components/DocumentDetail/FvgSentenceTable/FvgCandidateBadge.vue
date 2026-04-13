@@ -15,14 +15,14 @@ const fvgCandidateStore = useFvgCandidateStore()
   <span :class="[
       'cursor-default inline-flex items-center gap-1 px-1 py-0.5 text-xs',
       fvgCandidateItem.removed
-        ? 'bg-gray-100 text-gray-500'
+        ? 'bg-rose-50 text-rose-700'
         : 'bg-violet-100 text-violet-700',
     ]">
     {{ fvgCandidateItem.algo_verb_token }}
-    <span :class="fvgCandidateItem.removed ? 'text-gray-400' : 'text-violet-300'">·</span>
+    <span :class="fvgCandidateItem.removed ? 'text-rose-300' : 'text-violet-300'">·</span>
     {{ fvgCandidateItem.algo_noun_token }}
     <template v-if="fvgCandidateItem.algo_prep_token">
-      <span :class="fvgCandidateItem.removed ? 'text-gray-400' : 'text-violet-300'">·</span>
+      <span :class="fvgCandidateItem.removed ? 'text-rose-300' : 'text-violet-300'">·</span>
       {{ fvgCandidateItem.algo_prep_token }}
     </template>
     <button v-if="!fvgCandidateItem.removed"
@@ -31,7 +31,7 @@ const fvgCandidateStore = useFvgCandidateStore()
       <X :size="10" />
     </button>
     <button v-else
-      class="cursor-pointer ml-0.5 text-green-500 hover:text-green-600 transition-colors"
+      class="cursor-pointer ml-0.5 text-violet-500 hover:text-violet-600 transition-colors"
       @click="fvgCandidateStore.restoreFvgCandidate(props.sentenceId, props.fvgCandidateItem.id)">
       <Plus :size="10" />
     </button>
