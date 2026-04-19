@@ -293,15 +293,22 @@ def get_num_lemma_by_id_and_pos(
 
 def get_num_unique_lemma_by_id_and_pos(
     version_id: str,
-    pos: str,
+    pos: str | list[str],
     connection: Connection | None = None,
 ) -> int:
+    if isinstance(pos, str):
+        pos_tags = [pos]
+    else:
+        pos_tags = [str(tag) for tag in pos if tag]
+    if not pos_tags:
+        return 0
+
     statement = (
         select(func.count(func.distinct(lemma_tokens_table.c.lemma_word)))
         .select_from(lemma_tokens_table)
         .where(
             (lemma_tokens_table.c.version_id == version_id)
-            & (lemma_tokens_table.c.pos_tag == pos)
+            & lemma_tokens_table.c.pos_tag.in_(pos_tags)
         )
     )
     if connection is None:

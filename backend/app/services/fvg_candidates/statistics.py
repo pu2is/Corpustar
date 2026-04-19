@@ -28,7 +28,10 @@ def get_simple_statistics(fvg_process_id: str) -> dict[str, int]:
     num_sentences = get_sentences_number_by_segmentation_id(segmentation_id)
     num_verb = get_num_lemma_by_id_and_pos(lemmatize_id, "VERB")
     num_aux = get_num_lemma_by_id_and_pos(lemmatize_id, "AUX")
-    num_distinct_verbs = get_num_unique_lemma_by_id_and_pos(lemmatize_id, "VERB")
+    num_distinct_verbs = get_num_unique_lemma_by_id_and_pos(
+        lemmatize_id,
+        ["VERB", "AUX"],
+    )
 
     return {
         "num_verb": num_verb,
