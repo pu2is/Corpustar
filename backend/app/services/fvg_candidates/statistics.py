@@ -1,5 +1,8 @@
 from app.infrastructure.repositories.fvg_candidates import get_fvg_length_by_process_id
-from app.infrastructure.repositories.lemma_tokens import get_num_lemma_by_id_and_pos
+from app.infrastructure.repositories.lemma_tokens import (
+    get_num_lemma_by_id_and_pos,
+    get_num_unique_lemma_by_id_and_pos,
+)
 from app.infrastructure.repositories.processings import read_process_item_by_id, read_process_items_by_parent_id
 from app.infrastructure.repositories.sentences import get_sentences_number_by_segmentation_id
 
@@ -25,10 +28,12 @@ def get_simple_statistics(fvg_process_id: str) -> dict[str, int]:
     num_sentences = get_sentences_number_by_segmentation_id(segmentation_id)
     num_verb = get_num_lemma_by_id_and_pos(lemmatize_id, "VERB")
     num_aux = get_num_lemma_by_id_and_pos(lemmatize_id, "AUX")
+    num_distinct_verbs = get_num_unique_lemma_by_id_and_pos(lemmatize_id, "VERB")
 
     return {
         "num_verb": num_verb,
         "num_aux": num_aux,
         "num_fvg": num_fvg,
         "num_sentences": num_sentences,
+        "num_distinct_verbs": num_distinct_verbs,
     }

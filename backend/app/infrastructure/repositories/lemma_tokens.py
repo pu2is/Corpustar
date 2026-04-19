@@ -291,6 +291,26 @@ def get_num_lemma_by_id_and_pos(
     return int(row[0]) if row else 0
 
 
+def get_num_unique_lemma_by_id_and_pos(
+    version_id: str,
+    pos: str,
+    connection: Connection | None = None,
+) -> int:
+    statement = (
+        select(func.count(func.distinct(lemma_tokens_table.c.lemma_word)))
+        .select_from(lemma_tokens_table)
+        .where(
+            (lemma_tokens_table.c.version_id == version_id)
+            & (lemma_tokens_table.c.pos_tag == pos)
+        )
+    )
+    if connection is None:
+        with connection_scope() as scoped_connection:
+            return get_num_unique_lemma_by_id_and_pos(version_id, pos, connection=scoped_connection)
+    row = execute(connection, statement).fetchone()
+    return int(row[0]) if row else 0
+
+
 def get_lemma_by_id(lemma_id: str) -> LemmaTokenRow | None:
     statement = (
         select(

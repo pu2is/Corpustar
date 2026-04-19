@@ -24,7 +24,7 @@ const stats = computed(() => fvgCandidateStore.simpleStatistics)
     <template v-if="stats">
       <p class="inline-flex items-center gap-2 text-sm text-violet-500">
         <BookOpenText class="h-3.5 w-3.5" />
-        {{ stats.num_sentences }} sentences &middot; {{ stats.num_fvg }} FVGs &middot; {{ stats.num_verb }} verbs &middot; {{ stats.num_aux }} auxiliaries
+        {{ stats.num_sentences }} sentences &middot; {{ stats.num_fvg }} FVGs &middot; {{ stats.num_verb }} verbs &middot; {{ stats.num_distinct_verbs }} unique verbs &middot; {{ stats.num_aux }} auxiliaries
       </p>
     </template>
     <p v-else-if="sentenceLength < 0"

@@ -24,7 +24,7 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
     display: 'detected' as 'detected' | 'undetected' | 'all',
     verbFilter: null as string | null,
     connected: false as boolean,
-    simpleStatistics: null as { num_verb: number; num_aux: number; num_fvg: number; num_sentences: number } | null,
+    simpleStatistics: null as { num_verb: number; num_aux: number; num_fvg: number; num_sentences: number; num_distinct_verbs: number } | null,
   }),
   actions: {
     
@@ -140,7 +140,7 @@ export const useFvgCandidateStore = defineStore('fvg-candidate-store', {
     },
 
     async getSimpleStatistics(fvgProcessId: string): Promise<void> {
-      const response = await get<{ num_verb: number; num_aux: number; num_fvg: number; num_sentences: number }>(
+      const response = await get<{ num_verb: number; num_aux: number; num_fvg: number; num_sentences: number; num_distinct_verbs: number }>(
         `/api/fvg_candidates/statistics/${fvgProcessId}`,
       )
       this.simpleStatistics = response
